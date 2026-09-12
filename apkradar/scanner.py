@@ -1,6 +1,7 @@
 """
 APKRadar — Androguard scanner.
 Analyzes APK files for trackers, permissions and GDPR compliance.
+Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
 """
 from __future__ import annotations
 
@@ -58,7 +59,6 @@ TRACKER_SIGNATURES = {
     "com.baidu.mobads": "Baidu Ads",
 }
 
-# Permissions with GDPR implications
 SENSITIVE_PERMISSIONS = {
     "android.permission.ACCESS_FINE_LOCATION": "precise GPS location",
     "android.permission.ACCESS_COARSE_LOCATION": "approximate location",
@@ -85,7 +85,6 @@ SENSITIVE_PERMISSIONS = {
     "android.permission.USE_FINGERPRINT": "fingerprint",
 }
 
-# Known extra-EU data transfers
 EXTRA_EU_TRANSFERS = {
     "com.google": "Google LLC (USA)",
     "com.facebook": "Meta Platforms Inc. (USA)",
@@ -135,6 +134,7 @@ class ScanResult:
     min_sdk: str = ""
     target_sdk: str = ""
     sha256: str = ""
+    apk_format: str = "apk"
     trackers: list[TrackerFound] = field(default_factory=list)
     permissions: list[PermissionFound] = field(default_factory=list)
     sensitive_permissions: list[PermissionFound] = field(default_factory=list)
@@ -175,27 +175,46 @@ class ScanResult:
 def scan(apk_path: str) -> ScanResult:
     """
     Scan an APK file for GDPR compliance issues.
+    Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
 
     Args:
-        apk_path: Path to the APK file
+        apk_path: Path to the APK/XAPK/APKM file
 
     Returns:
         ScanResult with all findings
     """
+    from apkradar.extractor import extract_main_apk, cleanup_temp, detect_format
+
     result = ScanResult(apk_path=apk_path)
+    tmp_dir = None
 
     try:
-        from androguard.core.apk import APK
+        fmt = detect_format(apk_path)
+        result.apk_format = fmt
 
-        path = Path(apk_path)
+        if fmt == "unknown":
+            result.error = f"Unknown format: {apk_path}"
+            return result
+
+        # Extract main APK if bundle format
+        if fmt in ("xapk", "apkm"):
+            actual_path, tmp_dir = extract_main_apk(apk_path)
+            if not actual_path:
+                result.error = f"Could not extract APK from {fmt.upper()} bundle"
+                return result
+        else:
+            actual_path = apk_path
+
+        path = Path(actual_path)
         if not path.exists():
             result.error = f"File not found: {apk_path}"
             return result
 
-        # SHA256 hash
-        result.sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        # SHA256 hash of original file
+        result.sha256 = hashlib.sha256(Path(apk_path).read_bytes()).hexdigest()
 
-        # Parse APK
+        # Parse APK with androguard
+        from androguard.core.apk import APK
         apk = APK(str(path))
 
         # Metadata
@@ -226,11 +245,8 @@ def scan(apk_path: str) -> ScanResult:
                     )
                 )
 
-        # Scan libraries/classes for trackers
-        libraries = apk.get_libraries() or []
+        # Scan declared components for trackers
         declared_packages = set()
-
-        # Check AndroidManifest providers, services, receivers
         for item in (
             apk.get_providers()
             + apk.get_services()
@@ -266,5 +282,8 @@ def scan(apk_path: str) -> ScanResult:
 
     except Exception as e:
         result.error = str(e)
+
+    finally:
+        cleanup_temp(tmp_dir)
 
     return result
