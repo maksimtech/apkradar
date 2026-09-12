@@ -84,3 +84,59 @@ class TestGenericSegments(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestExtractDomainsFromApk(unittest.TestCase):
+    """Tests for extract_domains_from_apk function."""
+
+    def test_extract_domains_exception_returns_empty(self):
+        """Should return empty list on any exception."""
+        from apkradar.utils import extract_domains_from_apk
+        mock_apk = None  # will raise AttributeError
+        result = extract_domains_from_apk(mock_apk)
+        self.assertEqual(result, [])
+
+    def test_extract_domains_with_mock(self):
+        """Should extract domains from manifest XML."""
+        from unittest.mock import MagicMock
+        from apkradar.utils import extract_domains_from_apk
+
+        mock_apk = MagicMock()
+        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
+            '<manifest>'
+            '<data android:scheme="https" android:host="www.example.com"/>'
+            '<data android:scheme="https" android:host="api.example.com"/>'
+            '<data android:scheme="https" android:host="localhost"/>'
+            '<data android:scheme="https" android:host="*.wildcard.com"/>'
+            '</manifest>'
+        )
+        result = extract_domains_from_apk(mock_apk)
+        self.assertIn("www.example.com", result)
+        self.assertIn("api.example.com", result)
+        self.assertNotIn("localhost", result)
+        self.assertNotIn("*.wildcard.com", result)
+
+    def test_extract_domains_skips_ip(self):
+        """Should skip IP addresses."""
+        from unittest.mock import MagicMock
+        from apkradar.utils import extract_domains_from_apk
+
+        mock_apk = MagicMock()
+        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
+            '<data android:host="192.168.1.1"/>'
+            '<data android:host="127.0.0.1"/>'
+        )
+        result = extract_domains_from_apk(mock_apk)
+        self.assertEqual(result, [])
+
+    def test_extract_domains_skips_placeholders(self):
+        """Should skip template placeholders."""
+        from unittest.mock import MagicMock
+        from apkradar.utils import extract_domains_from_apk
+
+        mock_apk = MagicMock()
+        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
+            '<data android:host="{dynamic_host}"/>'
+        )
+        result = extract_domains_from_apk(mock_apk)
+        self.assertEqual(result, [])
