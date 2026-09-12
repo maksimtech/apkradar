@@ -81,12 +81,15 @@ def audit(
     apk: str = typer.Argument(..., help="Path to APK file"),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
     lang: str = typer.Option("it", "--lang", "-l", help="Report language (it/en)"),
+    full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar"),
 ):
     """
     Audit an APK for GDPR compliance.
     Detects trackers, suspicious permissions, and extra-EU data transfers.
+    Use --full for complete stack analysis including email and web audit.
     """
     from apkradar.scanner import scan
+    from apkradar.utils import package_to_domain, domain_to_url
 
     console.print(f"\n[dim]Auditing [bold]{apk}[/bold]...[/dim]")
 
@@ -95,11 +98,50 @@ def audit(
 
     _print_result(result)
 
+    if full and result.package_name:
+        domain = package_to_domain(result.package_name)
+        if domain:
+            console.print(f"\n[bold cyan]🔗 Full stack analysis for publisher: {domain}[/bold cyan]\n")
+
+            # MailRadar
+            try:
+                from mailradar.checker import check_domain
+                console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
+                mail_result = check_domain(domain)
+                console.print(f"[bold]📡 MailRadar — {domain}[/bold]")
+                console.print(f"Score: {mail_result.score}/100 — {mail_result.score_label}\n")
+            except ImportError:
+                console.print("[yellow]⚠️  MailRadar not installed — pip install mailradar[/yellow]")
+            except Exception as e:
+                console.print(f"[red]❌ MailRadar error: {e}[/red]")
+
+            # CookieRadar
+            try:
+                from cookieradar.scanner import scan as cookie_scan
+                url = domain_to_url(domain)
+                console.print(f"[dim]Running CookieRadar on {url}...[/dim]")
+                cookie_result = cookie_scan(url)
+                pre = set(t.domain for t in cookie_result.pre_consent.trackers)
+                rej = set(t.domain for t in cookie_result.post_reject.trackers)
+                persistent = pre & rej
+                console.print(f"[bold]🍪 CookieRadar — {url}[/bold]")
+                console.print(f"Pre-consent trackers: {len(pre)}")
+                if persistent:
+                    console.print(f"[red]⚠️  VIOLATION — {len(persistent)} tracker(s) persist after rejection[/red]")
+                else:
+                    console.print("[green]✅ No trackers persist after rejection[/green]")
+                console.print()
+            except ImportError:
+                console.print("[yellow]⚠️  CookieRadar not installed — pip install cookieradar[/yellow]")
+            except Exception as e:
+                console.print(f"[red]❌ CookieRadar error: {e}[/red]")
+
 
 @app.command()
 def batch(
     file: str = typer.Argument(..., help="File with APK paths (one per line)"),
     output: str = typer.Option(None, "--output", "-o", help="Save reports to directory"),
+    full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis for each APK"),
 ):
     """
     Audit multiple APKs from a file.
