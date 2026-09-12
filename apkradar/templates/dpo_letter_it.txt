@@ -40,7 +40,7 @@ Si richiede di indicare le garanzie adeguate adottate ai sensi dell'art. 46 GDPR
 L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}, indicando misure tecniche inadeguate per la protezione delle comunicazioni.
 {% endif %}
 {% if ssl_expired %}
-Il certificato SSL del sito {{ publisher_domain }} risulta scaduto, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+Il certificato SSL del sito {{ publisher_domain }} risulta scaduto{% if ssl_expiry %} (scaduto il {{ ssl_expiry }}){% endif %}, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
 {% endif %}
 
 5. RICHIESTE FORMALI

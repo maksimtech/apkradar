@@ -4,6 +4,9 @@ GDPR art.9 — tracker detection, permissions analysis.
 Requires: mailradar + cookieradar
 """
 import asyncio
+import ssl
+import socket
+from datetime import datetime, timezone
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -27,7 +30,6 @@ def _print_result(result) -> None:
         "CRITICAL": "red",
     }.get(result.score_label, "white")
 
-    # Header
     console.print(f"\n[bold]📱 APKRadar Report — {result.package_name or result.apk_path}[/bold]")
     console.print(f"[{score_color}]Score: {result.score}/100 — {result.score_label}[/{score_color}]\n")
 
@@ -35,14 +37,12 @@ def _print_result(result) -> None:
         console.print(f"[red]❌ Error: {result.error}[/red]")
         return
 
-    # Metadata
     console.print(f"[dim]App:     {result.app_name}[/dim]")
     console.print(f"[dim]Version: {result.version_name} ({result.version_code})[/dim]")
     console.print(f"[dim]SDK:     min={result.min_sdk} target={result.target_sdk}[/dim]")
     console.print(f"[dim]Format:  {result.apk_format.upper()}[/dim]")
     console.print(f"[dim]SHA256:  {result.sha256[:16]}...[/dim]\n")
 
-    # Trackers
     if result.trackers:
         t = Table(title=f"🔴 Trackers ({result.tracker_count})", box=box.ROUNDED)
         t.add_column("Tracker", style="red")
@@ -53,7 +53,6 @@ def _print_result(result) -> None:
     else:
         console.print("[green]✅ No trackers detected[/green]")
 
-    # Sensitive permissions
     if result.sensitive_permissions:
         t = Table(title=f"⚠️  Sensitive Permissions ({result.sensitive_permission_count})", box=box.ROUNDED)
         t.add_column("Permission", style="yellow")
@@ -64,7 +63,6 @@ def _print_result(result) -> None:
     else:
         console.print("[green]✅ No sensitive permissions[/green]")
 
-    # Extra-EU transfers
     if result.extra_eu_transfers:
         t = Table(title=f"🌍 Extra-EU Transfers ({len(result.extra_eu_transfers)})", box=box.ROUNDED)
         t.add_column("Entity", style="magenta")
@@ -76,6 +74,44 @@ def _print_result(result) -> None:
         console.print("[green]✅ No extra-EU transfers detected[/green]")
 
     console.print()
+
+
+def _check_ssl(domain: str) -> tuple[bool, str | None]:
+    """
+    Check SSL certificate validity.
+
+    Returns:
+        Tuple of (ssl_expired, expiry_date_str)
+    """
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=5) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+                expire_date = datetime.strptime(
+                    cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
+                ).replace(tzinfo=timezone.utc)
+                expired = expire_date < datetime.now(timezone.utc)
+                return expired, expire_date.strftime("%d/%m/%Y")
+    except ssl.SSLCertVerificationError:
+        return True, None
+    except Exception:
+        return False, None
+
+
+def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
+    """
+    Run MailRadar analysis on domain.
+
+    Returns:
+        Tuple of (score, grade)
+    """
+    try:
+        from mailradar.checker import analyze_domain
+        mail_result = analyze_domain(domain)
+        return mail_result.total_score, mail_result.grade
+    except Exception:
+        return None, None
 
 
 @app.command()
@@ -117,11 +153,18 @@ def audit(
             except Exception as e:
                 console.print(f"[red]❌ MailRadar error: {e}[/red]")
 
+            # SSL check
+            ssl_expired, ssl_expiry = _check_ssl(domain)
+            if ssl_expired:
+                console.print(f"[red]⚠️  SSL certificate EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
+            else:
+                console.print(f"[green]✅ SSL certificate valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
+
             # CookieRadar
             try:
                 from cookieradar.scanner import scan as cookie_scan
                 url = domain_to_url(domain)
-                console.print(f"[dim]Running CookieRadar on {url}...[/dim]")
+                console.print(f"\n[dim]Running CookieRadar on {url}...[/dim]")
                 cookie_result = asyncio.run(cookie_scan(url))
                 pre = set(t.domain for t in cookie_result.pre_consent.trackers)
                 rej = set(t.domain for t in cookie_result.post_reject.trackers)
@@ -172,10 +215,6 @@ def batch(
         console.print()
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command()
 def send(
     apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
@@ -192,6 +231,7 @@ def send(
 ):
     """
     Audit an APK and send a GDPR DPO letter to the publisher.
+    Includes MailRadar score and SSL certificate status.
     """
     from apkradar.scanner import scan
     from apkradar.sender import render_letter, send_letter
@@ -209,13 +249,21 @@ def send(
     # MailRadar check
     mail_score = None
     mail_grade = None
-    try:
-        from mailradar.checker import analyze_domain
-        mail_result = analyze_domain(domain)
-        mail_score = mail_result.total_score
-        mail_grade = mail_result.grade
-    except Exception:
-        pass
+    ssl_expired = False
+    ssl_expiry = None
+
+    if domain:
+        console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
+        mail_score, mail_grade = _check_mailradar(domain)
+        if mail_score is not None:
+            console.print(f"📡 MailRadar — {domain}: {mail_score}/100 — {mail_grade}")
+
+        console.print(f"[dim]Checking SSL on {domain}...[/dim]")
+        ssl_expired, ssl_expiry = _check_ssl(domain)
+        if ssl_expired:
+            console.print(f"[red]⚠️  SSL EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
+        else:
+            console.print(f"[green]✅ SSL valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
 
     # Render letter
     letter = render_letter(
@@ -227,6 +275,8 @@ def send(
         sender_email=from_email,
         mail_score=mail_score,
         mail_grade=mail_grade,
+        ssl_expired=ssl_expired,
+        ssl_expiry=ssl_expiry,
         lang=lang,
     )
 
@@ -236,7 +286,6 @@ def send(
         return
 
     console.print(f"\n[dim]Sending DPO letter to [bold]{to}[/bold]...[/dim]")
-
     subject = f"Esercizio diritti GDPR — {result.app_name or result.package_name}"
 
     try:
@@ -253,3 +302,7 @@ def send(
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
+
+
+if __name__ == "__main__":
+    app()

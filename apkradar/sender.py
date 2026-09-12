@@ -25,6 +25,7 @@ def render_letter(
     mail_score: Optional[int] = None,
     mail_grade: Optional[str] = None,
     ssl_expired: bool = False,
+    ssl_expiry: Optional[str] = None,
     lang: str = "it",
 ) -> str:
     """
@@ -70,6 +71,7 @@ def render_letter(
         mail_score=mail_score,
         mail_grade=mail_grade,
         ssl_expired=ssl_expired,
+        ssl_expiry=ssl_expiry,
         date=datetime.now().strftime("%d/%m/%Y"),
         apkradar_version=apkradar.__version__,
     )
