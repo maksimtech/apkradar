@@ -29,5 +29,5 @@ jobs:
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
         with:
-          mode: waltime
+          mode: walltime
           run: pytest tests/benchmarks/ --codspeed
