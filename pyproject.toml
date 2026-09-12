@@ -45,4 +45,4 @@ path = "apkradar/__init__.py"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--ignore=tests/benchmarks"
+addopts = "--ignore=tests/benchmarks --timeout=30"

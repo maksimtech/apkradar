@@ -238,3 +238,63 @@ class TestCheckMailradar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSendLetter(unittest.TestCase):
+    """Tests for send_letter function."""
+
+    def test_send_letter_ssl(self):
+        """send_letter should use SMTP_SSL on port 465."""
+        from apkradar.sender import send_letter
+        with patch("apkradar.sender.smtplib.SMTP_SSL") as mock_smtp:
+            mock_server = MagicMock()
+            mock_smtp.return_value.__enter__ = MagicMock(return_value=mock_server)
+            mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
+            result = send_letter(
+                letter="Test letter",
+                subject="Test subject",
+                to_email="dpo@example.com",
+                from_email="test@example.com",
+                smtp_host="mail.example.com",
+                smtp_port=465,
+                smtp_user="test@example.com",
+                smtp_password="password",
+            )
+            self.assertTrue(result)
+            mock_smtp.assert_called_once_with("mail.example.com", 465)
+
+    def test_send_letter_starttls(self):
+        """send_letter should use STARTTLS on port 587."""
+        from apkradar.sender import send_letter
+        with patch("apkradar.sender.smtplib.SMTP") as mock_smtp:
+            mock_server = MagicMock()
+            mock_smtp.return_value.__enter__ = MagicMock(return_value=mock_server)
+            mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
+            result = send_letter(
+                letter="Test letter",
+                subject="Test subject",
+                to_email="dpo@example.com",
+                from_email="test@example.com",
+                smtp_host="mail.example.com",
+                smtp_port=587,
+                smtp_user="test@example.com",
+                smtp_password="password",
+            )
+            self.assertTrue(result)
+            mock_server.starttls.assert_called_once()
+
+    def test_send_letter_raises_on_smtp_error(self):
+        """send_letter should raise RuntimeError on SMTP failure."""
+        from apkradar.sender import send_letter
+        with patch("apkradar.sender.smtplib.SMTP_SSL", side_effect=Exception("Connection refused")):
+            with self.assertRaises(RuntimeError):
+                send_letter(
+                    letter="Test letter",
+                    subject="Test subject",
+                    to_email="dpo@example.com",
+                    from_email="test@example.com",
+                    smtp_host="mail.example.com",
+                    smtp_port=465,
+                    smtp_user="test@example.com",
+                    smtp_password="password",
+                )
