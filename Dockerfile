@@ -10,7 +10,7 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         gnupg \
-        openjdk-17-jre-headless \
+        default-jre-headless \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
