@@ -39,6 +39,7 @@ def _print_result(result) -> None:
     console.print(f"[dim]App:     {result.app_name}[/dim]")
     console.print(f"[dim]Version: {result.version_name} ({result.version_code})[/dim]")
     console.print(f"[dim]SDK:     min={result.min_sdk} target={result.target_sdk}[/dim]")
+    console.print(f"[dim]Format:  {result.apk_format.upper()}[/dim]")
     console.print(f"[dim]SHA256:  {result.sha256[:16]}...[/dim]\n")
 
     # Trackers
@@ -79,14 +80,14 @@ def _print_result(result) -> None:
 
 @app.command()
 def audit(
-    apk: str = typer.Argument(..., help="Path to APK file"),
+    apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
     lang: str = typer.Option("it", "--lang", "-l", help="Report language (it/en)"),
     full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar"),
 ):
     """
     Audit an APK for GDPR compliance.
-    Detects trackers, suspicious permissions, and extra-EU data transfers.
+    Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
     Use --full for complete stack analysis including email and web audit.
     """
     from apkradar.scanner import scan
@@ -110,7 +111,7 @@ def audit(
                 console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
                 mail_result = analyze_domain(domain)
                 console.print(f"[bold]📡 MailRadar — {domain}[/bold]")
-                console.print(f"Score: {mail_result.score}/100 — {mail_result.score_label}\n")
+                console.print(f"Score: {mail_result.total_score}/100 — {mail_result.grade}\n")
             except ImportError:
                 console.print("[yellow]⚠️  MailRadar not installed — pip install mailradar[/yellow]")
             except Exception as e:
@@ -146,6 +147,7 @@ def batch(
 ):
     """
     Audit multiple APKs from a file.
+    Supports .apk, .xapk and .apkm formats.
     """
     from apkradar.scanner import scan
 
