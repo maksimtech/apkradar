@@ -3,6 +3,7 @@ APKRadar — APK compliance auditor.
 GDPR art.9 — tracker detection, permissions analysis.
 Requires: mailradar + cookieradar
 """
+import asyncio
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -105,9 +106,9 @@ def audit(
 
             # MailRadar
             try:
-                from mailradar.checker import check_domain
+                from mailradar.checker import analyze_domain
                 console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
-                mail_result = check_domain(domain)
+                mail_result = analyze_domain(domain)
                 console.print(f"[bold]📡 MailRadar — {domain}[/bold]")
                 console.print(f"Score: {mail_result.score}/100 — {mail_result.score_label}\n")
             except ImportError:
@@ -120,7 +121,7 @@ def audit(
                 from cookieradar.scanner import scan as cookie_scan
                 url = domain_to_url(domain)
                 console.print(f"[dim]Running CookieRadar on {url}...[/dim]")
-                cookie_result = cookie_scan(url)
+                cookie_result = asyncio.run(cookie_scan(url))
                 pre = set(t.domain for t in cookie_result.pre_consent.trackers)
                 rej = set(t.domain for t in cookie_result.post_reject.trackers)
                 persistent = pre & rej
