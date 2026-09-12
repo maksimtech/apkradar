@@ -298,3 +298,125 @@ class TestSendLetter(unittest.TestCase):
                     smtp_user="test@example.com",
                     smtp_password="password",
                 )
+
+
+class TestSendCommand(unittest.TestCase):
+    """Tests for send CLI command."""
+
+    def setUp(self):
+        from typer.testing import CliRunner
+        self.runner = CliRunner()
+
+    @patch("apkradar.scanner.scan")
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    def test_send_dry_run(self, mock_ssl, mock_mail, mock_scan):
+        """--dry-run should print letter without sending."""
+        from apkradar.cli import app
+        from apkradar.scanner import ScanResult
+        mock_scan.return_value = ScanResult(
+            apk_path="test.apk",
+            package_name="com.wonet.usims",
+            app_name="USIMS",
+            version_name="3.88",
+            version_code="388",
+            sha256="abc123" * 11,
+        )
+        result = self.runner.invoke(app, [
+            "send", "test.apk",
+            "--to", "dpo@example.com",
+            "--publisher", "WONE SAGL",
+            "--from", "test@example.com",
+            "--smtp-host", "mail.example.com",
+            "--smtp-user", "test@example.com",
+            "--name", "Test User",
+            "--dry-run",
+        ])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("DPO Letter Preview", result.output)
+
+    @patch("apkradar.scanner.scan")
+    @patch("apkradar.cli._check_mailradar", return_value=(20, "CRITICAL"))
+    @patch("apkradar.cli._check_ssl", return_value=(True, "08/04/2026"))
+    def test_send_dry_run_with_noyb_id(self, mock_ssl, mock_mail, mock_scan):
+        """--dry-run with --noyb-id should include NOYB in letter."""
+        from apkradar.cli import app
+        from apkradar.scanner import ScanResult
+        mock_scan.return_value = ScanResult(
+            apk_path="test.apk",
+            package_name="com.wonet.usims",
+            app_name="USIMS",
+            version_name="3.88",
+            version_code="388",
+            sha256="abc123" * 11,
+        )
+        result = self.runner.invoke(app, [
+            "send", "test.apk",
+            "--to", "dpo@example.com",
+            "--publisher", "WONE SAGL",
+            "--from", "test@example.com",
+            "--smtp-host", "mail.example.com",
+            "--smtp-user", "test@example.com",
+            "--name", "Test User",
+            "--noyb-id", "7645",
+            "--dry-run",
+        ])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("#7645", result.output)
+
+    @patch("apkradar.sender.send_letter")
+    @patch("apkradar.scanner.scan")
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    def test_send_real_send_success(self, mock_ssl, mock_mail, mock_scan, mock_send):
+        """send without --dry-run should call send_letter."""
+        from apkradar.cli import app
+        from apkradar.scanner import ScanResult
+        mock_scan.return_value = ScanResult(
+            apk_path="test.apk",
+            package_name="com.wonet.usims",
+            app_name="USIMS",
+            version_name="3.88",
+            version_code="388",
+            sha256="abc123" * 11,
+        )
+        mock_send.return_value = True
+        result = self.runner.invoke(app, [
+            "send", "test.apk",
+            "--to", "dpo@example.com",
+            "--publisher", "WONE SAGL",
+            "--from", "test@example.com",
+            "--smtp-host", "mail.example.com",
+            "--smtp-user", "test@example.com",
+            "--name", "Test User",
+            "--smtp-port", "465",
+        ], input="password\n")
+        self.assertEqual(result.exit_code, 0)
+        mock_send.assert_called_once()
+
+    @patch("apkradar.sender.send_letter", side_effect=RuntimeError("SMTP error"))
+    @patch("apkradar.scanner.scan")
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    def test_send_smtp_error(self, mock_ssl, mock_mail, mock_scan, mock_send):
+        """send should exit with error on SMTP failure."""
+        from apkradar.cli import app
+        from apkradar.scanner import ScanResult
+        mock_scan.return_value = ScanResult(
+            apk_path="test.apk",
+            package_name="com.wonet.usims",
+            app_name="USIMS",
+            version_name="3.88",
+            version_code="388",
+            sha256="abc123" * 11,
+        )
+        result = self.runner.invoke(app, [
+            "send", "test.apk",
+            "--to", "dpo@example.com",
+            "--publisher", "WONE SAGL",
+            "--from", "test@example.com",
+            "--smtp-host", "mail.example.com",
+            "--smtp-user", "test@example.com",
+            "--name", "Test User",
+        ], input="password\n")
+        self.assertNotEqual(result.exit_code, 0)
