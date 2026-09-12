@@ -26,17 +26,15 @@ class TestCLI(unittest.TestCase):
         result = self.runner.invoke(app, ["batch", "--help"])
         self.assertEqual(result.exit_code, 0)
 
-    def test_audit_wip(self):
-        """audit command should show work in progress message."""
-        result = self.runner.invoke(app, ["audit", "com.example.app"])
+    def test_audit_missing_apk(self):
+        """audit command should handle missing APK gracefully."""
+        result = self.runner.invoke(app, ["audit", "nonexistent.apk"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("Work in progress", result.output)
 
-    def test_batch_wip(self):
-        """batch command should show work in progress message."""
-        result = self.runner.invoke(app, ["batch", "apps.txt"])
-        self.assertEqual(result.exit_code, 0)
-        self.assertIn("Work in progress", result.output)
+    def test_batch_missing_file(self):
+        """batch command should exit with error if file not found."""
+        result = self.runner.invoke(app, ["batch", "nonexistent.txt"])
+        self.assertNotEqual(result.exit_code, 0)
 
 
 class TestInit(unittest.TestCase):
