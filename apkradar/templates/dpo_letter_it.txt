@@ -1,0 +1,68 @@
+Oggetto: Esercizio diritti GDPR — {{ app_name }} ({{ package_name }}) — Audit tecnico indipendente
+
+Spettabile {{ publisher }},
+All'attenzione del Responsabile della Protezione dei Dati
+
+Con la presente, in qualità di utente dell'applicazione {{ app_name }} (pacchetto: {{ package_name }}, versione: {{ version }}), esercito i diritti riconosciutimi dal Regolamento (UE) 2016/679 (GDPR) e segnalo le seguenti criticità rilevate tramite audit tecnico indipendente condotto in data {{ date }}.
+
+1. TRACKER E SDK DI TERZE PARTI — art. 5(1)(a), 13 GDPR
+{% if trackers %}
+L'analisi statica dell'APK (SHA256: {{ sha256 }}) ha rilevato i seguenti tracker/SDK:
+{% for tracker in trackers %}
+  → {{ tracker.name }} ({{ tracker.package }})
+{% endfor %}
+
+La presenza di questi SDK comporta la trasmissione di dati personali a soggetti terzi. Si richiede di specificare la base giuridica ex art. 6 GDPR per ciascun trasferimento e di verificare che il consenso sia stato acquisito prima dell'attivazione di tali SDK.
+{% endif %}
+
+2. PERMESSI SENSIBILI — art. 5(1)(c), 9 GDPR
+{% if sensitive_permissions %}
+L'applicazione dichiara i seguenti permessi con rilevanza GDPR:
+{% for perm in sensitive_permissions %}
+  → {{ perm.permission.split('.')[-1] }}: {{ perm.description }}
+{% endfor %}
+
+Si richiede di specificare la base giuridica e la finalità del trattamento per ciascun permesso, nonché i tempi di conservazione dei dati raccolti.
+{% endif %}
+
+3. TRASFERIMENTI EXTRA-UE — art. 44-49 GDPR
+{% if extra_eu_transfers %}
+Sono stati rilevati trasferimenti di dati verso i seguenti soggetti extra-UE:
+{% for transfer in extra_eu_transfers %}
+  → {{ transfer.entity }}
+{% endfor %}
+
+Si richiede di indicare le garanzie adeguate adottate ai sensi dell'art. 46 GDPR (Clausole Contrattuali Standard, Binding Corporate Rules, o altro).
+{% endif %}
+
+4. MISURE TECNICHE — art. 32 GDPR
+{% if mail_score %}
+L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}, indicando misure tecniche inadeguate per la protezione delle comunicazioni.
+{% endif %}
+{% if ssl_expired %}
+Il certificato SSL del sito {{ publisher_domain }} risulta scaduto, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+{% endif %}
+
+5. RICHIESTE FORMALI
+
+Ai sensi del GDPR richiedo formalmente:
+
+Art. 15 — Conferma del trattamento e copia dei dati personali raccolti tramite i tracker sopra indicati
+Art. 13 — Informazioni complete sulle finalità, basi giuridiche e destinatari del trattamento
+Art. 17 — Cancellazione dei dati raccolti senza base giuridica valida
+Art. 21 — Opposizione al trattamento per finalità di profilazione e marketing
+
+6. ESCALATION
+
+In assenza di risposta entro 30 giorni dalla presente, mi riservo di presentare reclamo all'autorità di controllo competente ai sensi dell'art. 77 GDPR e di rivolgermi a NOYB — None Of Your Business in qualità di sostenitore gold #7645.
+
+Distinti saluti,
+
+{{ sender_name }}
+{{ sender_org }}
+{{ sender_email }}
+{{ date }}
+
+---
+Report generato da APKRadar v{{ apkradar_version }}
+https://github.com/maksimtech/apkradar

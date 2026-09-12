@@ -174,3 +174,82 @@ def batch(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def send(
+    apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
+    to: str = typer.Option(..., "--to", help="DPO email address"),
+    publisher: str = typer.Option(..., "--publisher", help="Publisher name"),
+    from_email: str = typer.Option(..., "--from", help="Sender email"),
+    smtp_host: str = typer.Option(..., "--smtp-host", help="SMTP host"),
+    smtp_port: int = typer.Option(465, "--smtp-port", help="SMTP port"),
+    smtp_user: str = typer.Option(..., "--smtp-user", help="SMTP username"),
+    name: str = typer.Option(..., "--name", help="Sender full name"),
+    org: str = typer.Option("", "--org", help="Sender organization"),
+    lang: str = typer.Option("it", "--lang", help="Letter language (it/en)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print letter without sending"),
+):
+    """
+    Audit an APK and send a GDPR DPO letter to the publisher.
+    """
+    from apkradar.scanner import scan
+    from apkradar.sender import render_letter, send_letter
+    from apkradar.utils import package_to_domain
+
+    console.print(f"\n[dim]Auditing [bold]{apk}[/bold]...[/dim]")
+
+    with console.status("[cyan]Analyzing APK...[/cyan]"):
+        result = scan(apk)
+
+    _print_result(result)
+
+    domain = package_to_domain(result.package_name) or ""
+
+    # MailRadar check
+    mail_score = None
+    mail_grade = None
+    try:
+        from mailradar.checker import analyze_domain
+        mail_result = analyze_domain(domain)
+        mail_score = mail_result.total_score
+        mail_grade = mail_result.grade
+    except Exception:
+        pass
+
+    # Render letter
+    letter = render_letter(
+        result=result,
+        publisher=publisher,
+        publisher_domain=domain,
+        sender_name=name,
+        sender_org=org,
+        sender_email=from_email,
+        mail_score=mail_score,
+        mail_grade=mail_grade,
+        lang=lang,
+    )
+
+    if dry_run:
+        console.print("\n[bold]--- DPO Letter Preview ---[/bold]\n")
+        console.print(letter)
+        return
+
+    console.print(f"\n[dim]Sending DPO letter to [bold]{to}[/bold]...[/dim]")
+
+    subject = f"Esercizio diritti GDPR — {result.app_name or result.package_name}"
+
+    try:
+        send_letter(
+            letter=letter,
+            subject=subject,
+            to_email=to,
+            from_email=from_email,
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_user=smtp_user,
+        )
+        console.print(f"[green]✅ Letter sent to {to}[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        raise typer.Exit(1)
