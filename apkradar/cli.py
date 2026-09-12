@@ -79,12 +79,14 @@ def _print_result(result) -> None:
 def _check_ssl(domain: str) -> tuple[bool, str | None]:
     """
     Check SSL certificate validity.
+    Enforces TLS 1.2 minimum.
 
     Returns:
         Tuple of (ssl_expired, expiry_date_str)
     """
     try:
         context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         with socket.create_connection((domain, 443), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert = ssock.getpeercert()
@@ -268,7 +270,6 @@ def send(
         else:
             console.print(f"[green]✅ SSL valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
 
-    # noyb_id implies noyb=True
     if noyb_id:
         noyb = True
 
