@@ -141,7 +141,6 @@ def audit(
         if domain:
             console.print(f"\n[bold cyan]🔗 Full stack analysis for publisher: {domain}[/bold cyan]\n")
 
-            # MailRadar
             try:
                 from mailradar.checker import analyze_domain
                 console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
@@ -153,14 +152,12 @@ def audit(
             except Exception as e:
                 console.print(f"[red]❌ MailRadar error: {e}[/red]")
 
-            # SSL check
             ssl_expired, ssl_expiry = _check_ssl(domain)
             if ssl_expired:
                 console.print(f"[red]⚠️  SSL certificate EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
             else:
                 console.print(f"[green]✅ SSL certificate valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
 
-            # CookieRadar
             try:
                 from cookieradar.scanner import scan as cookie_scan
                 url = domain_to_url(domain)
@@ -227,11 +224,18 @@ def send(
     name: str = typer.Option(..., "--name", help="Sender full name"),
     org: str = typer.Option("", "--org", help="Sender organization"),
     lang: str = typer.Option("it", "--lang", help="Letter language (it/en)"),
+    noyb: bool = typer.Option(False, "--noyb", help="Include NOYB reference in escalation"),
+    noyb_id: str = typer.Option(None, "--noyb-id", help="NOYB supporter ID (e.g. 7645)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print letter without sending"),
 ):
     """
     Audit an APK and send a GDPR DPO letter to the publisher.
     Includes MailRadar score and SSL certificate status.
+
+    Examples:
+        apkradar send app.apk --to dpo@example.com --publisher "Example Inc" ...
+        apkradar send app.apk --to dpo@example.com --noyb ...
+        apkradar send app.apk --to dpo@example.com --noyb-id 7645 ...
     """
     from apkradar.scanner import scan
     from apkradar.sender import render_letter, send_letter
@@ -246,7 +250,6 @@ def send(
 
     domain = package_to_domain(result.package_name) or ""
 
-    # MailRadar check
     mail_score = None
     mail_grade = None
     ssl_expired = False
@@ -265,7 +268,10 @@ def send(
         else:
             console.print(f"[green]✅ SSL valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
 
-    # Render letter
+    # noyb_id implies noyb=True
+    if noyb_id:
+        noyb = True
+
     letter = render_letter(
         result=result,
         publisher=publisher,
@@ -277,6 +283,8 @@ def send(
         mail_grade=mail_grade,
         ssl_expired=ssl_expired,
         ssl_expiry=ssl_expiry,
+        noyb_id=noyb_id,
+        noyb=noyb,
         lang=lang,
     )
 

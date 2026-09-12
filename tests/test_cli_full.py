@@ -7,7 +7,6 @@ from apkradar.scanner import ScanResult
 
 
 def _make_scan_result(package_name="com.example.app"):
-    """Create a minimal ScanResult with package name."""
     return ScanResult(
         apk_path="test.apk",
         package_name=package_name,
@@ -20,60 +19,63 @@ def _make_scan_result(package_name="com.example.app"):
     )
 
 
-def _make_cookie_result(pre_trackers=None, post_trackers=None):
-    """Create a mock CookieRadar result."""
+def _make_cookie_result():
     mock = MagicMock()
-    mock.pre_consent.trackers = pre_trackers or []
-    mock.post_reject.trackers = post_trackers or []
+    mock.pre_consent.trackers = []
+    mock.post_reject.trackers = []
     return mock
 
 
 class TestAuditFullFlag(unittest.TestCase):
-    """Tests for --full flag edge cases."""
 
     def setUp(self):
         self.runner = CliRunner()
 
     @patch("apkradar.scanner.scan")
     def test_full_no_package_name(self, mock_scan):
-        """--full should skip publisher analysis when package_name is empty."""
         mock_scan.return_value = ScanResult(apk_path="test.apk", package_name="")
         result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
         self.assertEqual(result.exit_code, 0)
         self.assertNotIn("Full stack analysis", result.output)
 
+    @patch("asyncio.run", side_effect=Exception("no browser"))
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
-    def test_full_shows_publisher_domain(self, mock_scan):
-        """--full should display the publisher domain."""
+    def test_full_shows_publisher_domain(self, mock_scan, mock_mail, mock_ssl, mock_run):
         mock_scan.return_value = _make_scan_result("com.scopely.monopolygo")
-        with patch("apkradar.cli.asyncio.run", side_effect=Exception("no browser")):
-            result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
-            self.assertEqual(result.exit_code, 0)
-            self.assertIn("scopely.com", result.output)
+        result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("scopely.com", result.output)
 
+    @patch("asyncio.run", side_effect=Exception("error"))
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
-    def test_full_mailradar_exception(self, mock_scan):
-        """--full should handle MailRadar exceptions gracefully."""
+    def test_full_no_network(self, mock_scan, mock_mail, mock_ssl, mock_run):
         mock_scan.return_value = _make_scan_result("com.example.app")
-        with patch("apkradar.cli.asyncio.run", side_effect=Exception("error")):
-            result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
-            self.assertEqual(result.exit_code, 0)
+        result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
+        self.assertEqual(result.exit_code, 0)
 
+    @patch("asyncio.run")
+    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
-    def test_full_cookieradar_no_violation(self, mock_scan):
-        """--full should show no violation when no persistent trackers."""
+    def test_full_cookieradar_no_violation(self, mock_scan, mock_mail, mock_ssl, mock_run):
         mock_scan.return_value = _make_scan_result("com.example.app")
-        with patch("apkradar.cli.asyncio.run", return_value=_make_cookie_result()):
-            result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
-            self.assertEqual(result.exit_code, 0)
+        mock_run.return_value = _make_cookie_result()
+        result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
+        self.assertEqual(result.exit_code, 0)
 
+    @patch("asyncio.run", side_effect=Exception("no browser"))
+    @patch("apkradar.cli._check_ssl", return_value=(True, "08/04/2026"))
+    @patch("apkradar.cli._check_mailradar", return_value=(20, "CRITICAL"))
     @patch("apkradar.scanner.scan")
-    def test_full_cookieradar_exception(self, mock_scan):
-        """--full should handle CookieRadar exceptions gracefully."""
+    def test_full_ssl_expired(self, mock_scan, mock_mail, mock_ssl, mock_run):
         mock_scan.return_value = _make_scan_result("com.example.app")
-        with patch("apkradar.cli.asyncio.run", side_effect=Exception("Connection error")):
-            result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
-            self.assertEqual(result.exit_code, 0)
+        result = self.runner.invoke(app, ["audit", "test.apk", "--full"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("EXPIRED", result.output)
 
 
 if __name__ == "__main__":

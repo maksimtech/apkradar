@@ -26,6 +26,8 @@ def render_letter(
     mail_grade: Optional[str] = None,
     ssl_expired: bool = False,
     ssl_expiry: Optional[str] = None,
+    noyb_id: Optional[str] = None,
+    noyb: bool = False,
     lang: str = "it",
 ) -> str:
     """
@@ -41,6 +43,9 @@ def render_letter(
         mail_score: MailRadar score (optional)
         mail_grade: MailRadar grade (optional)
         ssl_expired: Whether SSL certificate is expired
+        ssl_expiry: SSL expiry date string (optional)
+        noyb_id: NOYB supporter ID e.g. '7645' (optional)
+        noyb: Include NOYB reference without membership ID
         lang: Language (it/en)
 
     Returns:
@@ -72,6 +77,8 @@ def render_letter(
         mail_grade=mail_grade,
         ssl_expired=ssl_expired,
         ssl_expiry=ssl_expiry,
+        noyb_id=noyb_id,
+        noyb=noyb,
         date=datetime.now().strftime("%d/%m/%Y"),
         apkradar_version=apkradar.__version__,
     )
@@ -91,7 +98,7 @@ def send_letter(
     Send DPO letter via SMTP.
 
     Returns:
-        True if sent successfully, False otherwise
+        True if sent successfully
     """
     if not smtp_password:
         smtp_password = getpass.getpass(f"Password for {smtp_user}: ")

@@ -13,6 +13,8 @@ L'analisi statica dell'APK (SHA256: {{ sha256 }}) ha rilevato i seguenti tracker
 {% endfor %}
 
 La presenza di questi SDK comporta la trasmissione di dati personali a soggetti terzi. Si richiede di specificare la base giuridica ex art. 6 GDPR per ciascun trasferimento e di verificare che il consenso sia stato acquisito prima dell'attivazione di tali SDK.
+{% else %}
+Non sono stati rilevati tracker o SDK di terze parti noti.
 {% endif %}
 
 2. PERMESSI SENSIBILI — art. 5(1)(c), 9 GDPR
@@ -23,6 +25,8 @@ L'applicazione dichiara i seguenti permessi con rilevanza GDPR:
 {% endfor %}
 
 Si richiede di specificare la base giuridica e la finalità del trattamento per ciascun permesso, nonché i tempi di conservazione dei dati raccolti.
+{% else %}
+Non sono stati rilevati permessi sensibili.
 {% endif %}
 
 3. TRASFERIMENTI EXTRA-UE — art. 44-49 GDPR
@@ -33,6 +37,8 @@ Sono stati rilevati trasferimenti di dati verso i seguenti soggetti extra-UE:
 {% endfor %}
 
 Si richiede di indicare le garanzie adeguate adottate ai sensi dell'art. 46 GDPR (Clausole Contrattuali Standard, Binding Corporate Rules, o altro).
+{% else %}
+Non sono stati rilevati trasferimenti di dati extra-UE noti.
 {% endif %}
 
 4. MISURE TECNICHE — art. 32 GDPR
@@ -41,6 +47,9 @@ L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) h
 {% endif %}
 {% if ssl_expired %}
 Il certificato SSL del sito {{ publisher_domain }} risulta scaduto{% if ssl_expiry %} (scaduto il {{ ssl_expiry }}){% endif %}, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+{% endif %}
+{% if not mail_score and not ssl_expired %}
+Non sono state rilevate criticità nelle misure tecniche del publisher.
 {% endif %}
 
 5. RICHIESTE FORMALI
@@ -54,12 +63,17 @@ Art. 21 — Opposizione al trattamento per finalità di profilazione e marketing
 
 6. ESCALATION
 
-In assenza di risposta entro 30 giorni dalla presente, mi riservo di presentare reclamo all'autorità di controllo competente ai sensi dell'art. 77 GDPR e di rivolgermi a NOYB — None Of Your Business in qualità di sostenitore gold #7645.
+In assenza di risposta entro 30 giorni dalla presente, mi riservo di presentare reclamo all'autorità di controllo competente ai sensi dell'art. 77 GDPR.
+{% if noyb_id %}
+Mi riservo inoltre di rivolgermi a NOYB — None Of Your Business in qualità di sostenitore gold #{{ noyb_id }} per il supporto nell'esercizio dei diritti.
+{% elif noyb %}
+Mi riservo inoltre di rivolgermi a NOYB — None Of Your Business per il supporto nell'esercizio dei diritti.
+{% endif %}
 
 Distinti saluti,
 
-{{ sender_name }}
-{{ sender_org }}
+{{ sender_name }}{% if sender_org %}
+{{ sender_org }}{% endif %}
 {{ sender_email }}
 {{ date }}
 
