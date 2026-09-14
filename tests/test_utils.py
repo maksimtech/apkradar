@@ -140,3 +140,63 @@ class TestExtractDomainsFromApk(unittest.TestCase):
         )
         result = extract_domains_from_apk(mock_apk)
         self.assertEqual(result, [])
+
+
+class TestExtractSdkDomains(unittest.TestCase):
+    """Tests for extract_sdk_domains function."""
+
+    def test_firebase_domains(self):
+        from apkradar.utils import extract_sdk_domains
+        from apkradar.scanner import TrackerFound
+        trackers = [TrackerFound(package="com.google.firebase.analytics", name="Firebase")]
+        domains = extract_sdk_domains(trackers)
+        self.assertIn("firebase.google.com", domains)
+
+    def test_facebook_domains(self):
+        from apkradar.utils import extract_sdk_domains
+        from apkradar.scanner import TrackerFound
+        trackers = [TrackerFound(package="com.facebook.ads", name="Facebook")]
+        domains = extract_sdk_domains(trackers)
+        self.assertIn("facebook.com", domains)
+
+    def test_empty_trackers(self):
+        from apkradar.utils import extract_sdk_domains
+        domains = extract_sdk_domains([])
+        self.assertEqual(domains, [])
+
+    def test_multiple_trackers(self):
+        from apkradar.utils import extract_sdk_domains
+        from apkradar.scanner import TrackerFound
+        trackers = [
+            TrackerFound(package="com.appsflyer", name="AppsFlyer"),
+            TrackerFound(package="com.applovin", name="AppLovin"),
+        ]
+        domains = extract_sdk_domains(trackers)
+        self.assertIn("appsflyer.com", domains)
+        self.assertIn("applovin.com", domains)
+
+
+class TestGetAllDomains(unittest.TestCase):
+    """Tests for get_all_domains function."""
+
+    def test_publisher_domain_included(self):
+        from apkradar.utils import get_all_domains
+        from apkradar.scanner import ScanResult
+        result = ScanResult(apk_path="test.apk", package_name="com.scopely.monopolygo")
+        domains = get_all_domains(result)
+        self.assertIn("scopely.com", domains)
+
+    def test_sdk_domains_included(self):
+        from apkradar.utils import get_all_domains
+        from apkradar.scanner import ScanResult, TrackerFound
+        result = ScanResult(apk_path="test.apk", package_name="com.example.app")
+        result.trackers = [TrackerFound(package="com.appsflyer", name="AppsFlyer")]
+        domains = get_all_domains(result)
+        self.assertIn("appsflyer.com", domains)
+
+    def test_empty_package_name(self):
+        from apkradar.utils import get_all_domains
+        from apkradar.scanner import ScanResult
+        result = ScanResult(apk_path="test.apk", package_name="")
+        domains = get_all_domains(result)
+        self.assertIsInstance(domains, list)

@@ -116,20 +116,59 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
         return None, None
 
 
+def _full_stack_domain(domain: str) -> None:
+    """Run full stack analysis on a single domain."""
+    console.print(f"\n[bold cyan]🔗 {domain}[/bold cyan]")
+
+    # MailRadar
+    mail_score, mail_grade = _check_mailradar(domain)
+    if mail_score is not None:
+        grade_color = "green" if mail_score >= 80 else "yellow" if mail_score >= 60 else "red"
+        console.print(f"  📡 MailRadar: [{grade_color}]{mail_score}/100 — {mail_grade}[/{grade_color}]")
+    else:
+        console.print(f"  📡 MailRadar: [dim]unavailable[/dim]")
+
+    # SSL
+    ssl_expired, ssl_expiry = _check_ssl(domain)
+    if ssl_expired:
+        console.print(f"  🔒 SSL: [red]EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
+    elif ssl_expiry:
+        console.print(f"  🔒 SSL: [green]valid until {ssl_expiry}[/green]")
+    else:
+        console.print(f"  🔒 SSL: [dim]check failed[/dim]")
+
+    # CookieRadar
+    try:
+        from cookieradar.scanner import scan as cookie_scan
+        url = f"https://{domain}"
+        cookie_result = asyncio.run(cookie_scan(url))
+        pre = set(t.domain for t in cookie_result.pre_consent.trackers)
+        rej = set(t.domain for t in cookie_result.post_reject.trackers)
+        persistent = pre & rej
+        if persistent:
+            console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
+        else:
+            console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
+    except ImportError:
+        console.print(f"  🍪 CookieRadar: [dim]not installed[/dim]")
+    except Exception as e:
+        console.print(f"  🍪 CookieRadar: [dim]error: {e}[/dim]")
+
+
 @app.command()
 def audit(
     apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
     lang: str = typer.Option("it", "--lang", "-l", help="Report language (it/en)"),
-    full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar"),
+    full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar on all SDK domains"),
 ):
     """
     Audit an APK for GDPR compliance.
     Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
-    Use --full for complete stack analysis including email and web audit.
+    Use --full for complete stack analysis on publisher and all SDK domains.
     """
     from apkradar.scanner import scan
-    from apkradar.utils import package_to_domain, domain_to_url
+    from apkradar.utils import get_all_domains
 
     console.print(f"\n[dim]Auditing [bold]{apk}[/bold]...[/dim]")
 
@@ -139,46 +178,16 @@ def audit(
     _print_result(result)
 
     if full and result.package_name:
-        domain = package_to_domain(result.package_name)
-        if domain:
-            console.print(f"\n[bold cyan]🔗 Full stack analysis for publisher: {domain}[/bold cyan]\n")
+        domains = get_all_domains(result)
 
-            try:
-                from mailradar.checker import analyze_domain
-                console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
-                mail_result = analyze_domain(domain)
-                console.print(f"[bold]📡 MailRadar — {domain}[/bold]")
-                console.print(f"Score: {mail_result.total_score}/100 — {mail_result.grade}\n")
-            except ImportError:
-                console.print("[yellow]⚠️  MailRadar not installed — pip install mailradar[/yellow]")
-            except Exception as e:
-                console.print(f"[red]❌ MailRadar error: {e}[/red]")
+        if domains:
+            console.print(f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]")
+            console.print(f"[dim]Publisher + SDK domains detected[/dim]\n")
 
-            ssl_expired, ssl_expiry = _check_ssl(domain)
-            if ssl_expired:
-                console.print(f"[red]⚠️  SSL certificate EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
-            else:
-                console.print(f"[green]✅ SSL certificate valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
+            for domain in sorted(domains):
+                _full_stack_domain(domain)
 
-            try:
-                from cookieradar.scanner import scan as cookie_scan
-                url = domain_to_url(domain)
-                console.print(f"\n[dim]Running CookieRadar on {url}...[/dim]")
-                cookie_result = asyncio.run(cookie_scan(url))
-                pre = set(t.domain for t in cookie_result.pre_consent.trackers)
-                rej = set(t.domain for t in cookie_result.post_reject.trackers)
-                persistent = pre & rej
-                console.print(f"[bold]🍪 CookieRadar — {url}[/bold]")
-                console.print(f"Pre-consent trackers: {len(pre)}")
-                if persistent:
-                    console.print(f"[red]⚠️  VIOLATION — {len(persistent)} tracker(s) persist after rejection[/red]")
-                else:
-                    console.print("[green]✅ No trackers persist after rejection[/green]")
-                console.print()
-            except ImportError:
-                console.print("[yellow]⚠️  CookieRadar not installed — pip install cookieradar[/yellow]")
-            except Exception as e:
-                console.print(f"[red]❌ CookieRadar error: {e}[/red]")
+        console.print()
 
 
 @app.command()

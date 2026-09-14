@@ -12,7 +12,40 @@ GENERIC_SEGMENTS = {
     "studio", "studios", "media", "labs", "lab", "inc",
     "llc", "ltd", "corp", "group", "team", "project",
 }
-
+# SDK → domini noti
+SDK_DOMAINS = {
+    "com.google.firebase":        ["firebase.google.com", "firebaseapp.com"],
+    "com.google.android.gms":     ["google.com", "googleapis.com"],
+    "com.google.android.gms.ads": ["googleadservices.com", "doubleclick.net"],
+    "com.facebook":               ["facebook.com", "fbcdn.net"],
+    "com.appsflyer":              ["appsflyer.com"],
+    "com.applovin":               ["applovin.com"],
+    "com.unity3d.ads":            ["unity.com", "unityads.unity3d.com"],
+    "com.ironsource.mediationsdk":["ironsrc.com", "supersonic.com"],
+    "com.inmobi":                 ["inmobi.com"],
+    "com.mixpanel.android":       ["mixpanel.com"],
+    "io.sentry":                  ["sentry.io"],
+    "com.crashlytics":            ["firebase.google.com"],
+    "com.adjust.sdk":             ["adjust.com"],
+    "com.vungle":                 ["vungle.com"],
+    "com.chartboost":             ["chartboost.com"],
+    "com.mopub":                  ["mopub.com"],
+    "com.snap.adkit":             ["snapchat.com"],
+    "com.tiktok.sdk":             ["tiktok.com", "bytedance.com"],
+    "com.yandex.metrica":         ["appmetrica.yandex.com"],
+    "com.amplitude.api":          ["amplitude.com"],
+    "com.segment.analytics":      ["segment.com", "segment.io"],
+    "io.branch.referral":         ["branch.io"],
+    "com.onesignal":              ["onesignal.com"],
+    "com.newrelic.agent.android": ["newrelic.com"],
+    "com.instabug":               ["instabug.com"],
+    "com.bugsnag.android":        ["bugsnag.com"],
+    "com.datadog":                ["datadoghq.com"],
+    "com.microsoft.appcenter":    ["appcenter.ms"],
+    "com.huawei.hms.analytics":   ["hicloud.com"],
+    "com.xiaomi.mipush":          ["xiaomi.com"],
+    "com.baidu.mobads":           ["baidu.com"],
+}
 
 def package_to_domain(package_name: str) -> str | None:
     """
@@ -92,3 +125,56 @@ def extract_domains_from_apk(apk) -> list[str]:
     except Exception:
         pass
     return list(set(domains))
+
+
+def extract_sdk_domains(trackers: list) -> list[str]:
+    """
+    Extract known domains for detected trackers/SDKs.
+
+    Args:
+        trackers: List of TrackerFound objects
+
+    Returns:
+        List of unique domains associated with detected SDKs
+    """
+    domains = []
+    for tracker in trackers:
+        for sdk_prefix, sdk_domains in SDK_DOMAINS.items():
+            if tracker.package.startswith(sdk_prefix) or sdk_prefix in tracker.package:
+                domains.extend(sdk_domains)
+    return list(set(domains))
+
+
+def get_all_domains(result, apk=None) -> list[str]:
+    """
+    Get all domains associated with an APK scan result.
+
+    Combines:
+    - Publisher domain (from package name)
+    - SDK domains (from detected trackers)
+    - Deep link domains (from APK manifest, if apk object provided)
+
+    Args:
+        result: ScanResult object
+        apk: androguard APK object (optional)
+
+    Returns:
+        List of unique domains to audit
+    """
+    domains = set()
+
+    # 1. Publisher domain
+    publisher = package_to_domain(result.package_name)
+    if publisher:
+        domains.add(publisher)
+
+    # 2. SDK domains from detected trackers
+    sdk_domains = extract_sdk_domains(result.trackers)
+    domains.update(sdk_domains)
+
+    # 3. Deep link domains from manifest
+    if apk:
+        manifest_domains = extract_domains_from_apk(apk)
+        domains.update(manifest_domains)
+
+    return list(domains)
