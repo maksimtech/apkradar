@@ -170,3 +170,69 @@ class TestExcelRow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBatchExcelCommand(unittest.TestCase):
+
+    def setUp(self):
+        from typer.testing import CliRunner
+        self.runner = CliRunner()
+
+    def test_batch_excel_help(self):
+        from apkradar.cli import app
+        result = self.runner.invoke(app, ["batch-excel", "--help"])
+        self.assertEqual(result.exit_code, 0)
+
+    def test_batch_excel_missing_file(self):
+        from apkradar.cli import app
+        result = self.runner.invoke(app, ["batch-excel", "nonexistent.xlsx"])
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_batch_excel_empty_file(self):
+        import openpyxl, tempfile, os
+        from apkradar.cli import app
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="Package Name")
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            tmp = f.name
+        wb.save(tmp)
+        try:
+            result = self.runner.invoke(app, ["batch-excel", tmp])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("No APKs found", result.output)
+        finally:
+            os.unlink(tmp)
+
+    def test_batch_excel_with_package_name(self):
+        import openpyxl, tempfile, os
+        from apkradar.cli import app
+        from unittest.mock import patch
+        from apkradar.scanner import ScanResult
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="Package Name")
+        ws.cell(row=2, column=1, value="com.example.app")
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            tmp_in = f.name
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            tmp_out = f.name
+        wb.save(tmp_in)
+        os.unlink(tmp_out)
+        try:
+            mock_result = ScanResult(apk_path="com.example.app", package_name="com.example.app")
+            with patch("apkradar.excel.read_apk_list") as mock_read:
+                from apkradar.excel import ExcelRow
+                mock_read.return_value = [ExcelRow(
+                    row_number=2,
+                    app_name="Example",
+                    package_name="com.example.app",
+                    apk_path="",
+                )]
+                with patch("apkradar.excel.write_results"):
+                    result = self.runner.invoke(app, ["batch-excel", tmp_in, "--output", tmp_out])
+                    self.assertEqual(result.exit_code, 0)
+        finally:
+            os.unlink(tmp_in)
+            if os.path.exists(tmp_out):
+                os.unlink(tmp_out)

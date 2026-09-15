@@ -82,3 +82,25 @@ class TestLookup(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSearchRemovalReason(unittest.TestCase):
+
+    def test_removal_reason_returns_abstract(self):
+        from apkradar.search_cmd import _search_removal_reason
+        from unittest.mock import patch, MagicMock
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"AbstractText": "App was removed for violating policies."}
+        with patch("httpx.get", return_value=mock_response):
+            result = _search_removal_reason("com.removed.app")
+            self.assertIsNotNone(result)
+            self.assertIn("removed", result.lower())
+
+    def test_removal_reason_empty_abstract(self):
+        from apkradar.search_cmd import _search_removal_reason
+        from unittest.mock import patch, MagicMock
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"AbstractText": ""}
+        with patch("httpx.get", return_value=mock_response):
+            result = _search_removal_reason("com.removed.app")
+            self.assertIsNone(result)

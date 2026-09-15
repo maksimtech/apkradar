@@ -200,3 +200,19 @@ class TestGetAllDomains(unittest.TestCase):
         result = ScanResult(apk_path="test.apk", package_name="")
         domains = get_all_domains(result)
         self.assertIsInstance(domains, list)
+
+
+class TestGetAllDomainsWithApk(unittest.TestCase):
+
+    def test_get_all_domains_with_manifest_apk(self):
+        from apkradar.utils import get_all_domains
+        from apkradar.scanner import ScanResult
+        from unittest.mock import MagicMock
+        result = ScanResult(apk_path="test.apk", package_name="com.example.app")
+        mock_apk = MagicMock()
+        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
+            '<data android:host="api.example.com"/>'
+        )
+        domains = get_all_domains(result, apk=mock_apk)
+        self.assertIn("example.com", domains)
+        self.assertIn("api.example.com", domains)
