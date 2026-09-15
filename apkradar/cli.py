@@ -386,3 +386,83 @@ def send(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command(name="batch-excel")
+def batch_excel(
+    file: str = typer.Argument(..., help="Excel file with APK paths or package names (.xlsx)"),
+    output: str = typer.Option(None, "--output", "-o", help="Output Excel file path"),
+    augment: bool = typer.Option(False, "--augment", "-a", help="Add results columns to input file"),
+):
+    """
+    Audit APKs from an Excel file and write results back to Excel.
+
+    The Excel file must have columns:
+    - 'Package Name' or 'APK Path' (required)
+    - 'App Name' (optional)
+
+    Examples:
+        apkradar batch-excel registro.xlsx
+        apkradar batch-excel registro.xlsx --output report.xlsx
+        apkradar batch-excel registro.xlsx --augment
+    """
+    from apkradar.excel import read_apk_list, write_results
+    from apkradar.scanner import scan
+
+    console.print(f"\n[dim]Reading [bold]{file}[/bold]...[/dim]")
+
+    try:
+        rows = read_apk_list(file)
+    except Exception as e:
+        console.print(f"[red]❌ Error reading Excel: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not rows:
+        console.print("[yellow]⚠️  No APKs found in Excel file[/yellow]")
+        raise typer.Exit(0)
+
+    console.print(f"[dim]Found {len(rows)} apps to audit[/dim]\n")
+
+    results = []
+    for row in rows:
+        path = row.apk_path or row.package_name
+        console.print(f"[cyan]Auditing {row.app_name or path}...[/cyan]")
+
+        if row.apk_path:
+            result = scan(row.apk_path)
+        else:
+            # No APK path — create minimal result
+            from apkradar.scanner import ScanResult
+            result = ScanResult(
+                apk_path=row.package_name,
+                package_name=row.package_name,
+                app_name=row.app_name,
+                error="No APK path provided — package name only",
+            )
+
+        status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
+                 "🟠 POOR" if result.score_label == "POOR" else \
+                 "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
+        console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers")
+        if result.error:
+            console.print(f"  [red]❌ {result.error}[/red]")
+
+        results.append(result)
+
+    # Write output
+    out_path = output or file.replace(".xlsx", "_report.xlsx").replace(".xls", "_report.xlsx")
+    if augment:
+        out_path = output or file
+
+    console.print(f"\n[dim]Writing results to [bold]{out_path}[/bold]...[/dim]")
+
+    try:
+        write_results(
+            results=results,
+            output_path=out_path,
+            input_path=file if augment else None,
+        )
+        console.print(f"[green]✅ Report saved to {out_path}[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error writing Excel: {e}[/red]")
+        raise typer.Exit(1)
