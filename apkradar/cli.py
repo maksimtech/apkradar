@@ -116,11 +116,13 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
         return None, None
 
 
-def _full_stack_domain(domain: str) -> None:
+def _full_stack_domain(domain: str, verbose: bool = False) -> None:
     """Run full stack analysis on a single domain."""
     console.print(f"\n[bold cyan]🔗 {domain}[/bold cyan]")
 
     # MailRadar
+    if verbose:
+        console.print(f"  [dim]→ Running MailRadar...[/dim]")
     mail_score, mail_grade = _check_mailradar(domain)
     if mail_score is not None:
         grade_color = "green" if mail_score >= 80 else "yellow" if mail_score >= 60 else "red"
@@ -129,6 +131,8 @@ def _full_stack_domain(domain: str) -> None:
         console.print(f"  📡 MailRadar: [dim]unavailable[/dim]")
 
     # SSL
+    if verbose:
+        console.print(f"  [dim]→ Checking SSL...[/dim]")
     ssl_expired, ssl_expiry = _check_ssl(domain)
     if ssl_expired:
         console.print(f"  🔒 SSL: [red]EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
@@ -138,6 +142,8 @@ def _full_stack_domain(domain: str) -> None:
         console.print(f"  🔒 SSL: [dim]check failed[/dim]")
 
     # CookieRadar
+    if verbose:
+        console.print(f"  [dim]→ Running CookieRadar...[/dim]")
     try:
         from cookieradar.scanner import scan as cookie_scan
         url = f"https://{domain}"
@@ -147,6 +153,8 @@ def _full_stack_domain(domain: str) -> None:
         persistent = pre & rej
         if persistent:
             console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
+            for t in sorted(persistent):
+                console.print(f"       → {t}")
         else:
             console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
     except ImportError:
@@ -161,11 +169,13 @@ def audit(
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
     lang: str = typer.Option("it", "--lang", "-l", help="Report language (it/en)"),
     full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar on all SDK domains"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show debug output during full stack analysis"),
 ):
     """
     Audit an APK for GDPR compliance.
     Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
     Use --full for complete stack analysis on publisher and all SDK domains.
+    Use --verbose to see what is happening during analysis.
     """
     from apkradar.scanner import scan
     from apkradar.utils import get_all_domains
@@ -185,7 +195,7 @@ def audit(
             console.print(f"[dim]Publisher + SDK domains detected[/dim]\n")
 
             for domain in sorted(domains):
-                _full_stack_domain(domain)
+                _full_stack_domain(domain, verbose=verbose)
 
         console.print()
 
@@ -220,6 +230,58 @@ def batch(
         console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers, {result.sensitive_permission_count} sensitive permissions")
         if result.error:
             console.print(f"  [red]❌ {result.error}[/red]")
+        console.print()
+
+
+@app.command()
+def search(
+    query: str = typer.Argument(..., help="Package name (e.g. com.moonactive.coinmaster) or app name"),
+    audit_app: bool = typer.Option(False, "--audit", "-a", help="Audit the app after lookup"),
+):
+    """
+    Lookup app info by package name on Google Play Store.
+    If the app is not found, searches for removal reason.
+
+    Examples:
+        apkradar search com.moonactive.coinmaster
+        apkradar search "Coin Master"
+    """
+    from apkradar.search_cmd import lookup
+
+    if "." in query and " " not in query:
+        # Package name lookup
+        console.print(f"\n[dim]Looking up [bold]{query}[/bold]...[/dim]")
+
+        with console.status("[cyan]Querying Google Play Store...[/cyan]"):
+            result = lookup(query)
+
+        if result.available:
+            console.print(f"\n[bold]📱 {result.title}[/bold]")
+            console.print(f"[dim]Package:   {result.package_name}[/dim]")
+            console.print(f"[dim]Developer: {result.developer}[/dim]")
+            console.print(f"[dim]Category:  {result.category}[/dim]")
+            console.print(f"[dim]Installs:  {result.installs}[/dim]")
+            console.print(f"[dim]Rating:    {result.score:.1f}/5.0[/dim]")
+            if result.description:
+                console.print(f"\n[dim]{result.description}...[/dim]")
+            console.print()
+        else:
+            console.print(f"\n[red]⚠️  App not found on Google Play[/red]")
+            console.print(f"[dim]Package: {query}[/dim]")
+            if result.removal_reason:
+                console.print(f"\n[yellow]Possible reason:[/yellow]")
+                console.print(f"[dim]{result.removal_reason}[/dim]")
+            else:
+                console.print(f"[dim]No removal reason found — app may have been removed or never published.[/dim]")
+    else:
+        # Name search — guide user
+        query_url = query.replace(" ", "+")
+        console.print(f"\n[yellow]⚠️  Searching by name is not yet supported.[/yellow]")
+        console.print(f"\n[dim]To find the package name:[/dim]")
+        console.print(f"  1. Open: [link]https://play.google.com/store/search?q={query_url}[/link]")
+        console.print(f"  2. Open the app page")
+        console.print(f"  3. Copy the 'id=' parameter from the URL")
+        console.print(f"  4. Run: [bold]apkradar search <package_name>[/bold]")
         console.print()
 
 
