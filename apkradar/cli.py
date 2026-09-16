@@ -9,6 +9,7 @@ import socket
 from datetime import datetime, timezone
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich import box
 
@@ -30,17 +31,17 @@ def _print_result(result) -> None:
         "CRITICAL": "red",
     }.get(result.score_label, "white")
 
-    console.print(f"\n[bold]📱 APKRadar Report — {result.package_name or result.apk_path}[/bold]")
+    console.print(f"\n[bold]📱 APKRadar Report — {escape(result.package_name or result.apk_path)}[/bold]")
     console.print(f"[{score_color}]Score: {result.score}/100 — {result.score_label}[/{score_color}]\n")
 
     if result.error:
-        console.print(f"[red]❌ Error: {result.error}[/red]")
+        console.print(f"[red]❌ Error: {escape(result.error)}[/red]")
         return
 
-    console.print(f"[dim]App:     {result.app_name}[/dim]")
-    console.print(f"[dim]Version: {result.version_name} ({result.version_code})[/dim]")
-    console.print(f"[dim]SDK:     min={result.min_sdk} target={result.target_sdk}[/dim]")
-    console.print(f"[dim]Format:  {result.apk_format.upper()}[/dim]")
+    console.print(f"[dim]App:     {escape(result.app_name)}[/dim]")
+    console.print(f"[dim]Version: {escape(result.version_name)} ({escape(result.version_code)})[/dim]")
+    console.print(f"[dim]SDK:     min={escape(result.min_sdk)} target={escape(result.target_sdk)}[/dim]")
+    console.print(f"[dim]Format:  {escape(result.apk_format.upper())}[/dim]")
     console.print(f"[dim]SHA256:  {result.sha256[:16]}...[/dim]\n")
 
     if result.trackers:
@@ -150,7 +151,7 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
 
 def _full_stack_domain(domain: str, verbose: bool = False) -> None:
     """Run full stack analysis on a single domain."""
-    console.print(f"\n[bold cyan]🔗 {domain}[/bold cyan]")
+    console.print(f"\n[bold cyan]🔗 {escape(domain)}[/bold cyan]")
 
     # MailRadar
     if verbose:
@@ -158,7 +159,7 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> None:
     mail_score, mail_grade = _check_mailradar(domain)
     if mail_score is not None:
         grade_color = "green" if mail_score >= 80 else "yellow" if mail_score >= 60 else "red"
-        console.print(f"  📡 MailRadar: [{grade_color}]{mail_score}/100 — {mail_grade}[/{grade_color}]")
+        console.print(f"  📡 MailRadar: [{grade_color}]{mail_score}/100 — {escape(str(mail_grade))}[/{grade_color}]")
     else:
         console.print(f"  📡 MailRadar: [dim]unavailable[/dim]")
 
@@ -181,13 +182,13 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> None:
         if persistent:
             console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
             for t in sorted(persistent):
-                console.print(f"       → {t}")
+                console.print(f"       → {escape(t)}")
         else:
             console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
     except ImportError:
         console.print(f"  🍪 CookieRadar: [dim]not installed[/dim]")
     except Exception as e:
-        console.print(f"  🍪 CookieRadar: [dim]error: {e}[/dim]")
+        console.print(f"  🍪 CookieRadar: [dim]error: {escape(str(e))}[/dim]")
 
 
 @app.command()
@@ -207,7 +208,7 @@ def audit(
     from apkradar.scanner import scan
     from apkradar.utils import get_all_domains
 
-    console.print(f"\n[dim]Auditing [bold]{apk}[/bold]...[/dim]")
+    console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
     with console.status("[cyan]Analyzing APK...[/cyan]"):
         result = scan(apk)
@@ -246,14 +247,14 @@ def batch(
         with open(file) as f:
             paths = [line.strip() for line in f if line.strip() and not line.startswith("#")]
     except FileNotFoundError:
-        console.print(f"[red]❌ File not found: {file}[/red]")
+        console.print(f"[red]❌ File not found: {escape(file)}[/red]")
         raise typer.Exit(1)
 
-    console.print(f"\n[dim]Loaded {len(paths)} APKs from {file}[/dim]\n")
+    console.print(f"\n[dim]Loaded {len(paths)} APKs from {escape(file)}[/dim]\n")
 
     failed = 0
     for path in paths:
-        console.print(f"[cyan]Auditing {path}...[/cyan]")
+        console.print(f"[cyan]Auditing {escape(path)}...[/cyan]")
         result = scan(path)
         status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
                  "🟠 POOR" if result.score_label == "POOR" else \
@@ -261,7 +262,7 @@ def batch(
         console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers, {result.sensitive_permission_count} sensitive permissions")
         if result.error:
             failed += 1
-            console.print(f"  [red]❌ {result.error}[/red]")
+            console.print(f"  [red]❌ {escape(result.error)}[/red]")
         console.print()
 
     if failed:
@@ -286,27 +287,27 @@ def search(
 
     if "." in query and " " not in query:
         # Package name lookup
-        console.print(f"\n[dim]Looking up [bold]{query}[/bold]...[/dim]")
+        console.print(f"\n[dim]Looking up [bold]{escape(query)}[/bold]...[/dim]")
 
         with console.status("[cyan]Querying Google Play Store...[/cyan]"):
             result = lookup(query)
 
         if result.available:
-            console.print(f"\n[bold]📱 {result.title}[/bold]")
-            console.print(f"[dim]Package:   {result.package_name}[/dim]")
-            console.print(f"[dim]Developer: {result.developer}[/dim]")
-            console.print(f"[dim]Category:  {result.category}[/dim]")
-            console.print(f"[dim]Installs:  {result.installs}[/dim]")
+            console.print(f"\n[bold]📱 {escape(str(result.title))}[/bold]")
+            console.print(f"[dim]Package:   {escape(result.package_name)}[/dim]")
+            console.print(f"[dim]Developer: {escape(str(result.developer))}[/dim]")
+            console.print(f"[dim]Category:  {escape(str(result.category))}[/dim]")
+            console.print(f"[dim]Installs:  {escape(str(result.installs))}[/dim]")
             console.print(f"[dim]Rating:    {result.score:.1f}/5.0[/dim]")
             if result.description:
-                console.print(f"\n[dim]{result.description}...[/dim]")
+                console.print(f"\n[dim]{escape(result.description)}...[/dim]")
             console.print()
         else:
             console.print(f"\n[red]⚠️  App not found on Google Play[/red]")
-            console.print(f"[dim]Package: {query}[/dim]")
+            console.print(f"[dim]Package: {escape(query)}[/dim]")
             if result.removal_reason:
                 console.print(f"\n[yellow]Possible reason:[/yellow]")
-                console.print(f"[dim]{result.removal_reason}[/dim]")
+                console.print(f"[dim]{escape(result.removal_reason)}[/dim]")
             else:
                 console.print(f"[dim]No removal reason found — app may have been removed or never published.[/dim]")
     else:
@@ -314,7 +315,7 @@ def search(
         query_url = query.replace(" ", "+")
         console.print(f"\n[yellow]⚠️  Searching by name is not yet supported.[/yellow]")
         console.print(f"\n[dim]To find the package name:[/dim]")
-        console.print(f"  1. Open: [link]https://play.google.com/store/search?q={query_url}[/link]")
+        console.print(f"  1. Open: [link]https://play.google.com/store/search?q={escape(query_url)}[/link]")
         console.print(f"  2. Open the app page")
         console.print(f"  3. Copy the 'id=' parameter from the URL")
         console.print(f"  4. Run: [bold]apkradar search <package_name>[/bold]")
@@ -350,7 +351,7 @@ def send(
     from apkradar.sender import render_letter, send_letter
     from apkradar.utils import package_to_domain
 
-    console.print(f"\n[dim]Auditing [bold]{apk}[/bold]...[/dim]")
+    console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
     with console.status("[cyan]Analyzing APK...[/cyan]"):
         result = scan(apk)
@@ -372,12 +373,12 @@ def send(
     ssl_expiry = None
 
     if domain:
-        console.print(f"[dim]Running MailRadar on {domain}...[/dim]")
+        console.print(f"[dim]Running MailRadar on {escape(domain)}...[/dim]")
         mail_score, mail_grade = _check_mailradar(domain)
         if mail_score is not None:
-            console.print(f"📡 MailRadar — {domain}: {mail_score}/100 — {mail_grade}")
+            console.print(f"📡 MailRadar — {escape(domain)}: {mail_score}/100 — {escape(str(mail_grade))}")
 
-        console.print(f"[dim]Checking SSL on {domain}...[/dim]")
+        console.print(f"[dim]Checking SSL on {escape(domain)}...[/dim]")
         ssl_status, ssl_expiry = _check_ssl(domain)
         console.print(f"🔒 SSL {_ssl_status_text(ssl_status, ssl_expiry)}")
 
@@ -402,10 +403,10 @@ def send(
 
     if dry_run:
         console.print("\n[bold]--- DPO Letter Preview ---[/bold]\n")
-        console.print(letter)
+        console.print(letter, markup=False, emoji=False, highlight=False)
         return
 
-    console.print(f"\n[dim]Sending DPO letter to [bold]{to}[/bold]...[/dim]")
+    console.print(f"\n[dim]Sending DPO letter to [bold]{escape(to)}[/bold]...[/dim]")
     subject = f"Esercizio diritti GDPR — {result.app_name or result.package_name}"
 
     try:
@@ -418,9 +419,9 @@ def send(
             smtp_port=smtp_port,
             smtp_user=smtp_user,
         )
-        console.print(f"[green]✅ Letter sent to {to}[/green]")
+        console.print(f"[green]✅ Letter sent to {escape(to)}[/green]")
     except Exception as e:
-        console.print(f"[red]❌ Error: {e}[/red]")
+        console.print(f"[red]❌ Error: {escape(str(e))}[/red]")
         raise typer.Exit(1)
 
 
@@ -449,12 +450,12 @@ def batch_excel(
     from apkradar.excel import read_apk_list, write_results
     from apkradar.scanner import scan
 
-    console.print(f"\n[dim]Reading [bold]{file}[/bold]...[/dim]")
+    console.print(f"\n[dim]Reading [bold]{escape(file)}[/bold]...[/dim]")
 
     try:
         rows = read_apk_list(file)
     except Exception as e:
-        console.print(f"[red]❌ Error reading Excel: {e}[/red]")
+        console.print(f"[red]❌ Error reading Excel: {escape(str(e))}[/red]")
         raise typer.Exit(1)
 
     if not rows:
@@ -466,7 +467,7 @@ def batch_excel(
     results = []
     for row in rows:
         path = row.apk_path or row.package_name
-        console.print(f"[cyan]Auditing {row.app_name or path}...[/cyan]")
+        console.print(f"[cyan]Auditing {escape(row.app_name or path)}...[/cyan]")
 
         if row.apk_path:
             result = scan(row.apk_path)
@@ -485,7 +486,7 @@ def batch_excel(
                  "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
         console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers")
         if result.error:
-            console.print(f"  [red]❌ {result.error}[/red]")
+            console.print(f"  [red]❌ {escape(result.error)}[/red]")
 
         results.append(result)
 
@@ -494,7 +495,7 @@ def batch_excel(
     if augment:
         out_path = output or file
 
-    console.print(f"\n[dim]Writing results to [bold]{out_path}[/bold]...[/dim]")
+    console.print(f"\n[dim]Writing results to [bold]{escape(out_path)}[/bold]...[/dim]")
 
     try:
         write_results(
@@ -502,9 +503,9 @@ def batch_excel(
             output_path=out_path,
             input_path=file if augment else None,
         )
-        console.print(f"[green]✅ Report saved to {out_path}[/green]")
+        console.print(f"[green]✅ Report saved to {escape(out_path)}[/green]")
     except Exception as e:
-        console.print(f"[red]❌ Error writing Excel: {e}[/red]")
+        console.print(f"[red]❌ Error writing Excel: {escape(str(e))}[/red]")
         raise typer.Exit(1)
 
     failed = sum(1 for r in results if r.error)

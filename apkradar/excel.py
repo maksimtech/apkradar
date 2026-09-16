@@ -9,6 +9,26 @@ from typing import Optional
 from dataclasses import dataclass
 
 
+# Leading characters that spreadsheet apps interpret as a formula
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _write_cell(ws, row: int, column: int, value):
+    """
+    Write a value to a cell without letting strings become formulas.
+
+    Strings are always stored as text. Strings starting with a formula
+    prefix also get quotePrefix (Excel's leading apostrophe), so they stay
+    text even if the cell is edited or the sheet is exported to CSV.
+    """
+    cell = ws.cell(row=row, column=column, value=value)
+    if isinstance(value, str):
+        cell.data_type = "s"
+        if value.startswith(FORMULA_PREFIXES):
+            cell.quotePrefix = True
+    return cell
+
+
 @dataclass
 class ExcelRow:
     row_number: int
@@ -139,7 +159,7 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
                 tracker_names,
             ]
             for col_idx, value in enumerate(values, last_col):
-                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell = _write_cell(ws, row_idx, col_idx, value)
                 if col_idx == last_col + 1:  # Grade column
                     color = grade_colors.get(result.score_label, "FFFFFF")
                     cell.fill = PatternFill(fill_type="solid", fgColor=color)
@@ -162,7 +182,7 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
                 result.sha256[:16] + "..." if result.sha256 else "",
             ]
             for col_idx, value in enumerate(values, 1):
-                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell = _write_cell(ws, row_idx, col_idx, value)
                 if col_idx == 6:  # Grade column
                     color = grade_colors.get(result.score_label, "FFFFFF")
                     cell.fill = PatternFill(fill_type="solid", fgColor=color)
