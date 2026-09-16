@@ -76,13 +76,37 @@ def _print_result(result) -> None:
     console.print()
 
 
-def _check_ssl(domain: str) -> tuple[bool, str | None]:
+# OpenSSL X509_V_ERR_* codes → SSL status
+_SSL_VERIFY_STATUS = {
+    10: "expired",            # CERT_HAS_EXPIRED
+    62: "hostname_mismatch",  # HOSTNAME_MISMATCH
+    18: "self_signed",        # DEPTH_ZERO_SELF_SIGNED_CERT
+    19: "self_signed",        # SELF_SIGNED_CERT_IN_CHAIN
+    2: "unknown_ca",          # UNABLE_TO_GET_ISSUER_CERT
+    20: "unknown_ca",         # UNABLE_TO_GET_ISSUER_CERT_LOCALLY
+    21: "unknown_ca",         # UNABLE_TO_VERIFY_LEAF_SIGNATURE
+}
+
+_SSL_STATUS_TEXT = {
+    "expired": "[red]EXPIRED[/red]",
+    "hostname_mismatch": "[yellow]hostname mismatch[/yellow]",
+    "self_signed": "[red]self-signed certificate[/red]",
+    "unknown_ca": "[red]unknown certificate authority[/red]",
+    "invalid": "[yellow]certificate verification failed[/yellow]",
+    "timeout": "[dim]timeout[/dim]",
+    "error": "[dim]check failed[/dim]",
+}
+
+
+def _check_ssl(domain: str) -> tuple[str, str | None]:
     """
     Check SSL certificate validity.
     Enforces TLS 1.2 minimum.
 
     Returns:
-        Tuple of (ssl_expired, expiry_date_str)
+        Tuple of (status, expiry_date_str). Status is one of:
+        valid, expired, hostname_mismatch, self_signed, unknown_ca,
+        invalid, timeout, error. Expiry date is only set when valid.
     """
     try:
         context = ssl.create_default_context()
@@ -93,12 +117,20 @@ def _check_ssl(domain: str) -> tuple[bool, str | None]:
                 expire_date = datetime.strptime(
                     cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
                 ).replace(tzinfo=timezone.utc)
-                expired = expire_date < datetime.now(timezone.utc)
-                return expired, expire_date.strftime("%d/%m/%Y")
-    except ssl.SSLCertVerificationError:
-        return True, None
+                return "valid", expire_date.strftime("%d/%m/%Y")
+    except ssl.SSLCertVerificationError as e:
+        return _SSL_VERIFY_STATUS.get(getattr(e, "verify_code", None), "invalid"), None
+    except TimeoutError:
+        return "timeout", None
     except Exception:
-        return False, None
+        return "error", None
+
+
+def _ssl_status_text(status: str, expiry: str | None) -> str:
+    """Rich-formatted description of an SSL status."""
+    if status == "valid":
+        return f"[green]valid{f' until {expiry}' if expiry else ''}[/green]"
+    return _SSL_STATUS_TEXT.get(status, "[dim]check failed[/dim]")
 
 
 def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
@@ -133,13 +165,8 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> None:
     # SSL
     if verbose:
         console.print(f"  [dim]→ Checking SSL...[/dim]")
-    ssl_expired, ssl_expiry = _check_ssl(domain)
-    if ssl_expired:
-        console.print(f"  🔒 SSL: [red]EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
-    elif ssl_expiry:
-        console.print(f"  🔒 SSL: [green]valid until {ssl_expiry}[/green]")
-    else:
-        console.print(f"  🔒 SSL: [dim]check failed[/dim]")
+    ssl_status, ssl_expiry = _check_ssl(domain)
+    console.print(f"  🔒 SSL: {_ssl_status_text(ssl_status, ssl_expiry)}")
 
     # CookieRadar
     if verbose:
@@ -187,6 +214,9 @@ def audit(
 
     _print_result(result)
 
+    if result.error:
+        raise typer.Exit(1)
+
     if full and result.package_name:
         domains = get_all_domains(result)
 
@@ -221,6 +251,7 @@ def batch(
 
     console.print(f"\n[dim]Loaded {len(paths)} APKs from {file}[/dim]\n")
 
+    failed = 0
     for path in paths:
         console.print(f"[cyan]Auditing {path}...[/cyan]")
         result = scan(path)
@@ -229,8 +260,13 @@ def batch(
                  "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
         console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers, {result.sensitive_permission_count} sensitive permissions")
         if result.error:
+            failed += 1
             console.print(f"  [red]❌ {result.error}[/red]")
         console.print()
+
+    if failed:
+        console.print(f"[red]❌ {failed}/{len(paths)} scans failed[/red]")
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -321,11 +357,18 @@ def send(
 
     _print_result(result)
 
+    if result.error:
+        console.print(
+            "[red]❌ Scan failed — DPO letter not sent. "
+            "A letter can only be based on a successful audit.[/red]"
+        )
+        raise typer.Exit(1)
+
     domain = package_to_domain(result.package_name) or ""
 
     mail_score = None
     mail_grade = None
-    ssl_expired = False
+    ssl_status = None
     ssl_expiry = None
 
     if domain:
@@ -335,11 +378,8 @@ def send(
             console.print(f"📡 MailRadar — {domain}: {mail_score}/100 — {mail_grade}")
 
         console.print(f"[dim]Checking SSL on {domain}...[/dim]")
-        ssl_expired, ssl_expiry = _check_ssl(domain)
-        if ssl_expired:
-            console.print(f"[red]⚠️  SSL EXPIRED{f' on {ssl_expiry}' if ssl_expiry else ''}[/red]")
-        else:
-            console.print(f"[green]✅ SSL valid{f' until {ssl_expiry}' if ssl_expiry else ''}[/green]")
+        ssl_status, ssl_expiry = _check_ssl(domain)
+        console.print(f"🔒 SSL {_ssl_status_text(ssl_status, ssl_expiry)}")
 
     if noyb_id:
         noyb = True
@@ -353,7 +393,7 @@ def send(
         sender_email=from_email,
         mail_score=mail_score,
         mail_grade=mail_grade,
-        ssl_expired=ssl_expired,
+        ssl_status=ssl_status,
         ssl_expiry=ssl_expiry,
         noyb_id=noyb_id,
         noyb=noyb,
@@ -465,4 +505,9 @@ def batch_excel(
         console.print(f"[green]✅ Report saved to {out_path}[/green]")
     except Exception as e:
         console.print(f"[red]❌ Error writing Excel: {e}[/red]")
+        raise typer.Exit(1)
+
+    failed = sum(1 for r in results if r.error)
+    if failed:
+        console.print(f"[red]❌ {failed}/{len(results)} apps could not be audited[/red]")
         raise typer.Exit(1)

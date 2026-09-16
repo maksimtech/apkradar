@@ -39,7 +39,7 @@ class TestAuditFullFlag(unittest.TestCase):
         self.assertNotIn("Full stack analysis", result.output)
 
     @patch("asyncio.run", side_effect=Exception("no browser"))
-    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_ssl", return_value=("error", None))
     @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
     def test_full_shows_publisher_domain(self, mock_scan, mock_mail, mock_ssl, mock_run):
@@ -49,7 +49,7 @@ class TestAuditFullFlag(unittest.TestCase):
         self.assertIn("scopely.com", result.output)
 
     @patch("asyncio.run", side_effect=Exception("error"))
-    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_ssl", return_value=("error", None))
     @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
     def test_full_no_network(self, mock_scan, mock_mail, mock_ssl, mock_run):
@@ -58,7 +58,7 @@ class TestAuditFullFlag(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     @patch("asyncio.run")
-    @patch("apkradar.cli._check_ssl", return_value=(False, None))
+    @patch("apkradar.cli._check_ssl", return_value=("error", None))
     @patch("apkradar.cli._check_mailradar", return_value=(None, None))
     @patch("apkradar.scanner.scan")
     def test_full_cookieradar_no_violation(self, mock_scan, mock_mail, mock_ssl, mock_run):
@@ -68,7 +68,7 @@ class TestAuditFullFlag(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     @patch("asyncio.run", side_effect=Exception("no browser"))
-    @patch("apkradar.cli._check_ssl", return_value=(True, "08/04/2026"))
+    @patch("apkradar.cli._check_ssl", return_value=("expired", None))
     @patch("apkradar.cli._check_mailradar", return_value=(20, "CRITICAL"))
     @patch("apkradar.scanner.scan")
     def test_full_ssl_expired(self, mock_scan, mock_mail, mock_ssl, mock_run):

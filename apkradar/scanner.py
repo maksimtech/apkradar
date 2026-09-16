@@ -151,7 +151,9 @@ class ScanResult:
 
     @property
     def score(self) -> int:
-        """Compliance score 0-100. Higher is better."""
+        """Compliance score 0-100. Higher is better. A failed scan scores 0."""
+        if self.error:
+            return 0
         score = 100
         score -= self.tracker_count * 10
         score -= self.sensitive_permission_count * 5
@@ -171,6 +173,11 @@ class ScanResult:
 
 
 # ─── Scanner ──────────────────────────────────────────────────────────────────
+
+def _in_package(name: str, package: str) -> bool:
+    """True if name is package itself or lives under it (segment-aware prefix)."""
+    return name == package or name.startswith(package + ".")
+
 
 def scan(apk_path: str) -> ScanResult:
     """
@@ -246,39 +253,28 @@ def scan(apk_path: str) -> ScanResult:
                 )
 
         # Scan declared components for trackers
-        declared_packages = set()
-        for item in (
-            apk.get_providers()
-            + apk.get_services()
-            + apk.get_receivers()
-            + apk.get_activities()
-        ):
-            if item:
-                pkg = ".".join(item.split(".")[:4])
-                declared_packages.add(pkg)
-                declared_packages.add(".".join(item.split(".")[:3]))
+        components = {
+            item
+            for item in (
+                apk.get_providers()
+                + apk.get_services()
+                + apk.get_receivers()
+                + apk.get_activities()
+            )
+            if item
+        }
 
         # Match against tracker signatures
-        found_trackers = set()
         for sig, name in TRACKER_SIGNATURES.items():
-            for pkg in declared_packages:
-                if sig in pkg or pkg in sig:
-                    if name not in found_trackers:
-                        found_trackers.add(name)
-                        result.trackers.append(
-                            TrackerFound(package=sig, name=name)
-                        )
+            if any(_in_package(c, sig) for c in components):
+                result.trackers.append(TrackerFound(package=sig, name=name))
 
         # Check extra-EU transfers
-        found_transfers = set()
         for prefix, entity in EXTRA_EU_TRANSFERS.items():
-            for pkg in declared_packages:
-                if pkg.startswith(prefix):
-                    if entity not in found_transfers:
-                        found_transfers.add(entity)
-                        result.extra_eu_transfers.append(
-                            TransferFound(package_prefix=prefix, entity=entity)
-                        )
+            if any(_in_package(c, prefix) for c in components):
+                result.extra_eu_transfers.append(
+                    TransferFound(package_prefix=prefix, entity=entity)
+                )
 
     except Exception as e:
         result.error = str(e)

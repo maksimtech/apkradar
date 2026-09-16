@@ -5,6 +5,7 @@ Generates and sends GDPR DPO letters based on APK audit results.
 from __future__ import annotations
 
 import smtplib
+import ssl
 import getpass
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -13,6 +14,13 @@ from pathlib import Path
 from typing import Optional
 
 from apkradar.scanner import ScanResult
+
+# MailRadar scores below this are reported as inadequate technical measures
+MAIL_SCORE_POOR_THRESHOLD = 60
+
+# SSL statuses stated as issues in the letter. hostname_mismatch is excluded:
+# the publisher domain is inferred from the package name and may be wrong.
+SSL_LETTER_ISSUES = {"expired", "self_signed", "unknown_ca"}
 
 
 def render_letter(
@@ -24,7 +32,7 @@ def render_letter(
     sender_email: str,
     mail_score: Optional[int] = None,
     mail_grade: Optional[str] = None,
-    ssl_expired: bool = False,
+    ssl_status: Optional[str] = None,
     ssl_expiry: Optional[str] = None,
     noyb_id: Optional[str] = None,
     noyb: bool = False,
@@ -42,7 +50,9 @@ def render_letter(
         sender_email: Sender email
         mail_score: MailRadar score (optional)
         mail_grade: MailRadar grade (optional)
-        ssl_expired: Whether SSL certificate is expired
+        ssl_status: SSL check status (valid, expired, self_signed, unknown_ca,
+            hostname_mismatch, invalid, timeout, error). Only expired,
+            self_signed and unknown_ca are reported as issues in the letter.
         ssl_expiry: SSL expiry date string (optional)
         noyb_id: NOYB supporter ID e.g. '7645' (optional)
         noyb: Include NOYB reference without membership ID
@@ -75,7 +85,9 @@ def render_letter(
         sender_email=sender_email,
         mail_score=mail_score,
         mail_grade=mail_grade,
-        ssl_expired=ssl_expired,
+        mail_poor=mail_score is not None and mail_score < MAIL_SCORE_POOR_THRESHOLD,
+        ssl_status=ssl_status,
+        ssl_issue=ssl_status in SSL_LETTER_ISSUES,
         ssl_expiry=ssl_expiry,
         noyb_id=noyb_id,
         noyb=noyb,
@@ -109,14 +121,17 @@ def send_letter(
     msg["Subject"] = subject
     msg.attach(MIMEText(letter, "plain", "utf-8"))
 
+    # Verify server certificate and hostname before sending credentials
+    context = ssl.create_default_context()
+
     try:
         if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context) as server:
                 server.login(smtp_user, smtp_password)
                 server.send_message(msg)
         else:
             with smtplib.SMTP(smtp_host, smtp_port) as server:
-                server.starttls()
+                server.starttls(context=context)
                 server.login(smtp_user, smtp_password)
                 server.send_message(msg)
         return True

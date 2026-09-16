@@ -145,6 +145,84 @@ class TestExtraEUTransfers(unittest.TestCase):
         self.assertIn("com.baidu", EXTRA_EU_TRANSFERS)
 
 
+def _scan_with_components(components):
+    """Run scan() on a fake .apk whose manifest declares the given components."""
+    import os
+    import tempfile
+    from unittest.mock import MagicMock, patch
+
+    apk = MagicMock()
+    apk.get_package.return_value = "com.example.app"
+    apk.get_app_name.return_value = "Example"
+    apk.get_androidversion_name.return_value = "1.0"
+    apk.get_androidversion_code.return_value = "1"
+    apk.get_min_sdk_version.return_value = "21"
+    apk.get_target_sdk_version.return_value = "34"
+    apk.get_permissions.return_value = []
+    apk.get_providers.return_value = []
+    apk.get_services.return_value = []
+    apk.get_receivers.return_value = []
+    apk.get_activities.return_value = list(components)
+
+    with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as f:
+        f.write(b"fake")
+        tmp = f.name
+    try:
+        with patch("androguard.core.apk.APK", return_value=apk):
+            return scan(tmp)
+    finally:
+        os.unlink(tmp)
+
+
+class TestTrackerMatching(unittest.TestCase):
+    """Tests for tracker/transfer matching against declared components."""
+
+    def _tracker_names(self, components):
+        result = _scan_with_components(components)
+        self.assertIsNone(result.error)
+        return {t.name for t in result.trackers}
+
+    def test_real_tracker_detected(self):
+        names = self._tracker_names(["com.appsflyer.SingleInstallBroadcastReceiver"])
+        self.assertEqual(names, {"AppsFlyer"})
+
+    def test_long_signature_detected(self):
+        """Signatures longer than 4 segments must still match."""
+        names = self._tracker_names(["com.google.android.gms.analytics.AnalyticsService"])
+        self.assertEqual(names, {"Google Analytics"})
+
+    def test_similar_prefix_not_matched(self):
+        """com.nielsenhomes must not match Nielsen."""
+        names = self._tracker_names(["com.nielsenhomes.app.MainActivity"])
+        self.assertNotIn("Nielsen", names)
+
+    def test_short_component_not_matched(self):
+        """com.a must not match AppsFlyer/AppLovin/Adjust/Amplitude/AdColony."""
+        names = self._tracker_names(["com.a"])
+        self.assertEqual(names, set())
+
+    def test_google_play_services_not_analytics_or_ads(self):
+        """GoogleApiActivity is not Google Analytics nor Google Ads."""
+        names = self._tracker_names(["com.google.android.gms.common.api.GoogleApiActivity"])
+        self.assertEqual(names, set())
+
+    def test_firebase_messaging_not_analytics(self):
+        names = self._tracker_names(["com.google.firebase.messaging.FirebaseMessagingService"])
+        self.assertNotIn("Firebase Analytics", names)
+
+    def test_transfer_similar_prefix_not_matched(self):
+        """com.adjustable must not match Adjust transfer."""
+        result = _scan_with_components(["com.adjustable.x.Main"])
+        self.assertEqual(result.extra_eu_transfers, [])
+
+    def test_transfer_detected(self):
+        result = _scan_with_components(["com.facebook.ads.AudienceNetworkActivity"])
+        self.assertEqual(
+            [t.entity for t in result.extra_eu_transfers],
+            ["Meta Platforms Inc. (USA)"],
+        )
+
+
 class TestScanFileNotFound(unittest.TestCase):
     """Tests for scan() with missing file."""
 
@@ -156,9 +234,45 @@ class TestScanFileNotFound(unittest.TestCase):
         result = scan("/nonexistent/app.apk")
         self.assertEqual(result.apk_path, "/nonexistent/app.apk")
 
-    def test_scan_missing_file_score_100(self):
+    def test_scan_missing_file_score_0_critical(self):
         result = scan("/nonexistent/app.apk")
-        self.assertEqual(result.score, 100)
+        self.assertEqual(result.score, 0)
+        self.assertEqual(result.score_label, "CRITICAL")
+
+
+class TestFailedScanScore(unittest.TestCase):
+    """A failed scan must never look compliant."""
+
+    def test_unknown_format_score_0_critical(self):
+        result = scan("notes.txt")
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.score, 0)
+        self.assertEqual(result.score_label, "CRITICAL")
+
+    def test_missing_bundle_score_0_critical(self):
+        result = scan("/nonexistent/app.xapk")
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.score, 0)
+        self.assertEqual(result.score_label, "CRITICAL")
+
+    def test_corrupted_apk_score_0_critical(self):
+        import os
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as f:
+            f.write(b"PK\x05\x06" + b"\x00" * 18)  # empty zip, no manifest
+            tmp = f.name
+        try:
+            result = scan(tmp)
+        finally:
+            os.unlink(tmp)
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.score, 0)
+        self.assertEqual(result.score_label, "CRITICAL")
+
+    def test_error_overrides_findings(self):
+        result = ScanResult(apk_path="test.apk", error="boom")
+        self.assertEqual(result.score, 0)
+        self.assertEqual(result.score_label, "CRITICAL")
 
 
 if __name__ == "__main__":

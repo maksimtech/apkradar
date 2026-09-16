@@ -32,7 +32,46 @@ class TestCLI(unittest.TestCase):
 
     def test_audit_missing_apk(self):
         result = self.runner.invoke(app, ["audit", "nonexistent.apk"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("CRITICAL", result.output)
+        self.assertNotIn("GOOD", result.output)
+
+    def test_audit_unknown_format_exit_1(self):
+        result = self.runner.invoke(app, ["audit", "notes.txt"])
+        self.assertEqual(result.exit_code, 1)
+
+    def test_audit_success_exit_0(self):
+        ok = ScanResult(apk_path="test.apk", package_name="com.example.app", sha256="a" * 64)
+        with patch("apkradar.scanner.scan", return_value=ok):
+            result = self.runner.invoke(app, ["audit", "test.apk"])
         self.assertEqual(result.exit_code, 0)
+
+    def test_batch_continues_after_failure_then_exit_1(self):
+        ok = ScanResult(apk_path="good.apk", package_name="com.example.app")
+        bad = ScanResult(apk_path="bad.apk", error="File not found: bad.apk")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("bad.apk\ngood.apk\n")
+            tmp = f.name
+        try:
+            with patch("apkradar.scanner.scan", side_effect=[bad, ok]) as mock_scan:
+                result = self.runner.invoke(app, ["batch", tmp])
+            self.assertEqual(mock_scan.call_count, 2)
+            self.assertEqual(result.exit_code, 1)
+            self.assertIn("🔴 CRITICAL — 0/100", result.output)
+        finally:
+            os.unlink(tmp)
+
+    def test_batch_all_ok_exit_0(self):
+        ok = ScanResult(apk_path="good.apk", package_name="com.example.app")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("good.apk\n")
+            tmp = f.name
+        try:
+            with patch("apkradar.scanner.scan", return_value=ok):
+                result = self.runner.invoke(app, ["batch", tmp])
+            self.assertEqual(result.exit_code, 0)
+        finally:
+            os.unlink(tmp)
 
     def test_batch_missing_file(self):
         result = self.runner.invoke(app, ["batch", "nonexistent.txt"])
@@ -64,7 +103,7 @@ class TestCLI(unittest.TestCase):
             tmp = f.name
         try:
             result = self.runner.invoke(app, ["batch", tmp])
-            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.exit_code, 1)
         finally:
             os.unlink(tmp)
 
@@ -74,7 +113,7 @@ class TestCLI(unittest.TestCase):
             tmp = f.name
         try:
             result = self.runner.invoke(app, ["batch", tmp])
-            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.exit_code, 1)
             self.assertIn("❌", result.output)
         finally:
             os.unlink(tmp)
@@ -152,7 +191,7 @@ class TestBatchErrorPath(unittest.TestCase):
             tmp = f.name
         try:
             result = self.runner.invoke(app, ["batch", tmp])
-            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.exit_code, 1)
         finally:
             os.unlink(tmp)
 

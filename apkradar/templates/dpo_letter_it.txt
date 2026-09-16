@@ -42,13 +42,19 @@ Non sono stati rilevati trasferimenti di dati extra-UE noti.
 {% endif %}
 
 4. MISURE TECNICHE — art. 32 GDPR
-{% if mail_score %}
+{% if mail_poor %}
 L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}, indicando misure tecniche inadeguate per la protezione delle comunicazioni.
+{% elif mail_score is not none %}
+L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}.
 {% endif %}
-{% if ssl_expired %}
-Il certificato SSL del sito {{ publisher_domain }} risulta scaduto{% if ssl_expiry %} (scaduto il {{ ssl_expiry }}){% endif %}, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+{% if ssl_status == "expired" %}
+Il certificato SSL del sito {{ publisher_domain }} risulta scaduto, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+{% elif ssl_status == "self_signed" %}
+Il certificato SSL del sito {{ publisher_domain }} è autofirmato e non verificabile dagli utenti, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
+{% elif ssl_status == "unknown_ca" %}
+Il certificato SSL del sito {{ publisher_domain }} è emesso da un'autorità di certificazione non riconosciuta, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
 {% endif %}
-{% if not mail_score and not ssl_expired %}
+{% if not mail_poor and not ssl_issue %}
 Non sono state rilevate criticità nelle misure tecniche del publisher.
 {% endif %}
 

@@ -229,10 +229,50 @@ class TestBatchExcelCommand(unittest.TestCase):
                     package_name="com.example.app",
                     apk_path="",
                 )]
-                with patch("apkradar.excel.write_results"):
+                with patch("apkradar.excel.write_results") as mock_write:
                     result = self.runner.invoke(app, ["batch-excel", tmp_in, "--output", tmp_out])
-                    self.assertEqual(result.exit_code, 0)
+                    # Package-only rows are not audited → not a success
+                    self.assertEqual(result.exit_code, 1)
+                    mock_write.assert_called_once()
         finally:
             os.unlink(tmp_in)
             if os.path.exists(tmp_out):
                 os.unlink(tmp_out)
+
+    def _run_batch_excel(self, scan_results):
+        import openpyxl, tempfile, os
+        from unittest.mock import patch
+        from apkradar.cli import app
+        from apkradar.excel import ExcelRow
+        rows = [
+            ExcelRow(row_number=i + 2, app_name="", package_name="", apk_path=r.apk_path)
+            for i, r in enumerate(scan_results)
+        ]
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            tmp_in = f.name
+        tmp_out = tmp_in.replace(".xlsx", "_out.xlsx")
+        try:
+            with patch("apkradar.excel.read_apk_list", return_value=rows), \
+                 patch("apkradar.scanner.scan", side_effect=scan_results) as mock_scan, \
+                 patch("apkradar.excel.write_results") as mock_write:
+                result = self.runner.invoke(app, ["batch-excel", tmp_in, "--output", tmp_out])
+            return result, mock_scan, mock_write
+        finally:
+            os.unlink(tmp_in)
+
+    def test_batch_excel_failed_scan_exit_1_report_still_written(self):
+        from apkradar.scanner import ScanResult
+        bad = ScanResult(apk_path="missing.apk", error="File not found: missing.apk")
+        ok = ScanResult(apk_path="ok.apk", package_name="com.example.app")
+        result, mock_scan, mock_write = self._run_batch_excel([bad, ok])
+        self.assertEqual(mock_scan.call_count, 2)
+        mock_write.assert_called_once()
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("🔴 CRITICAL — 0/100", result.output)
+
+    def test_batch_excel_all_ok_exit_0(self):
+        from apkradar.scanner import ScanResult
+        ok = ScanResult(apk_path="ok.apk", package_name="com.example.app")
+        result, _, mock_write = self._run_batch_excel([ok])
+        mock_write.assert_called_once()
+        self.assertEqual(result.exit_code, 0)
