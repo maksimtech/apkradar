@@ -151,7 +151,7 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
         for row_idx, result in enumerate(results, 2):
             tracker_names = ", ".join(t.name for t in result.trackers)
             values = [
-                result.score,
+                "" if result.skipped else result.score,
                 result.score_label,
                 result.tracker_count,
                 result.sensitive_permission_count,
@@ -173,7 +173,7 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
                 result.package_name,
                 result.apk_format.upper(),
                 result.version_name,
-                result.score,
+                "" if result.skipped else result.score,
                 result.score_label,
                 result.tracker_count,
                 result.sensitive_permission_count,

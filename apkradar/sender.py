@@ -33,7 +33,6 @@ def render_letter(
     mail_score: Optional[int] = None,
     mail_grade: Optional[str] = None,
     ssl_status: Optional[str] = None,
-    ssl_expiry: Optional[str] = None,
     noyb_id: Optional[str] = None,
     noyb: bool = False,
     lang: str = "it",
@@ -53,7 +52,6 @@ def render_letter(
         ssl_status: SSL check status (valid, expired, self_signed, unknown_ca,
             hostname_mismatch, invalid, timeout, error). Only expired,
             self_signed and unknown_ca are reported as issues in the letter.
-        ssl_expiry: SSL expiry date string (optional)
         noyb_id: NOYB supporter ID e.g. '7645' (optional)
         noyb: Include NOYB reference without membership ID
         lang: Language (it/en)
@@ -88,7 +86,6 @@ def render_letter(
         mail_poor=mail_score is not None and mail_score < MAIL_SCORE_POOR_THRESHOLD,
         ssl_status=ssl_status,
         ssl_issue=ssl_status in SSL_LETTER_ISSUES,
-        ssl_expiry=ssl_expiry,
         noyb_id=noyb_id,
         noyb=noyb,
         date=datetime.now().strftime("%d/%m/%Y"),

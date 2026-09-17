@@ -127,7 +127,6 @@ class TestRenderLetter(unittest.TestCase):
             sender_org="",
             sender_email="test@example.com",
             ssl_status="expired",
-            ssl_expiry="08/04/2026",
         )
         self.assertIn("scaduto", letter.lower())
 
@@ -309,7 +308,7 @@ class TestRenderLetterSsl(unittest.TestCase):
 
     NO_ISSUES = "Non sono state rilevate criticità"
 
-    def _render(self, ssl_status, ssl_expiry=None):
+    def _render(self, ssl_status):
         return render_letter(
             result=_make_result(),
             publisher="WONE SAGL",
@@ -318,7 +317,6 @@ class TestRenderLetterSsl(unittest.TestCase):
             sender_org="",
             sender_email="test@example.com",
             ssl_status=ssl_status,
-            ssl_expiry=ssl_expiry,
         )
 
     def test_expired(self):
@@ -647,3 +645,18 @@ class TestSendCommand(unittest.TestCase):
             "--name", "Test User",
         ], input="password\n")
         self.assertNotEqual(result.exit_code, 0)
+
+
+class TestRenderLetterSignature(unittest.TestCase):
+    """ssl_expiry is not used by the letter: the template only reads ssl_status."""
+
+    def test_ssl_expiry_not_a_parameter(self):
+        import inspect
+        from apkradar.sender import render_letter
+        self.assertNotIn("ssl_expiry", inspect.signature(render_letter).parameters)
+
+    def test_template_does_not_reference_ssl_expiry(self):
+        from pathlib import Path
+        import apkradar
+        template = Path(apkradar.__file__).parent / "templates" / "dpo_letter_it.txt"
+        self.assertNotIn("ssl_expiry", template.read_text(encoding="utf-8"))

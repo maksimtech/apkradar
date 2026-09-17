@@ -6,6 +6,7 @@ Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
 from __future__ import annotations
 
 import hashlib
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,7 @@ from typing import Optional
 TRACKER_SIGNATURES = {
     "com.google.android.gms.analytics": "Google Analytics",
     "com.google.firebase.analytics": "Firebase Analytics",
+    "com.google.android.gms.measurement": "Firebase Analytics",
     "com.google.android.gms.ads": "Google Ads",
     "com.facebook.appevents": "Facebook App Events",
     "com.facebook.ads": "Facebook Audience Network",
@@ -140,6 +142,7 @@ class ScanResult:
     sensitive_permissions: list[PermissionFound] = field(default_factory=list)
     extra_eu_transfers: list[TransferFound] = field(default_factory=list)
     error: Optional[str] = None
+    skipped: bool = False
 
     @property
     def tracker_count(self) -> int:
@@ -152,7 +155,7 @@ class ScanResult:
     @property
     def score(self) -> int:
         """Compliance score 0-100. Higher is better. A failed scan scores 0."""
-        if self.error:
+        if self.error or self.skipped:
             return 0
         score = 100
         score -= self.tracker_count * 10
@@ -162,6 +165,8 @@ class ScanResult:
 
     @property
     def score_label(self) -> str:
+        if self.skipped:
+            return "SKIPPED"
         if self.score >= 80:
             return "GOOD"
         elif self.score >= 60:
@@ -177,6 +182,54 @@ class ScanResult:
 def _in_package(name: str, package: str) -> bool:
     """True if name is package itself or lives under it (segment-aware prefix)."""
     return name == package or name.startswith(package + ".")
+
+
+# Read DEX files in chunks so a large one never lands in memory in full
+DEX_CHUNK_SIZE = 4 * 1024 * 1024
+
+
+def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
+    """
+    Find which of the given packages have classes in the APK's DEX files.
+
+    Many SDKs (Firebase Analytics, AppsFlyer, Facebook App Events) declare no
+    manifest component at all, so the manifest alone cannot detect them. DEX
+    files store class names as descriptors like `Lcom/appsflyer/AFLogger;`,
+    which is what this searches for. Matching the trailing slash keeps
+    `com.appsflyerish` from matching `com.appsflyer`.
+
+    Returns:
+        The subset of packages found. Unreadable APKs yield whatever was
+        matched so far — a scan is never failed because of this.
+    """
+    patterns = {p: b"L" + p.replace(".", "/").encode() + b"/" for p in packages}
+    if not patterns:
+        return set()
+
+    overlap = max(len(pat) for pat in patterns.values()) - 1
+    found: set[str] = set()
+
+    try:
+        with zipfile.ZipFile(apk_path) as z:
+            dex_names = [n for n in z.namelist() if n.endswith(".dex")]
+            for name in dex_names:
+                if not patterns:
+                    break
+                with z.open(name) as fh:
+                    tail = b""
+                    while patterns:
+                        chunk = fh.read(DEX_CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        buf = tail + chunk
+                        for pkg in [p for p, pat in patterns.items() if pat in buf]:
+                            found.add(pkg)
+                            del patterns[pkg]
+                        tail = buf[-overlap:] if overlap else b""
+    except Exception:
+        pass
+
+    return found
 
 
 def scan(apk_path: str) -> ScanResult:
@@ -264,14 +317,28 @@ def scan(apk_path: str) -> ScanResult:
             if item
         }
 
-        # Match against tracker signatures
+        # Match against tracker signatures, in the manifest first
+        matched = {
+            sig for sig in TRACKER_SIGNATURES
+            if any(_in_package(c, sig) for c in components)
+        }
+
+        # Then in the DEX, for the SDKs the manifest did not reveal
+        matched |= _packages_in_dex(str(path), set(TRACKER_SIGNATURES) - matched)
+
+        # One entry per SDK: several signatures can name the same one
+        seen_trackers = set()
         for sig, name in TRACKER_SIGNATURES.items():
-            if any(_in_package(c, sig) for c in components):
+            if sig in matched and name not in seen_trackers:
+                seen_trackers.add(name)
                 result.trackers.append(TrackerFound(package=sig, name=name))
 
-        # Check extra-EU transfers
+        # Check extra-EU transfers: declared components, or the vendor of a
+        # detected SDK (DEX-detected SDKs have no component to match against)
         for prefix, entity in EXTRA_EU_TRANSFERS.items():
-            if any(_in_package(c, prefix) for c in components):
+            if any(_in_package(c, prefix) for c in components) or any(
+                _in_package(sig, prefix) for sig in matched
+            ):
                 result.extra_eu_transfers.append(
                     TransferFound(package_prefix=prefix, entity=entity)
                 )
