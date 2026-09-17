@@ -1,0 +1,110 @@
+{
+  "_source": "Generated from the official SDK artifacts published on dl.google.com/dl/android/maven2 and repo1.maven.org. Component names come from each AAR's AndroidManifest.xml, class names from its classes.jar.",
+  "sdks": {
+    "firebase_analytics": {
+      "artifact": "com.google.android.gms:play-services-measurement-api:22.1.2",
+      "manifest_components": [
+        "com.google.firebase.components.ComponentDiscoveryService"
+      ],
+      "classes": [
+        "com.google.firebase.analytics.AnalyticsKt",
+        "com.google.firebase.analytics.ConsentBuilder",
+        "com.google.firebase.analytics.FirebaseAnalytics",
+        "com.google.firebase.analytics.GoogleAnalyticsServerPreviewActivity",
+        "com.google.firebase.analytics.ParametersBuilder"
+      ],
+      "total_classes_in_artifact": 31
+    },
+    "firebase_measurement": {
+      "artifact": "com.google.android.gms:play-services-measurement:22.1.2",
+      "manifest_components": [
+        "com.google.android.gms.measurement.AppMeasurementJobService",
+        "com.google.android.gms.measurement.AppMeasurementReceiver",
+        "com.google.android.gms.measurement.AppMeasurementService"
+      ],
+      "classes": [
+        "com.google.android.gms.measurement.AppMeasurementJobService",
+        "com.google.android.gms.measurement.AppMeasurementReceiver",
+        "com.google.android.gms.measurement.AppMeasurementService",
+        "com.google.android.gms.measurement.internal.zzaa",
+        "com.google.android.gms.measurement.internal.zzah"
+      ],
+      "total_classes_in_artifact": 275
+    },
+    "appsflyer": {
+      "artifact": "com.appsflyer:af-android-sdk:6.14.0",
+      "manifest_components": [],
+      "classes": [
+        "com.appsflyer.AFInAppEventParameterName",
+        "com.appsflyer.AFInAppEventType",
+        "com.appsflyer.AFKeystoreWrapper",
+        "com.appsflyer.AFLogger",
+        "com.appsflyer.AFPurchaseDetails"
+      ],
+      "total_classes_in_artifact": 365
+    },
+    "facebook_appevents": {
+      "artifact": "com.facebook.android:facebook-core:17.0.0",
+      "manifest_components": [
+        "com.facebook.AuthenticationTokenManager$CurrentAuthenticationTokenChangedBroadcastReceiver",
+        "com.facebook.CurrentAccessTokenExpirationBroadcastReceiver",
+        "com.facebook.internal.FacebookInitProvider"
+      ],
+      "classes": [
+        "com.facebook.appevents.AccessTokenAppIdPair",
+        "com.facebook.appevents.AnalyticsUserIDStore",
+        "com.facebook.appevents.AppEvent",
+        "com.facebook.appevents.AppEventCollection",
+        "com.facebook.appevents.AppEventDiskStore"
+      ],
+      "total_classes_in_artifact": 407
+    },
+    "crashlytics": {
+      "artifact": "com.google.firebase:firebase-crashlytics:19.2.1",
+      "manifest_components": [
+        "com.google.firebase.components.ComponentDiscoveryService"
+      ],
+      "classes": [
+        "com.google.firebase.crashlytics.AnalyticsDeferredProxy",
+        "com.google.firebase.crashlytics.BuildConfig",
+        "com.google.firebase.crashlytics.CrashlyticsAnalyticsListener",
+        "com.google.firebase.crashlytics.CrashlyticsRegistrar",
+        "com.google.firebase.crashlytics.CustomKeysAndValues"
+      ],
+      "total_classes_in_artifact": 313
+    },
+    "admob": {
+      "artifact": "com.google.android.gms:play-services-ads-lite:23.5.0",
+      "manifest_components": [
+        "com.google.android.gms.ads.AdActivity",
+        "com.google.android.gms.ads.AdService",
+        "com.google.android.gms.ads.MobileAdsInitProvider",
+        "com.google.android.gms.ads.NotificationHandlerActivity",
+        "com.google.android.gms.ads.OutOfContextTestingActivity"
+      ],
+      "classes": [
+        "com.google.android.gms.ads.AbstractAdRequestBuilder",
+        "com.google.android.gms.ads.AdActivity",
+        "com.google.android.gms.ads.AdError",
+        "com.google.android.gms.ads.AdFormat",
+        "com.google.android.gms.ads.AdInspectorError"
+      ],
+      "total_classes_in_artifact": 993
+    },
+    "firebase_common": {
+      "artifact": "com.google.firebase:firebase-common:21.0.0",
+      "manifest_components": [
+        "com.google.firebase.components.ComponentDiscoveryService",
+        "com.google.firebase.provider.FirebaseInitProvider"
+      ],
+      "classes": [
+        "com.google.firebase.AutoValue_StartupTime",
+        "com.google.firebase.BuildConfig",
+        "com.google.firebase.DataCollectionDefaultChange",
+        "com.google.firebase.Firebase",
+        "com.google.firebase.FirebaseApp"
+      ],
+      "total_classes_in_artifact": 93
+    }
+  }
+}

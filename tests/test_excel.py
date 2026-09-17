@@ -154,6 +154,70 @@ class TestWriteResults(unittest.TestCase):
                 os.unlink(output_tmp)
 
 
+class TestSkippedRows(unittest.TestCase):
+    """Rows with only a package name are reported as skipped."""
+
+    def setUp(self):
+        from typer.testing import CliRunner
+        self.runner = CliRunner()
+
+    def _run(self, rows, scan_results=()):
+        import tempfile, os
+        from unittest.mock import patch
+        from apkradar.cli import app
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            tmp = f.name
+        self.addCleanup(os.unlink, tmp)
+        with patch("apkradar.excel.read_apk_list", return_value=rows), \
+             patch("apkradar.scanner.scan", side_effect=list(scan_results)), \
+             patch("apkradar.excel.write_results") as mock_write:
+            result = self.runner.invoke(app, ["batch-excel", tmp, "--output", tmp + ".out.xlsx"])
+        return result, mock_write
+
+    @staticmethod
+    def _row(package_name="com.example.app", apk_path=""):
+        return ExcelRow(row_number=2, app_name="", package_name=package_name, apk_path=apk_path)
+
+    def test_package_only_exits_0(self):
+        result, _ = self._run([self._row()])
+        self.assertEqual(result.exit_code, 0)
+
+    def test_package_only_reported_as_skipped(self):
+        result, _ = self._run([self._row()])
+        self.assertIn("skipped", result.output.lower())
+        self.assertIn("no APK path", result.output)
+
+    def test_package_only_not_graded(self):
+        result, _ = self._run([self._row()])
+        self.assertNotIn("CRITICAL", result.output)
+        self.assertNotIn("GOOD", result.output)
+        self.assertNotIn("0/100", result.output)
+
+    def test_report_still_written(self):
+        _, mock_write = self._run([self._row()])
+        mock_write.assert_called_once()
+        results = mock_write.call_args.kwargs["results"]
+        self.assertTrue(results[0].skipped)
+
+    def test_failed_scan_alongside_skipped_exits_1(self):
+        rows = [self._row(), self._row(package_name="com.other.app", apk_path="missing.apk")]
+        failed = ScanResult(apk_path="missing.apk", error="File not found: missing.apk")
+        result, _ = self._run(rows, scan_results=[failed])
+        self.assertEqual(result.exit_code, 1)
+
+    def test_skipped_row_written_to_excel(self):
+        import openpyxl, tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            out = f.name
+        os.unlink(out)
+        self.addCleanup(lambda: os.path.exists(out) and os.unlink(out))
+        result = ScanResult(apk_path="com.example.app", package_name="com.example.app", skipped=True)
+        write_results([result], out)
+        ws = openpyxl.load_workbook(out).active
+        self.assertEqual(ws["F2"].value, "SKIPPED")   # Grade
+        self.assertIn(ws["E2"].value, (None, ""))     # Score left empty
+
+
 class TestFormulaInjection(unittest.TestCase):
     """Untrusted strings from APKs must never become Excel formulas."""
 
@@ -319,8 +383,8 @@ class TestBatchExcelCommand(unittest.TestCase):
                 )]
                 with patch("apkradar.excel.write_results") as mock_write:
                     result = self.runner.invoke(app, ["batch-excel", tmp_in, "--output", tmp_out])
-                    # Package-only rows are not audited → not a success
-                    self.assertEqual(result.exit_code, 1)
+                    # Package-only rows are skipped, not a failure
+                    self.assertEqual(result.exit_code, 0)
                     mock_write.assert_called_once()
         finally:
             os.unlink(tmp_in)

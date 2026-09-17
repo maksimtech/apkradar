@@ -240,6 +240,29 @@ class TestScanFileNotFound(unittest.TestCase):
         self.assertEqual(result.score_label, "CRITICAL")
 
 
+class TestSkippedResult(unittest.TestCase):
+    """A row that was never audited is neither compliant nor critical."""
+
+    def test_skipped_label(self):
+        result = ScanResult(apk_path="com.example.app", skipped=True)
+        self.assertEqual(result.score_label, "SKIPPED")
+
+    def test_skipped_is_not_good(self):
+        """Without a scan there are no findings, so the raw score would be 100."""
+        result = ScanResult(apk_path="com.example.app", skipped=True)
+        self.assertNotEqual(result.score_label, "GOOD")
+
+    def test_skipped_is_not_critical(self):
+        result = ScanResult(apk_path="com.example.app", skipped=True)
+        self.assertNotEqual(result.score_label, "CRITICAL")
+
+    def test_error_still_critical(self):
+        """Regression guard: a failed scan is still CRITICAL, not skipped."""
+        result = ScanResult(apk_path="a.apk", error="boom")
+        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertFalse(result.skipped)
+
+
 class TestFailedScanScore(unittest.TestCase):
     """A failed scan must never look compliant."""
 

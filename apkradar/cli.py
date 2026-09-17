@@ -395,7 +395,6 @@ def send(
         mail_score=mail_score,
         mail_grade=mail_grade,
         ssl_status=ssl_status,
-        ssl_expiry=ssl_expiry,
         noyb_id=noyb_id,
         noyb=noyb,
         lang=lang,
@@ -478,13 +477,16 @@ def batch_excel(
                 apk_path=row.package_name,
                 package_name=row.package_name,
                 app_name=row.app_name,
-                error="No APK path provided — package name only",
+                skipped=True,
             )
 
-        status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
-                 "🟠 POOR" if result.score_label == "POOR" else \
-                 "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
-        console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers")
+        if result.skipped:
+            console.print("  [dim]⏭️  SKIPPED — no APK path[/dim]")
+        else:
+            status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
+                     "🟠 POOR" if result.score_label == "POOR" else \
+                     "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
+            console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers")
         if result.error:
             console.print(f"  [red]❌ {escape(result.error)}[/red]")
 
@@ -507,6 +509,10 @@ def batch_excel(
     except Exception as e:
         console.print(f"[red]❌ Error writing Excel: {escape(str(e))}[/red]")
         raise typer.Exit(1)
+
+    skipped = sum(1 for r in results if r.skipped)
+    if skipped:
+        console.print(f"[dim]⏭️  {skipped}/{len(results)} skipped — no APK path[/dim]")
 
     failed = sum(1 for r in results if r.error)
     if failed:
