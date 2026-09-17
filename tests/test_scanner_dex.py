@@ -14,7 +14,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from apkradar.scanner import scan
+from apkradar.scanner import _packages_in_dex, scan
 
 FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "sdk_fixtures.json").read_text())["sdks"]
 
@@ -202,6 +202,34 @@ class TestDexScanRobustness(DexScanTestCase):
     def test_apk_without_dex(self):
         result = self.scan_app(components=FIXTURES["admob"]["manifest_components"])
         self.assertEqual(self.names(result), ["Google Ads"])
+
+
+class TestPackagesInDexHelper(unittest.TestCase):
+    """The DEX search should not do more work than needed."""
+
+    def test_nothing_to_look_for_reads_nothing(self):
+        """With no packages left to find, the APK is never opened."""
+        self.assertEqual(_packages_in_dex("/nonexistent/app.apk", set()), set())
+
+    def test_stops_reading_once_everything_is_found(self):
+        path = _make_apk({
+            "classes.dex": _dex_blob(FIXTURES["appsflyer"]["classes"]),
+            "classes2.dex": _dex_blob(FIXTURES["facebook_appevents"]["classes"]),
+        })
+        self.addCleanup(os.unlink, path)
+
+        opened = []
+        real_open = zipfile.ZipFile.open
+
+        def spy(self, name, *args, **kwargs):
+            opened.append(name)
+            return real_open(self, name, *args, **kwargs)
+
+        with patch.object(zipfile.ZipFile, "open", spy):
+            found = _packages_in_dex(path, {"com.appsflyer"})
+
+        self.assertEqual(found, {"com.appsflyer"})
+        self.assertEqual(opened, ["classes.dex"], "classes2.dex should not be read")
 
 
 if __name__ == "__main__":
