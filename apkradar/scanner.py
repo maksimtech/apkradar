@@ -52,6 +52,7 @@ TRACKER_SIGNATURES = {
     "com.newrelic.agent.android": "New Relic",
     "com.instabug": "Instabug",
     "com.bugsnag.android": "Bugsnag",
+    "com.google.firebase.crashlytics": "Crashlytics",
     "com.crashlytics": "Crashlytics",
     "com.datadog": "Datadog",
     "io.sentry": "Sentry",

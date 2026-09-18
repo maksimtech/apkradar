@@ -11,6 +11,10 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 - `apkradar --version` prints `APKRadar <version>` and exits with code 0.
 
 ### Fixed
+- Firebase Crashlytics is now detected. Only the legacy Fabric package
+  (`com.crashlytics`) was recognised, so apps using the current SDK
+  (`com.google.firebase.crashlytics`) reported no Crashlytics tracker. Apps
+  containing both are listed once.
 - `batch-excel` without `--output` now writes the report next to the input as
   `<name>_report.xlsx`. Previously the file name was malformed
   (`registro.xlsx` → `registro_report_report.xlsxx`), a `.xls`/`.xlsx`

@@ -128,6 +128,35 @@ class TestMeasurementSignature(DexScanTestCase):
         self.assertEqual(self.names(result).count("Firebase Analytics"), 1)
 
 
+class TestFirebaseCrashlytics(DexScanTestCase):
+    """Firebase Crashlytics lives under com.google.firebase.crashlytics."""
+
+    def test_detected_from_dex(self):
+        result = self.scan_app(
+            components=FIXTURES["crashlytics"]["manifest_components"],
+            dex_classes=FIXTURES["crashlytics"]["classes"],
+        )
+        self.assertIn("Crashlytics", self.names(result))
+
+    def test_not_detected_from_shared_firebase_component(self):
+        """Control: ComponentDiscoveryService ships with every Firebase library."""
+        result = self.scan_app(components=FIXTURES["crashlytics"]["manifest_components"])
+        self.assertNotIn("Crashlytics", self.names(result))
+
+    def test_reported_once_with_legacy_fabric_package(self):
+        """com.crashlytics (Fabric) + com.google.firebase.crashlytics → one entry."""
+        result = self.scan_app(
+            dex_classes=FIXTURES["crashlytics"]["classes"]
+            + ["com.crashlytics.android.Crashlytics"],
+        )
+        self.assertEqual(self.names(result).count("Crashlytics"), 1)
+        self.assertEqual(result.score, 100 - 10 - 5)  # one tracker, Google transfer
+
+    def test_google_transfer_from_crashlytics(self):
+        result = self.scan_app(dex_classes=FIXTURES["crashlytics"]["classes"])
+        self.assertIn("Google LLC (USA)", [t.entity for t in result.extra_eu_transfers])
+
+
 class TestDexFalsePositives(DexScanTestCase):
 
     def test_unrelated_google_libraries_are_not_trackers(self):
