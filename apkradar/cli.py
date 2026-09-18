@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 from rich import box
+from apkradar import __version__
 
 app = typer.Typer(
     name="apkradar",
@@ -20,6 +21,22 @@ app = typer.Typer(
 )
 
 console = Console()
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"APKRadar {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False, "--version", callback=_version_callback, is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
+    """📱 APK compliance auditor — GDPR art.9"""
 
 
 def _print_result(result) -> None:
