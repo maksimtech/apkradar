@@ -7,6 +7,7 @@ import asyncio
 import ssl
 import socket
 from datetime import datetime, timezone
+from pathlib import Path
 import typer
 from rich.console import Console
 from rich.markup import escape
@@ -510,7 +511,8 @@ def batch_excel(
         results.append(result)
 
     # Write output
-    out_path = output or file.replace(".xlsx", "_report.xlsx").replace(".xls", "_report.xlsx")
+    in_path = Path(file)
+    out_path = output or str(in_path.with_name(f"{in_path.stem}_report.xlsx"))
     if augment:
         out_path = output or file
 

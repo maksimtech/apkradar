@@ -428,3 +428,41 @@ class TestBatchExcelCommand(unittest.TestCase):
         result, _, mock_write = self._run_batch_excel([ok])
         mock_write.assert_called_once()
         self.assertEqual(result.exit_code, 0)
+
+
+class TestDefaultOutputPath(unittest.TestCase):
+    """Without --output, the report goes next to the input as <stem>_report.xlsx."""
+
+    def setUp(self):
+        from typer.testing import CliRunner
+        self.runner = CliRunner()
+
+    def _output_path(self, input_path, *extra):
+        from unittest.mock import patch
+        from apkradar.cli import app
+        rows = [ExcelRow(row_number=2, app_name="", package_name="com.example.app", apk_path="")]
+        with patch("apkradar.excel.read_apk_list", return_value=rows), \
+             patch("apkradar.excel.write_results") as mock_write:
+            result = self.runner.invoke(app, ["batch-excel", input_path, *extra])
+        self.assertEqual(result.exit_code, 0, result.output)
+        return mock_write.call_args.kwargs["output_path"]
+
+    def test_xlsx_input(self):
+        self.assertEqual(self._output_path("registro.xlsx"), "registro_report.xlsx")
+
+    def test_xls_input(self):
+        self.assertEqual(self._output_path("registro.xls"), "registro_report.xlsx")
+
+    def test_uppercase_extension(self):
+        self.assertEqual(self._output_path("REGISTRO.XLSX"), "REGISTRO_report.xlsx")
+
+    def test_directory_name_untouched(self):
+        path = os.path.join("exports.xlsx.d", "registro.xlsx")
+        expected = os.path.join("exports.xlsx.d", "registro_report.xlsx")
+        self.assertEqual(self._output_path(path), expected)
+
+    def test_explicit_output_wins(self):
+        self.assertEqual(self._output_path("registro.xlsx", "--output", "out.xlsx"), "out.xlsx")
+
+    def test_augment_writes_to_input(self):
+        self.assertEqual(self._output_path("registro.xlsx", "--augment"), "registro.xlsx")

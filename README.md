@@ -244,6 +244,9 @@ Writing results to report.xlsx...
 ⏭️  1/3 skipped — no APK path
 ```
 
+Without `--output`, the report is written next to the input file as
+`<name>_report.xlsx` (here `apps_report.xlsx`).
+
 APKRadar does not download apps. Rows that have a package name but no file
 path are marked `SKIPPED`, with an empty score.
 
@@ -559,9 +562,6 @@ not run CookieRadar.
   effect: `audit --output` and `audit --lang`, `batch --output` and
   `batch --full`, and `search --audit`. For full stack analysis, use
   `audit --full` on each app.
-- **`batch-excel` output name.** Always pass `--output` (or `--augment`). The
-  default output file name, derived from the input name, is currently
-  malformed.
 - **Log noise.** Androguard, the APK parsing library, may print `WARNING`
   lines on standard error for some apps. They do not affect the results.
 
