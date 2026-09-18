@@ -7,6 +7,8 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 
 ## [Unreleased]
 
+## [2026.09.30] - 2026-09-18
+
 ### Added
 - `apkradar --version` prints `APKRadar <version>` and exits with code 0.
 
@@ -253,7 +255,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.09.29...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.09.30...HEAD
+[2026.09.30]: https://github.com/maksimtech/apkradar/compare/v2026.09.29...v2026.09.30
 [2026.09.29]: https://github.com/maksimtech/apkradar/compare/v2026.09.28...v2026.09.29
 [2026.09.28]: https://github.com/maksimtech/apkradar/compare/v2026.09.27...v2026.09.28
 [2026.09.27]: https://github.com/maksimtech/apkradar/compare/v2026.09.26...v2026.09.27
