@@ -10,6 +10,13 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 ### Added
 - `apkradar --version` prints `APKRadar <version>` and exits with code 0.
 
+### Fixed
+- `batch-excel` without `--output` now writes the report next to the input as
+  `<name>_report.xlsx`. Previously the file name was malformed
+  (`registro.xlsx` → `registro_report_report.xlsxx`), a `.xls`/`.xlsx`
+  sequence in a folder name was rewritten too, and an input with an uppercase
+  extension (`REGISTRO.XLSX`) was overwritten by the report.
+
 ## [2026.09.29] - 2026-09-17
 
 ### Fixed
@@ -21,8 +28,15 @@ and this project uses calendar versioning (`YYYY.MM.N`).
   match. DEX files are streamed in 4 MB blocks with overlap, so a large DEX is
   never loaded into memory in full, and an unreadable DEX never fails the scan.
 - Firebase Analytics is now also detected through
-  `com.google.android.gms.measurement`, and Crashlytics through
-  `com.google.firebase.crashlytics`.
+  `com.google.android.gms.measurement`.
+- **Extra-EU transfers for SDKs found only in the code.** Extra-EU vendors were
+  matched against manifest components only, so an SDK detected in the DEX files
+  (e.g. AppsFlyer, Firebase Analytics) did not report its vendor. The vendor of
+  every detected SDK is now reported as an extra-EU transfer.
+- **One entry per SDK.** When several signatures identify the same SDK (Firebase
+  Analytics via `com.google.firebase.analytics` and
+  `com.google.android.gms.measurement`), it is listed once and counted once in
+  the score, instead of once per matching signature.
 - `batch-excel`: rows with a package name but no APK path are no longer counted
   as failed audits. They are marked `SKIPPED` with an empty score, reported in a
   summary line, and no longer cause exit code 1.
