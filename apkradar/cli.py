@@ -215,48 +215,55 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> bool:
     return False
 
 
-_FINDING_TITLES = {
-    "tracker": "Tracker e SDK di terze parti",
-    "extra_eu": "Trasferimenti extra-UE",
-    "consent": "Consenso",
-    "sensitive": "Permessi sensibili",
-}
-
-
-def _print_law_check(result, consent_violation: bool = False) -> None:
-    """Cite the GDPR provisions applied to the findings, with their SHA-256."""
+def _law_check(subject, out=None, **context):
+    """Run the law check; any failure is reported and never fails the command."""
     from apkradar import law_checker
-    from apkradar.law_fetcher import CELEX
 
     try:
-        law = law_checker.check(result, consent_violation=consent_violation)
+        return law_checker.check(subject, **context)
     except Exception as e:
-        console.print(f"[yellow]⚠️  Verifica delle norme non riuscita: {escape(str(e))}[/yellow]\n")
-        return
-    if not law.citations:
+        (out or console).print(f"[yellow]⚠️  Verifica delle norme non riuscita: {escape(str(e))}[/yellow]\n")
+        return None
+
+
+def _print_law_check(law, out=None) -> None:
+    """Cite the provisions applied to the findings, with their SHA-256."""
+    from apkradar.law_checker import FINDING_TITLES, format_citation
+
+    out = out or console
+    if law is None or not (law.citations or law.notes):
         return
 
-    console.print("[bold]⚖️  Norme applicate[/bold]")
-    if law.source == "eur-lex":
-        console.print(f"[dim]Testo verificato su EUR-Lex (CELEX {CELEX})[/dim]")
-    elif law.source == "cache":
-        console.print("[yellow]EUR-Lex non raggiungibile: testo dalla copia in cache, non riverificato[/yellow]")
-    else:
-        console.print("[yellow]EUR-Lex non raggiungibile e nessuna copia in cache: testo non verificabile[/yellow]")
-    if law.error:
-        console.print(f"[dim]{escape(law.error)}[/dim]")
-    for ref, previous in law.changed.items():
-        console.print(f"[yellow]⚠️  Il testo di art. {escape(ref)} è cambiato dall'ultimo audit[/yellow]")
-        console.print(f"[dim]   precedente: {previous}[/dim]")
+    out.print("[bold]⚖️  Norme applicate[/bold]")
+    for status in law.acts:
+        act = status.act
+        name, source = escape(act.name), escape(act.source)
+        if status.source == "verified":
+            out.print(f"[dim]{name}: verificato su {source} ({act.id_label} {escape(act.celex)})[/dim]")
+        elif status.source == "cache":
+            out.print(f"[yellow]{name}: {source} non raggiungibile, testo dalla copia in cache non riverificato[/yellow]")
+        else:
+            out.print(f"[yellow]{name}: {source} non raggiungibile e nessuna copia in cache, testo non verificabile[/yellow]")
+        if act.note:
+            out.print(f"[dim]  {escape(act.note)}[/dim]")
+        if status.error:
+            out.print(f"[dim]  {escape(status.error)}[/dim]")
+    for provision, previous in law.changed.items():
+        out.print(f"[yellow]⚠️  Il testo di {escape(provision)} è cambiato dall'ultimo audit[/yellow]")
+        out.print(f"[dim]   precedente: {previous}[/dim]")
+    for note in law.notes:
+        out.print(f"[yellow]⚠️  {escape(note)}[/yellow]")
 
-    console.print()
+    out.print()
     finding = None
     for citation in law.citations:
         if citation.finding != finding:
             finding = citation.finding
-            console.print(f"[bold]{_FINDING_TITLES[finding]}[/bold]")
-        console.print(law_checker.format_citation(citation), markup=False, highlight=False)
-        console.print()
+            out.print(f"[bold]{escape(FINDING_TITLES[finding])}[/bold]")
+            if law.evidence.get(finding):
+                out.print(f"[dim]{escape(', '.join(law.evidence[finding]))}[/dim]")
+        out.print(format_citation(citation), markup=False, highlight=False)
+        out.print()
 
 
 @app.command()
@@ -300,7 +307,7 @@ def audit(
 
         console.print()
 
-    _print_law_check(result, consent_violation=consent_violation)
+    _print_law_check(_law_check(result, consent_violation=consent_violation))
 
 
 @app.command()

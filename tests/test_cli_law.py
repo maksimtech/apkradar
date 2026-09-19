@@ -11,7 +11,10 @@ from apkradar import law_fetcher
 from apkradar.cli import app
 from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
 
-FIXTURE = Path(__file__).parent / "fixtures" / "gdpr_it_excerpt.html"
+FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURE = FIXTURES / "gdpr_it_excerpt.html"
+DIGITAL_CONTENT_PAGE = FIXTURES / "dir2019_770_it_excerpt.html"
+CDC_49_PAGE = FIXTURES / "normattiva_cdc_art49.html"
 runner = CliRunner()
 
 
@@ -28,8 +31,16 @@ def _result(trackers=True, transfers=False, sensitive=False):
     )
 
 
-def _sha(ref):
-    text = law_fetcher.parse_articles(FIXTURE.read_text(encoding="utf-8"))[ref]
+def _page_for(url):
+    if "normattiva.it" in url:
+        return FIXTURES / f"normattiva_cdc_art{url.split('~art')[1].split('!')[0]}.html"
+    if "32019L0770" in url:
+        return DIGITAL_CONTENT_PAGE
+    return FIXTURE
+
+
+def _sha(ref, page=FIXTURE):
+    text = law_fetcher.parse_articles(page.read_text(encoding="utf-8"), (ref.split("(")[0],))[ref]
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -40,7 +51,7 @@ def eurlex(monkeypatch):
 
     def fake_fetch_html(url, **kwargs):
         calls.append(url)
-        return FIXTURE.read_text(encoding="utf-8")
+        return _page_for(url).read_text(encoding="utf-8")
 
     monkeypatch.setattr(law_fetcher, "fetch_html", fake_fetch_html)
     return calls
@@ -62,6 +73,25 @@ def test_audit_cites_the_articles_for_trackers(eurlex):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     assert f"Versione del: {today}" in out.output
     assert "EUR-Lex" in out.output
+
+
+def test_trackers_cite_directive_2019_770_to_be_checked(eurlex):
+    out = _audit(_result())
+
+    assert "Da verificare rispetto all'informativa dell'app" in out.output
+    assert "Norma applicata: Contenuti digitali dir. 2019/770 art. 8(1)(b)" in out.output
+    assert f"SHA256: {_sha('8(1)(b)', DIGITAL_CONTENT_PAGE)}" in out.output
+
+
+def test_sensitive_permissions_cite_consumer_code_49(eurlex):
+    out = _audit(_result(trackers=False, sensitive=True))
+
+    assert "Norma applicata: Codice del Consumo D.Lgs. 206/2005 art. 49\n" in out.output
+    assert f"SHA256: {_sha('49', CDC_49_PAGE)}" in out.output
+    assert "verificato su Normattiva" in out.output
+    assert eurlex[-1] == (
+        "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2005-09-06;206~art49!vig="
+    )
 
 
 def test_audit_cites_46_and_9(eurlex):
