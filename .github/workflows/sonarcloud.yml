@@ -26,6 +26,6 @@ jobs:
         run: |
           pytest tests/ --ignore=tests/benchmarks --cov=apkradar --cov-report=xml --cov-report=term-missing
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
