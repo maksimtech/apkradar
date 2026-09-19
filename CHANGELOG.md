@@ -7,6 +7,24 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 
 ## [Unreleased]
 
+## [2026.09.31] - 2026-09-19
+
+### Added
+- `audit` ends with a "Norme applicate" section: each finding cites the legal
+  provisions it concerns, with the SHA-256 of the exact text applied and the
+  date of that wording. The text is downloaded on every audit and cached in
+  `~/.apkradar/law_cache.json` (`APKRADAR_HOME` moves the folder); a changed
+  text is reported with its previous hash. Offline the cached copy is cited,
+  or "SHA256: non disponibile". A failed law check never fails the audit.
+  - GDPR (EUR-Lex): trackers → art. 5(1)(a) and 6; extra-EU transfers →
+    art. 46; trackers persisting after rejection (`--full`) → art. 7;
+    sensitive permissions → art. 9.
+  - Directive (EU) 2019/770 on digital content (EUR-Lex): trackers →
+    art. 8(1)(b), to be checked against the app's privacy policy.
+  - Italian Consumer Code, D.Lgs. 206/2005 (Normattiva, text in force):
+    sensitive permissions → art. 49, information for distance contracts, to be
+    checked against the information the app gives before download.
+
 ## [2026.09.30] - 2026-09-18
 
 ### Added
