@@ -167,8 +167,13 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
         return None, None
 
 
-def _full_stack_domain(domain: str, verbose: bool = False) -> None:
-    """Run full stack analysis on a single domain."""
+def _full_stack_domain(domain: str, verbose: bool = False) -> bool:
+    """
+    Run full stack analysis on a single domain.
+
+    Returns:
+        True if CookieRadar found trackers that persist after rejection.
+    """
     console.print(f"\n[bold cyan]🔗 {escape(domain)}[/bold cyan]")
 
     # MailRadar
@@ -201,12 +206,57 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> None:
             console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
             for t in sorted(persistent):
                 console.print(f"       → {escape(t)}")
-        else:
-            console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
+            return True
+        console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
     except ImportError:
         console.print(f"  🍪 CookieRadar: [dim]not installed[/dim]")
     except Exception as e:
         console.print(f"  🍪 CookieRadar: [dim]error: {escape(str(e))}[/dim]")
+    return False
+
+
+_FINDING_TITLES = {
+    "tracker": "Tracker e SDK di terze parti",
+    "extra_eu": "Trasferimenti extra-UE",
+    "consent": "Consenso",
+    "sensitive": "Permessi sensibili",
+}
+
+
+def _print_law_check(result, consent_violation: bool = False) -> None:
+    """Cite the GDPR provisions applied to the findings, with their SHA-256."""
+    from apkradar import law_checker
+    from apkradar.law_fetcher import CELEX
+
+    try:
+        law = law_checker.check(result, consent_violation=consent_violation)
+    except Exception as e:
+        console.print(f"[yellow]⚠️  Verifica delle norme non riuscita: {escape(str(e))}[/yellow]\n")
+        return
+    if not law.citations:
+        return
+
+    console.print("[bold]⚖️  Norme applicate[/bold]")
+    if law.source == "eur-lex":
+        console.print(f"[dim]Testo verificato su EUR-Lex (CELEX {CELEX})[/dim]")
+    elif law.source == "cache":
+        console.print("[yellow]EUR-Lex non raggiungibile: testo dalla copia in cache, non riverificato[/yellow]")
+    else:
+        console.print("[yellow]EUR-Lex non raggiungibile e nessuna copia in cache: testo non verificabile[/yellow]")
+    if law.error:
+        console.print(f"[dim]{escape(law.error)}[/dim]")
+    for ref, previous in law.changed.items():
+        console.print(f"[yellow]⚠️  Il testo di art. {escape(ref)} è cambiato dall'ultimo audit[/yellow]")
+        console.print(f"[dim]   precedente: {previous}[/dim]")
+
+    console.print()
+    finding = None
+    for citation in law.citations:
+        if citation.finding != finding:
+            finding = citation.finding
+            console.print(f"[bold]{_FINDING_TITLES[finding]}[/bold]")
+        console.print(law_checker.format_citation(citation), markup=False, highlight=False)
+        console.print()
 
 
 @app.command()
@@ -236,6 +286,7 @@ def audit(
     if result.error:
         raise typer.Exit(1)
 
+    consent_violation = False
     if full and result.package_name:
         domains = get_all_domains(result)
 
@@ -244,9 +295,12 @@ def audit(
             console.print(f"[dim]Publisher + SDK domains detected[/dim]\n")
 
             for domain in sorted(domains):
-                _full_stack_domain(domain, verbose=verbose)
+                if _full_stack_domain(domain, verbose=verbose):
+                    consent_violation = True
 
         console.print()
+
+    _print_law_check(result, consent_violation=consent_violation)
 
 
 @app.command()
