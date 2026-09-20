@@ -8,14 +8,19 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Tests
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with the classifiers in pyproject.toml
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"  # NOSONAR
@@ -24,8 +29,28 @@ jobs:
         run: |
           pytest tests/ --ignore=tests/benchmarks --cov=apkradar --cov-report=xml --cov-report=term-missing
       - name: Upload coverage to Codecov
+        # One upload is enough, and 3.12 is the version the Docker image uses.
+        if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: coverage.xml
           fail_ci_if_error: false
+  summary:
+    # The branch ruleset on main requires a check named exactly "Tests", which
+    # the matrix job can no longer provide now that its name carries the Python
+    # version. always(): a skipped required check counts as passed, so this job
+    # has to run even when a needed job fails, and fail explicitly in that case.
+    name: Tests
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All test jobs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = "success" ] || { echo "::error::A required test job ended with: $result"; exit 1; }
+          done
