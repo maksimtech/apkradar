@@ -101,10 +101,17 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
             if not main_apk:
                 return None, None
 
-            # Extract to temp dir
+            # Extract to temp dir.
+            #
+            # extract() returns where it actually wrote, and that is the only
+            # path worth trusting: it sanitises the member name itself, so an
+            # entry called "../../x.apk" or "/abs/x.apk" lands inside tmp_dir
+            # all the same. Rebuilding the path with os.path.join() from the
+            # raw name, as this did, produced a different path outside tmp_dir
+            # — and APKRadar would then open whatever happened to be there,
+            # reporting on a file the archive's author chose.
             tmp_dir = tempfile.mkdtemp(prefix="apkradar_")
-            z.extract(main_apk, tmp_dir)
-            apk_path = os.path.join(tmp_dir, main_apk)
+            apk_path = z.extract(main_apk, tmp_dir)
             return apk_path, tmp_dir
 
     except Exception:

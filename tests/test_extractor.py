@@ -225,3 +225,67 @@ class TestExtractMainApkEdgeCases(unittest.TestCase):
             self.assertIsNone(tmp_dir)
         finally:
             os.unlink(tmp)
+
+
+class TestExtractHostileNames(unittest.TestCase):
+    """The path returned must be the file that was actually written.
+
+    Snyk Code flags the extraction as "Arbitrary File Write via Archive
+    Extraction". That title is wrong: ZipFile.extract() sanitises the member
+    name itself and never writes outside the directory it is given — verified
+    against both cases below.
+
+    The line after it did not. It rebuilt the path with os.path.join() from the
+    raw name out of the archive, so for a hostile name it pointed somewhere
+    else entirely, outside the temporary directory. The risk is not writing but
+    reading: a crafted XAPK could make APKRadar open and report on an unrelated
+    file chosen by whoever built the archive.
+    """
+
+    def _extract_named(self, member: str):
+        with tempfile.NamedTemporaryFile(suffix='.xapk', delete=False) as f:
+            archive = f.name
+        _make_zip(archive, {
+            "manifest.json": json.dumps({"package_name": "com.example.app"}),
+            member: b"PK\x03\x04fake-apk",
+        })
+        try:
+            return extract_main_apk(archive)
+        finally:
+            os.unlink(archive)
+
+    def _assert_path_is_real(self, apk_path, tmp_dir, member):
+        self.assertIsNotNone(apk_path, f"no path returned for {member!r}")
+        self.assertIsNotNone(tmp_dir)
+        try:
+            real = os.path.realpath(apk_path)
+            root = os.path.realpath(tmp_dir)
+            self.assertTrue(
+                os.path.exists(apk_path),
+                f"returned path does not exist for {member!r}: {apk_path}",
+            )
+            self.assertEqual(
+                os.path.commonpath([real, root]), root,
+                f"returned path escapes the temp directory for {member!r}: {apk_path}",
+            )
+        finally:
+            cleanup_temp(tmp_dir)
+
+    def test_parent_directory_traversal_in_member_name(self):
+        """../../escaped.apk — extract() keeps it in; the returned path must too."""
+        member = "../../escaped.apk"
+        apk_path, tmp_dir = self._extract_named(member)
+        self._assert_path_is_real(apk_path, tmp_dir, member)
+
+    def test_absolute_member_name(self):
+        """/abs/rooted.apk — os.path.join would discard tmp_dir entirely."""
+        member = "/abs/rooted.apk"
+        apk_path, tmp_dir = self._extract_named(member)
+        self._assert_path_is_real(apk_path, tmp_dir, member)
+
+    def test_an_ordinary_name_still_works(self):
+        """The guard must not cost the normal case."""
+        member = "com.example.app.apk"
+        apk_path, tmp_dir = self._extract_named(member)
+        self._assert_path_is_real(apk_path, tmp_dir, member)
+        self.assertTrue(apk_path.endswith("com.example.app.apk"))
