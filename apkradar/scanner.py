@@ -9,8 +9,6 @@ import hashlib
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
-
 
 # ─── Tracker database ────────────────────────────────────────────────────────
 
@@ -142,7 +140,7 @@ class ScanResult:
     permissions: list[PermissionFound] = field(default_factory=list)
     sensitive_permissions: list[PermissionFound] = field(default_factory=list)
     extra_eu_transfers: list[TransferFound] = field(default_factory=list)
-    error: Optional[str] = None
+    error: str | None = None
     skipped: bool = False
 
     @property
@@ -244,7 +242,7 @@ def scan(apk_path: str) -> ScanResult:
     Returns:
         ScanResult with all findings
     """
-    from apkradar.extractor import extract_main_apk, cleanup_temp, detect_format
+    from apkradar.extractor import cleanup_temp, detect_format, extract_main_apk
 
     result = ScanResult(apk_path=apk_path)
     tmp_dir = None

@@ -3,7 +3,6 @@ APKRadar — Utility functions.
 """
 from __future__ import annotations
 
-
 # Second-level segments that are too generic to be a company name
 # e.g. com.game.myapp → "game" is not the company, "myapp" might be
 GENERIC_SEGMENTS = {

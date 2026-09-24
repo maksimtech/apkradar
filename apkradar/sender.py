@@ -4,14 +4,13 @@ Generates and sends GDPR DPO letters based on APK audit results.
 """
 from __future__ import annotations
 
+import getpass
 import smtplib
 import ssl
-import getpass
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import Optional
 
 from apkradar.scanner import ScanResult
 
@@ -30,10 +29,10 @@ def render_letter(
     sender_name: str,
     sender_org: str,
     sender_email: str,
-    mail_score: Optional[int] = None,
-    mail_grade: Optional[str] = None,
-    ssl_status: Optional[str] = None,
-    noyb_id: Optional[str] = None,
+    mail_score: int | None = None,
+    mail_grade: str | None = None,
+    ssl_status: str | None = None,
+    noyb_id: str | None = None,
     noyb: bool = False,
     lang: str = "it",
 ) -> str:
@@ -101,7 +100,7 @@ def send_letter(
     smtp_host: str,
     smtp_port: int,
     smtp_user: str,
-    smtp_password: Optional[str] = None,
+    smtp_password: str | None = None,
 ) -> bool:
     """
     Send DPO letter via SMTP.

@@ -5,7 +5,6 @@ Lookup app info by package name from Google Play Store.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -18,7 +17,7 @@ class AppInfo:
     category: str
     description: str
     available: bool = True
-    removal_reason: Optional[str] = None
+    removal_reason: str | None = None
 
 
 def lookup(package_name: str) -> AppInfo:
@@ -59,7 +58,7 @@ def lookup(package_name: str) -> AppInfo:
         )
 
 
-def _search_removal_reason(package_name: str) -> Optional[str]:
+def _search_removal_reason(package_name: str) -> str | None:
     """Search web for app removal reason."""
     try:
         import httpx
