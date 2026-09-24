@@ -32,14 +32,14 @@ FINDING_ARTICLES = {
 # APKRadar cannot read what the app declares (privacy policy, the store's data
 # safety section): the "undisclosed" findings say so in their titles.
 FINDING_TITLES = {
-    "tracker": "Tracker e SDK di terze parti",
-    "tracker_undisclosed": "Tracker non dichiarati? Da verificare rispetto all'informativa dell'app",
-    "extra_eu": "Trasferimenti extra-UE",
-    "consent": "Consenso",
-    "sensitive": "Permessi sensibili",
+    "tracker": "Third-party trackers and SDKs",
+    "tracker_undisclosed": "Trackers not disclosed? To be checked against the app's privacy notice",
+    "extra_eu": "Transfers outside the EU",
+    "consent": "Consent",
+    "sensitive": "Sensitive permissions",
     "permissions_undisclosed": (
-        "Permessi eccessivi non dichiarati? "
-        "Da verificare rispetto alle informazioni precontrattuali"
+        "Excessive permissions not disclosed? "
+        "To be checked against the pre-contractual information"
     ),
 }
 
@@ -65,7 +65,7 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
     if result.extra_eu_transfers:
         found["extra_eu"] = [transfer.entity for transfer in result.extra_eu_transfers]
     if consent_violation:
-        found["consent"] = ["tracker ancora attivi dopo il rifiuto (CookieRadar)"]
+        found["consent"] = ["trackers still active after rejection (CookieRadar)"]
     if result.sensitive_permissions:
         permissions = [
             f"{perm.permission.split('.')[-1]} ({perm.description})"
@@ -200,7 +200,7 @@ def check(
 
 def format_citation(citation: Citation) -> str:
     return (
-        f"Norma applicata: {citation.law} art. {citation.article}\n"
-        f"SHA256: {citation.sha256 or 'non disponibile'}\n"
-        f"Versione del: {citation.version_date or 'non disponibile'}"
+        f"Provision applied: {citation.law} art. {citation.article}\n"
+        f"SHA256: {citation.sha256 or 'not available'}\n"
+        f"Version of: {citation.version_date or 'not available'}"
     )

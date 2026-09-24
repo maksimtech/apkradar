@@ -66,29 +66,29 @@ def test_audit_cites_the_articles_for_trackers(eurlex):
     out = _audit(_result())
 
     assert out.exit_code == 0, out.output
-    assert "Norma applicata: GDPR art. 5(1)(a)" in out.output
+    assert "Provision applied: GDPR art. 5(1)(a)" in out.output
     assert f"SHA256: {_sha('5(1)(a)')}" in out.output
-    assert "Norma applicata: GDPR art. 6" in out.output
+    assert "Provision applied: GDPR art. 6" in out.output
     assert f"SHA256: {_sha('6')}" in out.output
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    assert f"Versione del: {today}" in out.output
+    assert f"Version of: {today}" in out.output
     assert "EUR-Lex" in out.output
 
 
 def test_trackers_cite_directive_2019_770_to_be_checked(eurlex):
     out = _audit(_result())
 
-    assert "Da verificare rispetto all'informativa dell'app" in out.output
-    assert "Norma applicata: Contenuti digitali dir. 2019/770 art. 8(1)(b)" in out.output
+    assert "To be checked against the app's privacy notice" in out.output
+    assert "Provision applied: Contenuti digitali dir. 2019/770 art. 8(1)(b)" in out.output
     assert f"SHA256: {_sha('8(1)(b)', DIGITAL_CONTENT_PAGE)}" in out.output
 
 
 def test_sensitive_permissions_cite_consumer_code_49(eurlex):
     out = _audit(_result(trackers=False, sensitive=True))
 
-    assert "Norma applicata: Codice del Consumo D.Lgs. 206/2005 art. 49\n" in out.output
+    assert "Provision applied: Codice del Consumo D.Lgs. 206/2005 art. 49\n" in out.output
     assert f"SHA256: {_sha('49', CDC_49_PAGE)}" in out.output
-    assert "verificato su Normattiva" in out.output
+    assert "verified against Normattiva" in out.output
     assert eurlex[-1] == (
         "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2005-09-06;206~art49!vig="
     )
@@ -97,8 +97,8 @@ def test_sensitive_permissions_cite_consumer_code_49(eurlex):
 def test_audit_cites_46_and_9(eurlex):
     out = _audit(_result(trackers=False, transfers=True, sensitive=True))
 
-    assert "Norma applicata: GDPR art. 46" in out.output
-    assert "Norma applicata: GDPR art. 9" in out.output
+    assert "Provision applied: GDPR art. 46" in out.output
+    assert "Provision applied: GDPR art. 9" in out.output
     assert "art. 5(1)(a)" not in out.output
 
 
@@ -117,7 +117,7 @@ def test_audit_writes_the_cache(eurlex, tmp_path):
 
 def test_second_audit_offline_uses_cache(eurlex, monkeypatch):
     first = _audit(_result())
-    day = first.output.split("Versione del: ")[1][:10]
+    day = first.output.split("Version of: ")[1][:10]
 
     def offline(url, **kwargs):
         raise law_fetcher.LawFetchError("offline")
@@ -128,7 +128,7 @@ def test_second_audit_offline_uses_cache(eurlex, monkeypatch):
     assert out.exit_code == 0
     assert "cache" in out.output
     assert f"SHA256: {_sha('5(1)(a)')}" in out.output
-    assert f"Versione del: {day}" in out.output
+    assert f"Version of: {day}" in out.output
 
 
 def test_audit_offline_without_cache():
@@ -136,8 +136,8 @@ def test_audit_offline_without_cache():
     out = _audit(_result())
 
     assert out.exit_code == 0
-    assert "Norma applicata: GDPR art. 5(1)(a)" in out.output
-    assert "SHA256: non disponibile" in out.output
+    assert "Provision applied: GDPR art. 5(1)(a)" in out.output
+    assert "SHA256: not available" in out.output
 
 
 def test_audit_reports_changed_text(eurlex, monkeypatch):
@@ -187,7 +187,7 @@ def test_full_cookie_violation_cites_article_7(mock_mail, mock_ssl, eurlex):
 
     assert out.exit_code == 0, out.output
     assert "VIOLATION" in out.output
-    assert "Norma applicata: GDPR art. 7" in out.output
+    assert "Provision applied: GDPR art. 7" in out.output
     assert f"SHA256: {_sha('7')}" in out.output
 
 

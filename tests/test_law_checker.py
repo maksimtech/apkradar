@@ -81,8 +81,8 @@ def test_mapping():
 
 def test_undisclosed_titles_say_it_must_be_checked():
     # APKRadar cannot read the app's privacy policy or the store's data safety section
-    assert "da verificare" in FINDING_TITLES["tracker_undisclosed"].lower()
-    assert "da verificare" in FINDING_TITLES["permissions_undisclosed"].lower()
+    assert "to be checked" in FINDING_TITLES["tracker_undisclosed"].lower()
+    assert "to be checked" in FINDING_TITLES["permissions_undisclosed"].lower()
 
 
 def test_gdpr_articles_explaining_the_others_are_downloaded_too():
@@ -231,16 +231,16 @@ def test_cache_written_by_the_previous_version_is_still_read(cache):
 def test_format_citation():
     c = Citation("tracker", "GDPR", "5(1)(a)", "ab" * 32, "2026-09-19")
     assert format_citation(c) == (
-        "Norma applicata: GDPR art. 5(1)(a)\n"
+        "Provision applied: GDPR art. 5(1)(a)\n"
         f"SHA256: {'ab' * 32}\n"
-        "Versione del: 2026-09-19"
+        "Version of: 2026-09-19"
     )
 
 
 def test_format_citation_without_text():
     c = Citation("tracker", "GDPR", "6", None, None)
     assert format_citation(c) == (
-        "Norma applicata: GDPR art. 6\n"
-        "SHA256: non disponibile\n"
-        "Versione del: non disponibile"
+        "Provision applied: GDPR art. 6\n"
+        "SHA256: not available\n"
+        "Version of: not available"
     )
