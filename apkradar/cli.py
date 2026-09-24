@@ -4,17 +4,20 @@ GDPR art.9 — tracker detection, permissions analysis.
 Requires: mailradar + cookieradar
 """
 import asyncio
-import ssl
+import contextlib
 import socket
-from datetime import datetime, timezone
+import ssl
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
 import typer
+from rich import box
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
-from rich import box
+
 from apkradar import __version__
-import sys
 
 
 def enable_utf8_output() -> None:
@@ -40,10 +43,8 @@ def enable_utf8_output() -> None:
         encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
         if encoding == "utf8":
             continue
-        try:
+        with contextlib.suppress(ValueError, OSError):
             reconfigure(encoding="utf-8", errors="replace")
-        except (ValueError, OSError):
-            pass
 
 enable_utf8_output()
 
@@ -280,15 +281,17 @@ def _check_ssl(domain: str) -> tuple[str, str | None]:
             if proxy
             else socket.create_connection((domain, 443), timeout=5)
         )
-        with raw as sock:
-            with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                cert = ssock.getpeercert()
-                expire_date = datetime.strptime(
-                    cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
-                ).replace(tzinfo=timezone.utc)
-                return "valid", expire_date.strftime("%d/%m/%Y")
+        with raw as sock, context.wrap_socket(sock, server_hostname=domain) as ssock:
+            cert = ssock.getpeercert()
+            if not cert or not cert.get("notAfter"):
+                return "error", None
+            expire_date = datetime.strptime(
+                str(cert["notAfter"]), "%b %d %H:%M:%S %Y %Z"
+            ).replace(tzinfo=UTC)
+            return "valid", expire_date.strftime("%d/%m/%Y")
     except ssl.SSLCertVerificationError as e:
-        return _SSL_VERIFY_STATUS.get(getattr(e, "verify_code", None), "invalid"), None
+        code = getattr(e, "verify_code", None)
+        return (_SSL_VERIFY_STATUS.get(code, "invalid") if isinstance(code, int) else "invalid"), None
     except TimeoutError:
         return "timeout", None
     except Exception:
@@ -328,29 +331,29 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> bool:
 
     # MailRadar
     if verbose:
-        console.print(f"  [dim]→ Running MailRadar...[/dim]")
+        console.print("  [dim]→ Running MailRadar...[/dim]")
     mail_score, mail_grade = _check_mailradar(domain)
     if mail_score is not None:
         grade_color = "green" if mail_score >= 80 else "yellow" if mail_score >= 60 else "red"
         console.print(f"  📡 MailRadar: [{grade_color}]{mail_score}/100 — {escape(str(mail_grade))}[/{grade_color}]")
     else:
-        console.print(f"  📡 MailRadar: [dim]unavailable[/dim]")
+        console.print("  📡 MailRadar: [dim]unavailable[/dim]")
 
     # SSL
     if verbose:
-        console.print(f"  [dim]→ Checking SSL...[/dim]")
+        console.print("  [dim]→ Checking SSL...[/dim]")
     ssl_status, ssl_expiry = _check_ssl(domain)
     console.print(f"  🔒 SSL: {_ssl_status_text(ssl_status, ssl_expiry)}")
 
     # CookieRadar
     if verbose:
-        console.print(f"  [dim]→ Running CookieRadar...[/dim]")
+        console.print("  [dim]→ Running CookieRadar...[/dim]")
     try:
         from cookieradar.scanner import scan as cookie_scan
         url = f"https://{domain}"
         cookie_result = asyncio.run(cookie_scan(url))
-        pre = set(t.domain for t in cookie_result.pre_consent.trackers)
-        rej = set(t.domain for t in cookie_result.post_reject.trackers)
+        pre = {t.domain for t in cookie_result.pre_consent.trackers}
+        rej = {t.domain for t in cookie_result.post_reject.trackers}
         persistent = pre & rej
         if persistent:
             console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
@@ -359,7 +362,7 @@ def _full_stack_domain(domain: str, verbose: bool = False) -> bool:
             return True
         console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
     except ImportError:
-        console.print(f"  🍪 CookieRadar: [dim]not installed[/dim]")
+        console.print("  🍪 CookieRadar: [dim]not installed[/dim]")
     except Exception as e:
         console.print(f"  🍪 CookieRadar: [dim]error: {escape(str(e))}[/dim]")
     return False
@@ -391,9 +394,19 @@ def _print_law_check(law, out=None) -> None:
         if status.source == "verified":
             out.print(f"[dim]{name}: verificato su {source} ({act.id_label} {escape(act.celex)})[/dim]")
         elif status.source == "cache":
-            out.print(f"[yellow]{name}: {source} non raggiungibile, testo dalla copia in cache non riverificato[/yellow]")
+            out.print(
+                f"[yellow]{name}: {source} non raggiungibile, "
+                "testo dalla copia in cache non riverificato[/yellow]"
+            )
         else:
-            out.print(f"[yellow]{name}: {source} non raggiungibile e nessuna copia in cache, testo non verificabile[/yellow]")
+            # The missing SHA-256 below is the consequence of this line, and
+            # the two used to sit apart: a reader who saw the gap went looking
+            # for a bug in the hashing. There is no verified text to hash, and
+            # printing one anyway would assert a verification never made.
+            out.print(
+                f"[yellow]{name}: {source} non raggiungibile e nessuna copia in cache, "
+                "testo non verificabile: le citazioni che seguono restano senza SHA-256[/yellow]"
+            )
         if act.note:
             out.print(f"[dim]  {escape(act.note)}[/dim]")
         if status.error:
@@ -421,7 +434,10 @@ def audit(
     apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
     lang: str = typer.Option("it", "--lang", "-l", help="Report language (it/en)"),
-    full: bool = typer.Option(False, "--full", "-f", help="Full stack analysis: APK + MailRadar + CookieRadar on all SDK domains"),
+    full: bool = typer.Option(
+        False, "--full", "-f",
+        help="Full stack analysis: APK + MailRadar + CookieRadar on all SDK domains",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show debug output during full stack analysis"),
 ):
     """
@@ -461,7 +477,7 @@ def audit(
 
         if domains:
             console.print(f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]")
-            console.print(f"[dim]Publisher + SDK domains detected[/dim]\n")
+            console.print("[dim]Publisher + SDK domains detected[/dim]\n")
 
             for domain in sorted(domains):
                 if _full_stack_domain(domain, verbose=verbose):
@@ -479,6 +495,18 @@ def audit(
         console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
 
 
+def _read_list(path: str) -> list[str]:
+    """Non-empty lines of the file, skipping comments (also indented ones).
+
+    utf-8-sig, not utf-8: it consumes a Windows byte order mark if there is one
+    and behaves identically when there is not. The strip happens before the "#"
+    test so an indented comment is a comment.
+    """
+    with open(path, encoding="utf-8-sig") as f:
+        lines = [line.strip() for line in f]
+    return [line for line in lines if line and not line.startswith("#")]
+
+
 @app.command()
 def batch(
     file: str = typer.Argument(..., help="File with APK paths (one per line)"),
@@ -492,11 +520,16 @@ def batch(
     from apkradar.scanner import scan
 
     try:
-        with open(file) as f:
-            paths = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        paths = _read_list(file)
     except FileNotFoundError:
         console.print(f"[red]❌ File not found: {escape(file)}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
+    except UnicodeDecodeError:
+        console.print(f"[red]❌ Cannot read {escape(file)}: not valid UTF-8[/red]")
+        raise typer.Exit(1) from None
+    except OSError as e:
+        console.print(f"[red]❌ Cannot read {escape(file)}: {escape(e.strerror or str(e))}[/red]")
+        raise typer.Exit(1) from None
 
     console.print(f"\n[dim]Loaded {len(paths)} APKs from {escape(file)}[/dim]\n")
 
@@ -507,7 +540,10 @@ def batch(
         status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
                  "🟠 POOR" if result.score_label == "POOR" else \
                  "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
-        console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers, {result.sensitive_permission_count} sensitive permissions")
+        console.print(
+            f"  {status} — {result.score}/100 — {result.tracker_count} trackers, "
+            f"{result.sensitive_permission_count} sensitive permissions"
+        )
         if result.error:
             failed += 1
             console.print(f"  [red]❌ {escape(result.error)}[/red]")
@@ -551,22 +587,22 @@ def search(
                 console.print(f"\n[dim]{escape(result.description)}...[/dim]")
             console.print()
         else:
-            console.print(f"\n[red]⚠️  App not found on Google Play[/red]")
+            console.print("\n[red]⚠️  App not found on Google Play[/red]")
             console.print(f"[dim]Package: {escape(query)}[/dim]")
             if result.removal_reason:
-                console.print(f"\n[yellow]Possible reason:[/yellow]")
+                console.print("\n[yellow]Possible reason:[/yellow]")
                 console.print(f"[dim]{escape(result.removal_reason)}[/dim]")
             else:
-                console.print(f"[dim]No removal reason found — app may have been removed or never published.[/dim]")
+                console.print("[dim]No removal reason found — app may have been removed or never published.[/dim]")
     else:
         # Name search — guide user
         query_url = query.replace(" ", "+")
-        console.print(f"\n[yellow]⚠️  Searching by name is not yet supported.[/yellow]")
-        console.print(f"\n[dim]To find the package name:[/dim]")
+        console.print("\n[yellow]⚠️  Searching by name is not yet supported.[/yellow]")
+        console.print("\n[dim]To find the package name:[/dim]")
         console.print(f"  1. Open: [link]https://play.google.com/store/search?q={escape(query_url)}[/link]")
-        console.print(f"  2. Open the app page")
-        console.print(f"  3. Copy the 'id=' parameter from the URL")
-        console.print(f"  4. Run: [bold]apkradar search <package_name>[/bold]")
+        console.print("  2. Open the app page")
+        console.print("  3. Copy the 'id=' parameter from the URL")
+        console.print("  4. Run: [bold]apkradar search <package_name>[/bold]")
         console.print()
 
 
@@ -669,7 +705,7 @@ def send(
         console.print(f"[green]✅ Letter sent to {escape(to)}[/green]")
     except Exception as e:
         console.print(f"[red]❌ Error: {escape(str(e))}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 if __name__ == "__main__":
@@ -703,7 +739,7 @@ def batch_excel(
         rows = read_apk_list(file)
     except Exception as e:
         console.print(f"[red]❌ Error reading Excel: {escape(str(e))}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     if not rows:
         console.print("[yellow]⚠️  No APKs found in Excel file[/yellow]")
@@ -757,7 +793,7 @@ def batch_excel(
         console.print(f"[green]✅ Report saved to {escape(out_path)}[/green]")
     except Exception as e:
         console.print(f"[red]❌ Error writing Excel: {escape(str(e))}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     skipped = sum(1 for r in results if r.skipped)
     if skipped:

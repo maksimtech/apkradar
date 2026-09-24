@@ -10,6 +10,10 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+# The extension is only a hint: a file that lies about it falls through to the
+# content check below, which is why this is a lookup and not a validation.
+_FORMAT_BY_EXTENSION = {".apk": "apk", ".xapk": "xapk", ".apkm": "apkm"}
+
 
 def detect_format(path: str) -> str:
     """
@@ -19,12 +23,8 @@ def detect_format(path: str) -> str:
         'apk', 'xapk', 'apkm' or 'unknown'
     """
     ext = Path(path).suffix.lower()
-    if ext == ".apk":
-        return "apk"
-    elif ext == ".xapk":
-        return "xapk"
-    elif ext == ".apkm":
-        return "apkm"
+    if ext in _FORMAT_BY_EXTENSION:
+        return _FORMAT_BY_EXTENSION[ext]
 
     # Try to detect by content
     try:

@@ -4,10 +4,8 @@ Read APK lists from Excel and write audit results to Excel.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass
-
+from pathlib import Path
 
 # Leading characters that spreadsheet apps interpret as a formula
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
@@ -93,7 +91,7 @@ def read_apk_list(path: str) -> list[ExcelRow]:
     return rows
 
 
-def write_results(results: list, output_path: str, input_path: Optional[str] = None) -> None:
+def write_results(results: list, output_path: str, input_path: str | None = None) -> None:
     """
     Write audit results to Excel file.
 
@@ -106,7 +104,7 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
         input_path: Optional path to input Excel file to augment
     """
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     if input_path and Path(input_path).exists():
@@ -167,7 +165,6 @@ def write_results(results: list, output_path: str, input_path: Optional[str] = N
         # Write all data
         for row_idx, result in enumerate(results, 2):
             tracker_names = ", ".join(t.name for t in result.trackers)
-            transfer_names = ", ".join(t.entity for t in result.extra_eu_transfers)
             values = [
                 result.app_name or result.package_name,
                 result.package_name,
