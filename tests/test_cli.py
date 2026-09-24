@@ -2,10 +2,12 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from typer.testing import CliRunner
+
 from apkradar.cli import app
-from apkradar.scanner import ScanResult, TrackerFound, PermissionFound, TransferFound
+from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
 
 
 class TestCLI(unittest.TestCase):

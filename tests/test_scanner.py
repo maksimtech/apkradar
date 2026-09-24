@@ -1,13 +1,13 @@
 """Tests for APKRadar scanner module."""
 import unittest
+
 from apkradar.scanner import (
+    EXTRA_EU_TRANSFERS,
+    SENSITIVE_PERMISSIONS,
+    TRACKER_SIGNATURES,
+    PermissionFound,
     ScanResult,
     TrackerFound,
-    PermissionFound,
-    TransferFound,
-    TRACKER_SIGNATURES,
-    SENSITIVE_PERMISSIONS,
-    EXTRA_EU_TRANSFERS,
     scan,
 )
 

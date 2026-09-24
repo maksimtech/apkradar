@@ -7,10 +7,8 @@ ever written — with or without --full. Nothing failed, so nothing said so.
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from apkradar.cli import app
@@ -47,6 +45,7 @@ def test_the_file_holds_what_the_terminal_showed(tmp_path):
     target = tmp_path / "report.txt"
     result = run_audit(["demo.apk", "--output", str(target)])
 
+    assert result.exit_code == 0, result.output
     written = target.read_text(encoding="utf-8")
     assert "com.example.demo" in written
     assert "Demo" in written

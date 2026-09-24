@@ -1,7 +1,9 @@
 """Tests for APKRadar search command."""
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from typer.testing import CliRunner
+
 from apkradar.cli import app
 from apkradar.search_cmd import AppInfo
 
@@ -68,10 +70,12 @@ class TestLookup(unittest.TestCase):
 
     def test_lookup_not_found(self):
         from apkradar.search_cmd import lookup
-        with patch("google_play_scraper.app", side_effect=Exception("Not found")):
-            with patch("apkradar.search_cmd._search_removal_reason", return_value=None):
-                result = lookup("com.nonexistent.app")
-                self.assertFalse(result.available)
+        with (
+            patch("google_play_scraper.app", side_effect=Exception("Not found")),
+            patch("apkradar.search_cmd._search_removal_reason", return_value=None),
+        ):
+            result = lookup("com.nonexistent.app")
+            self.assertFalse(result.available)
 
     def test_search_removal_reason_exception(self):
         from apkradar.search_cmd import _search_removal_reason
@@ -87,8 +91,9 @@ if __name__ == "__main__":
 class TestSearchRemovalReason(unittest.TestCase):
 
     def test_removal_reason_returns_abstract(self):
+        from unittest.mock import MagicMock, patch
+
         from apkradar.search_cmd import _search_removal_reason
-        from unittest.mock import patch, MagicMock
         mock_response = MagicMock()
         mock_response.json.return_value = {"AbstractText": "App was removed for violating policies."}
         with patch("httpx.get", return_value=mock_response):
@@ -97,8 +102,9 @@ class TestSearchRemovalReason(unittest.TestCase):
             self.assertIn("removed", result.lower())
 
     def test_removal_reason_empty_abstract(self):
+        from unittest.mock import MagicMock, patch
+
         from apkradar.search_cmd import _search_removal_reason
-        from unittest.mock import patch, MagicMock
         mock_response = MagicMock()
         mock_response.json.return_value = {"AbstractText": ""}
         with patch("httpx.get", return_value=mock_response):

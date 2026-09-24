@@ -1,6 +1,7 @@
 """Tests for APKRadar utils module."""
 import unittest
-from apkradar.utils import package_to_domain, domain_to_url, GENERIC_SEGMENTS
+
+from apkradar.utils import GENERIC_SEGMENTS, domain_to_url, package_to_domain
 
 
 class TestPackageToDomain(unittest.TestCase):
@@ -99,6 +100,7 @@ class TestExtractDomainsFromApk(unittest.TestCase):
     def test_extract_domains_with_mock(self):
         """Should extract domains from manifest XML."""
         from unittest.mock import MagicMock
+
         from apkradar.utils import extract_domains_from_apk
 
         mock_apk = MagicMock()
@@ -119,6 +121,7 @@ class TestExtractDomainsFromApk(unittest.TestCase):
     def test_extract_domains_skips_ip(self):
         """Should skip IP addresses."""
         from unittest.mock import MagicMock
+
         from apkradar.utils import extract_domains_from_apk
 
         mock_apk = MagicMock()
@@ -132,6 +135,7 @@ class TestExtractDomainsFromApk(unittest.TestCase):
     def test_extract_domains_skips_placeholders(self):
         """Should skip template placeholders."""
         from unittest.mock import MagicMock
+
         from apkradar.utils import extract_domains_from_apk
 
         mock_apk = MagicMock()
@@ -146,15 +150,15 @@ class TestExtractSdkDomains(unittest.TestCase):
     """Tests for extract_sdk_domains function."""
 
     def test_firebase_domains(self):
-        from apkradar.utils import extract_sdk_domains
         from apkradar.scanner import TrackerFound
+        from apkradar.utils import extract_sdk_domains
         trackers = [TrackerFound(package="com.google.firebase.analytics", name="Firebase")]
         domains = extract_sdk_domains(trackers)
         self.assertIn("firebase.google.com", domains)
 
     def test_facebook_domains(self):
-        from apkradar.utils import extract_sdk_domains
         from apkradar.scanner import TrackerFound
+        from apkradar.utils import extract_sdk_domains
         trackers = [TrackerFound(package="com.facebook.ads", name="Facebook")]
         domains = extract_sdk_domains(trackers)
         self.assertIn("facebook.com", domains)
@@ -165,8 +169,8 @@ class TestExtractSdkDomains(unittest.TestCase):
         self.assertEqual(domains, [])
 
     def test_multiple_trackers(self):
-        from apkradar.utils import extract_sdk_domains
         from apkradar.scanner import TrackerFound
+        from apkradar.utils import extract_sdk_domains
         trackers = [
             TrackerFound(package="com.appsflyer", name="AppsFlyer"),
             TrackerFound(package="com.applovin", name="AppLovin"),
@@ -180,23 +184,23 @@ class TestGetAllDomains(unittest.TestCase):
     """Tests for get_all_domains function."""
 
     def test_publisher_domain_included(self):
-        from apkradar.utils import get_all_domains
         from apkradar.scanner import ScanResult
+        from apkradar.utils import get_all_domains
         result = ScanResult(apk_path="test.apk", package_name="com.scopely.monopolygo")
         domains = get_all_domains(result)
         self.assertIn("scopely.com", domains)
 
     def test_sdk_domains_included(self):
-        from apkradar.utils import get_all_domains
         from apkradar.scanner import ScanResult, TrackerFound
+        from apkradar.utils import get_all_domains
         result = ScanResult(apk_path="test.apk", package_name="com.example.app")
         result.trackers = [TrackerFound(package="com.appsflyer", name="AppsFlyer")]
         domains = get_all_domains(result)
         self.assertIn("appsflyer.com", domains)
 
     def test_empty_package_name(self):
-        from apkradar.utils import get_all_domains
         from apkradar.scanner import ScanResult
+        from apkradar.utils import get_all_domains
         result = ScanResult(apk_path="test.apk", package_name="")
         domains = get_all_domains(result)
         self.assertIsInstance(domains, list)
@@ -205,9 +209,10 @@ class TestGetAllDomains(unittest.TestCase):
 class TestGetAllDomainsWithApk(unittest.TestCase):
 
     def test_get_all_domains_with_manifest_apk(self):
-        from apkradar.utils import get_all_domains
-        from apkradar.scanner import ScanResult
         from unittest.mock import MagicMock
+
+        from apkradar.scanner import ScanResult
+        from apkradar.utils import get_all_domains
         result = ScanResult(apk_path="test.apk", package_name="com.example.app")
         mock_apk = MagicMock()
         mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (

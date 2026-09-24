@@ -1,10 +1,7 @@
 """CookieRadar benchmarks — instrumentation mode only."""
-import pytest
 from apkradar.scanner import (
-    ScanResult,
     TRACKER_SIGNATURES,
-    SENSITIVE_PERMISSIONS,
-    EXTRA_EU_TRANSFERS,
+    ScanResult,
     TrackerFound,
 )
 

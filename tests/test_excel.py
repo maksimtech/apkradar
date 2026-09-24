@@ -2,8 +2,9 @@
 import os
 import tempfile
 import unittest
-from apkradar.scanner import ScanResult, TrackerFound, PermissionFound, TransferFound
-from apkradar.excel import read_apk_list, write_results, ExcelRow
+
+from apkradar.excel import ExcelRow, read_apk_list, write_results
+from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
 
 
 def _make_result(package="com.example.app", score_label="POOR"):
@@ -162,8 +163,10 @@ class TestSkippedRows(unittest.TestCase):
         self.runner = CliRunner()
 
     def _run(self, rows, scan_results=()):
-        import tempfile, os
+        import os
+        import tempfile
         from unittest.mock import patch
+
         from apkradar.cli import app
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
             tmp = f.name
@@ -206,7 +209,10 @@ class TestSkippedRows(unittest.TestCase):
         self.assertEqual(result.exit_code, 1)
 
     def test_skipped_row_written_to_excel(self):
-        import openpyxl, tempfile, os
+        import os
+        import tempfile
+
+        import openpyxl
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
             out = f.name
         os.unlink(out)
@@ -341,7 +347,11 @@ class TestBatchExcelCommand(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
 
     def test_batch_excel_empty_file(self):
-        import openpyxl, tempfile, os
+        import os
+        import tempfile
+
+        import openpyxl
+
         from apkradar.cli import app
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -357,10 +367,13 @@ class TestBatchExcelCommand(unittest.TestCase):
             os.unlink(tmp)
 
     def test_batch_excel_with_package_name(self):
-        import openpyxl, tempfile, os
-        from apkradar.cli import app
+        import os
+        import tempfile
         from unittest.mock import patch
-        from apkradar.scanner import ScanResult
+
+        import openpyxl
+
+        from apkradar.cli import app
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.cell(row=1, column=1, value="Package Name")
@@ -372,7 +385,6 @@ class TestBatchExcelCommand(unittest.TestCase):
         wb.save(tmp_in)
         os.unlink(tmp_out)
         try:
-            mock_result = ScanResult(apk_path="com.example.app", package_name="com.example.app")
             with patch("apkradar.excel.read_apk_list") as mock_read:
                 from apkradar.excel import ExcelRow
                 mock_read.return_value = [ExcelRow(
@@ -392,8 +404,10 @@ class TestBatchExcelCommand(unittest.TestCase):
                 os.unlink(tmp_out)
 
     def _run_batch_excel(self, scan_results):
-        import openpyxl, tempfile, os
+        import os
+        import tempfile
         from unittest.mock import patch
+
         from apkradar.cli import app
         from apkradar.excel import ExcelRow
         rows = [
@@ -439,6 +453,7 @@ class TestDefaultOutputPath(unittest.TestCase):
 
     def _output_path(self, input_path, *extra):
         from unittest.mock import patch
+
         from apkradar.cli import app
         rows = [ExcelRow(row_number=2, app_name="", package_name="com.example.app", apk_path="")]
         with patch("apkradar.excel.read_apk_list", return_value=rows), \

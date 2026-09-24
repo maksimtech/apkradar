@@ -4,7 +4,9 @@ import tomllib
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
 from typer.testing import CliRunner
+
 import apkradar
 from apkradar.cli import app
 
@@ -30,7 +32,7 @@ class TestVersion(unittest.TestCase):
         self.assertEqual(result.output.strip(), "APKRadar 9999.99.99")
 
     def test_version_matches_pyproject(self):
-        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         project = pyproject["project"]
         if "version" in project:
             self.assertEqual(project["version"], apkradar.__version__)
@@ -39,7 +41,7 @@ class TestVersion(unittest.TestCase):
         self.assertIn("version", project.get("dynamic", []))
         path = pyproject["tool"]["hatch"]["version"]["path"]
         self.assertEqual(path, "apkradar/__init__.py")
-        content = (ROOT / path).read_text()
+        content = (ROOT / path).read_text(encoding="utf-8")
         match = re.search(r'__version__ = "(.+?)"', content)
         self.assertIsNotNone(match)
         self.assertEqual(match.group(1), apkradar.__version__)

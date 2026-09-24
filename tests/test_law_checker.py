@@ -1,6 +1,6 @@
 """Tests for mapping APKRadar findings to GDPR, directive 2019/770 and Consumer Code provisions."""
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -19,8 +19,8 @@ from apkradar.law_checker import (
 from apkradar.law_fetcher import CONSUMER_CODE, DIGITAL_CONTENT, GDPR, LawFetchError, Provision
 from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
 
-DAY1 = datetime(2026, 9, 19, 14, 0, tzinfo=timezone.utc)
-DAY2 = datetime(2026, 10, 1, 9, 30, tzinfo=timezone.utc)
+DAY1 = datetime(2026, 9, 19, 14, 0, tzinfo=UTC)
+DAY2 = datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
 
 
 def _result(trackers=False, transfers=False, sensitive=False):

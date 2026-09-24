@@ -3,7 +3,7 @@ import io
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from rich.console import Console
 from typer.testing import CliRunner
@@ -23,7 +23,7 @@ SEND_ARGS = [
 
 
 def _result(**kwargs):
-    defaults = dict(apk_path="test.apk", package_name="com.example.app", sha256="a" * 64)
+    defaults = {"apk_path": "test.apk", "package_name": "com.example.app", "sha256": "a" * 64}
     defaults.update(kwargs)
     return ScanResult(**defaults)
 

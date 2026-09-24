@@ -1,10 +1,11 @@
 """Tests for APKRadar extractor module."""
+import json
 import os
 import tempfile
 import unittest
 import zipfile
-import json
-from apkradar.extractor import detect_format, extract_main_apk, cleanup_temp
+
+from apkradar.extractor import cleanup_temp, detect_format, extract_main_apk
 
 
 def _make_zip(path: str, files: dict) -> None:
@@ -130,8 +131,8 @@ class TestDetectFormatApkm(unittest.TestCase):
 
     def test_apkm_by_content(self):
         """ZIP with manifest.json without xapk_version → apkm."""
-        import tempfile
         import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
             tmp = f.name
         try:
@@ -145,8 +146,8 @@ class TestDetectFormatApkm(unittest.TestCase):
 
     def test_detect_format_invalid_zip_returns_unknown(self):
         """Non-ZIP file with no extension match → unknown."""
-        import tempfile
         import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
             f.write(b"not a zip file")
             tmp = f.name

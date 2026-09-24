@@ -1,8 +1,8 @@
 """Tests for APKRadar sender module."""
 import unittest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone, timedelta
-from apkradar.scanner import ScanResult, TrackerFound, PermissionFound, TransferFound
+from unittest.mock import MagicMock, patch
+
+from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
 from apkradar.sender import render_letter
 
 
@@ -474,18 +474,20 @@ class TestSendLetter(unittest.TestCase):
     def test_send_letter_raises_on_smtp_error(self):
         """send_letter should raise RuntimeError on SMTP failure."""
         from apkradar.sender import send_letter
-        with patch("apkradar.sender.smtplib.SMTP_SSL", side_effect=Exception("Connection refused")):
-            with self.assertRaises(RuntimeError):
-                send_letter(
-                    letter="Test letter",
-                    subject="Test subject",
-                    to_email="dpo@example.com",
-                    from_email="test@example.com",
-                    smtp_host="mail.example.com",
-                    smtp_port=465,
-                    smtp_user="test@example.com",
-                    smtp_password="password",
-                )
+        with (
+            patch("apkradar.sender.smtplib.SMTP_SSL", side_effect=Exception("Connection refused")),
+            self.assertRaises(RuntimeError),
+        ):
+            send_letter(
+                letter="Test letter",
+                subject="Test subject",
+                to_email="dpo@example.com",
+                from_email="test@example.com",
+                smtp_host="mail.example.com",
+                smtp_port=465,
+                smtp_user="test@example.com",
+                smtp_password="password",
+            )
 
 
 class TestSendCommand(unittest.TestCase):
@@ -652,11 +654,13 @@ class TestRenderLetterSignature(unittest.TestCase):
 
     def test_ssl_expiry_not_a_parameter(self):
         import inspect
+
         from apkradar.sender import render_letter
         self.assertNotIn("ssl_expiry", inspect.signature(render_letter).parameters)
 
     def test_template_does_not_reference_ssl_expiry(self):
         from pathlib import Path
+
         import apkradar
         template = Path(apkradar.__file__).parent / "templates" / "dpo_letter_it.txt"
         self.assertNotIn("ssl_expiry", template.read_text(encoding="utf-8"))

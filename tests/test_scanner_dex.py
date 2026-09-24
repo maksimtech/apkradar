@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 from apkradar.scanner import _packages_in_dex, scan
 
-FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "sdk_fixtures.json").read_text())["sdks"]
+FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "sdk_fixtures.json").read_text(encoding="utf-8"))["sdks"]
 
 
 def _dex_blob(classes, padding=0):
@@ -27,9 +27,8 @@ def _dex_blob(classes, padding=0):
 
 def _make_apk(dex_files=None):
     """Write a temp .apk (zip) containing the given {name: dex bytes}."""
-    fd, path = tempfile.NamedTemporaryFile(suffix=".apk", delete=False), None
-    path = fd.name
-    fd.close()
+    with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as fd:
+        path = fd.name
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("AndroidManifest.xml", b"\x03\x00\x08\x00fake binary manifest")
         for name, blob in (dex_files or {}).items():

@@ -1,7 +1,9 @@
 """Tests for APKRadar CLI --full flag with mocked dependencies."""
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from typer.testing import CliRunner
+
 from apkradar.cli import app
 from apkradar.scanner import ScanResult
 

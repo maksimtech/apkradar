@@ -1,6 +1,6 @@
 """Tests for the law check that `apkradar audit` runs."""
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -70,7 +70,7 @@ def test_audit_cites_the_articles_for_trackers(eurlex):
     assert f"SHA256: {_sha('5(1)(a)')}" in out.output
     assert "Norma applicata: GDPR art. 6" in out.output
     assert f"SHA256: {_sha('6')}" in out.output
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     assert f"Versione del: {today}" in out.output
     assert "EUR-Lex" in out.output
 
