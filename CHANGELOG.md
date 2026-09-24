@@ -7,10 +7,54 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 
 ## [Unreleased]
 
+## [2026.09.32] - 2026-09-24
+
+### Fixed
+- **`apkradar batch` reads its list of APKs as UTF-8.** It used a bare
+  `open(file)`, so the locale chose the encoding: a UTF-8 list of paths was read
+  correctly on Linux and wrongly on a Windows console — and the path that came
+  back would not open, while the run reported it as though it had. Three more
+  defects in the same four lines: a byte order mark, which Notepad writes by
+  default, became part of the first path and that path then "did not exist"; an
+  `OSError` that is not `FileNotFoundError` — a directory, a permission —
+  escaped as a traceback instead of a message; and `#` was tested against the
+  unstripped line, so an **indented comment was treated as an APK path**.
+- **A peer that presents no TLS certificate is reported as such.**
+  `getpeercert()` answers `None` in that case, and indexing it raised
+  `TypeError`, which the bare `except` turned into `"error"`: the right outcome
+  reached by the wrong road. The `verify_code` attribute is also validated
+  before it is used as a dictionary key.
+- **An unverifiable law now says what it costs.** The report warned that an act
+  could not be fetched, and separately printed `SHA256: non disponibile` against
+  each citation, with nothing joining the two — so a missing hash read as a
+  defect in the hashing. It is not: with no verified text there is nothing to
+  hash, and printing one anyway would assert a verification that never happened.
+- **`APKRADAR_HOME` is no longer taken literally.** `~/cache` made a directory
+  named `~`, a relative value followed the working directory so the cache
+  stopped being one cache, and `"   "` became a directory name.
+- The Excel export no longer builds a list of transfer entity names on every row
+  of every sheet and discards it.
+
+### Changed
+- ruff, mypy, hypothesis and mutmut are development dependencies, with a
+  `Quality` workflow running ruff and mypy on every push and pull request, and a
+  weekly, non-blocking mutation run.
+- The suite gains eleven properties checked against generated input, and a
+  contract test that refuses any code letting the locale choose a text
+  encoding.
+- **Every string the tool writes itself is now in English**, which the
+  CHANGELOG already was. The report's section is `Provisions applied` rather
+  than `Norme applicate`, and finding titles, scope notes, evidence lines and
+  the release script's messages follow. Two things stay Italian on purpose: a
+  provision's quoted text, which is fetched from the official Italian version of
+  each act and hashed — translating it would change every SHA-256 in every cache
+  — and `templates/dpo_letter_it.txt`, a formal letter addressed to an Italian
+  data protection officer.
+
 ## [2026.09.31] - 2026-09-19
 
 ### Added
-- `audit` ends with a "Norme applicate" section: each finding cites the legal
+- `audit` ends with a "Provisions applied" section: each finding cites the legal
   provisions it concerns, with the SHA-256 of the exact text applied and the
   date of that wording. The text is downloaded on every audit and cached in
   `~/.apkradar/law_cache.json` (`APKRADAR_HOME` moves the folder); a changed
