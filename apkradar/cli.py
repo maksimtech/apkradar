@@ -14,6 +14,39 @@ from rich.markup import escape
 from rich.table import Table
 from rich import box
 from apkradar import __version__
+import sys
+
+
+def enable_utf8_output() -> None:
+    """Make stdout and stderr accept characters the console cannot encode.
+
+    On Windows the console code page is cp1252, and Python encodes output with
+    it: the first emoji — the one in this CLI's own help text — ended the
+    program with UnicodeEncodeError before any command had run. It was never
+    the command failing, only the printing of its output.
+
+    errors="replace" rather than "strict": a glyph the terminal cannot show
+    should come out as a question mark, never as a traceback.
+
+    Streams that cannot be reconfigured are left alone. pytest's capture and
+    anything wrapping a pipe are not TextIOWrapper, and replacing them would
+    break whatever is reading them; a cosmetic setting is not worth raising
+    over, so this gives up quietly.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if encoding == "utf8":
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
+enable_utf8_output()
+
 
 app = typer.Typer(
     name="apkradar",
@@ -22,6 +55,46 @@ app = typer.Typer(
 )
 
 console = Console()
+
+
+# `audit --output` writes whatever the terminal showed. Rich records the
+# rendered output, so the file is the report rather than a second rendering of
+# it that could drift from what the operator saw.
+_REPORT_FORMATS = {".txt": "text", ".html": "html", ".svg": "svg"}
+
+
+def _report_format(path: str) -> str:
+    """The format the filename asks for, or ValueError naming the known ones."""
+    suffix = Path(path).suffix.lower()
+    if suffix in _REPORT_FORMATS:
+        return _REPORT_FORMATS[suffix]
+    known = ", ".join(sorted(_REPORT_FORMATS))
+    raise ValueError(f"cannot tell the format from '{Path(path).name}'; known extensions: {known}")
+
+
+def _check_report_target(output: str) -> str:
+    """Validate the target before any analysis runs.
+
+    Refusing a filename after scanning an APK would throw the work away, and
+    the two things that can be wrong — an unknown extension, a directory that
+    is not there — are both knowable up front.
+    """
+    chosen = _report_format(output)
+    parent = Path(output).expanduser().resolve().parent
+    if not parent.is_dir():
+        raise ValueError(f"no directory to write into: {parent}")
+    return chosen
+
+
+def _save_report(output: str, chosen: str) -> None:
+    target = Path(output).expanduser()
+    if chosen == "html":
+        console.save_html(str(target))
+    elif chosen == "svg":
+        console.save_svg(str(target), title="APKRadar")
+    else:
+        console.save_text(str(target))
+
 
 
 def _version_callback(value: bool) -> None:
@@ -117,6 +190,77 @@ _SSL_STATUS_TEXT = {
 }
 
 
+_DEFAULT_PROXY_PORT = 3128
+
+
+def _proxy_for_https(domain: str | None = None) -> tuple[str, int] | None:
+    """(host, port) of the proxy to use for `domain`, or None to go direct.
+
+    Reads the same variables the rest of the toolchain honours — httpx does it
+    by default, which is why only this check was affected. HTTPS_PROXY first,
+    then ALL_PROXY, then HTTP_PROXY: a site that sets only the last still means
+    "do not go out directly".
+
+    A malformed value is ignored rather than raised on: a typo in an
+    environment variable should not end an audit.
+    """
+    import os
+    from urllib.parse import urlparse
+
+    if domain:
+        exempt = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+        for entry in (e.strip().lstrip(".").lower() for e in exempt.split(",")):
+            if entry and (domain.lower() == entry or domain.lower().endswith("." + entry)):
+                return None
+
+    for name in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy",
+                 "HTTP_PROXY", "http_proxy"):
+        value = os.environ.get(name)
+        if not value:
+            continue
+        try:
+            parsed = urlparse(value if "://" in value else f"http://{value}")
+        except ValueError:
+            continue
+        host = parsed.hostname
+        # urlparse takes "not a url at all" as a hostname once a scheme is
+        # prepended, so the shape is checked rather than assumed: a host has
+        # no whitespace in it.
+        if host and not any(ch.isspace() for ch in host):
+            try:
+                port = parsed.port or _DEFAULT_PROXY_PORT
+            except ValueError:      # a port that is not a number
+                continue
+            return host, port
+    return None
+
+
+def _open_tunnel(proxy: tuple[str, int], domain: str, timeout: int):
+    """A TCP socket to `domain`:443 through an HTTP proxy, via CONNECT.
+
+    The certificate has to be inspected end to end, so the proxy is asked for
+    a tunnel rather than for the page: what comes back through it is the
+    server's own TLS handshake, which is the thing being checked.
+    """
+    sock = socket.create_connection(proxy, timeout=timeout)
+    try:
+        request = (
+            f"CONNECT {domain}:443 HTTP/1.1\r\n"
+            f"Host: {domain}:443\r\n"
+            "\r\n"
+        )
+        sock.sendall(request.encode("ascii"))
+        response = sock.recv(4096)
+        status = response.split(b"\r\n", 1)[0].decode("latin-1", "replace")
+        if " 200 " not in f" {status} ":
+            # Not a certificate problem: the proxy never let us see one.
+            raise OSError(f"proxy refused the tunnel: {status}")
+        return sock
+    except Exception:
+        sock.close()
+        raise
+
+
 def _check_ssl(domain: str) -> tuple[str, str | None]:
     """
     Check SSL certificate validity.
@@ -130,7 +274,13 @@ def _check_ssl(domain: str) -> tuple[str, str | None]:
     try:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
-        with socket.create_connection((domain, 443), timeout=5) as sock:
+        proxy = _proxy_for_https(domain)
+        raw = (
+            _open_tunnel(proxy, domain, timeout=5)
+            if proxy
+            else socket.create_connection((domain, 443), timeout=5)
+        )
+        with raw as sock:
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert = ssock.getpeercert()
                 expire_date = datetime.strptime(
@@ -283,6 +433,18 @@ def audit(
     from apkradar.scanner import scan
     from apkradar.utils import get_all_domains
 
+    # Checked first: the two things that can be wrong with the target are
+    # knowable before the APK is opened, and refusing it afterwards would
+    # throw away the analysis.
+    chosen = None
+    if output:
+        try:
+            chosen = _check_report_target(output)
+        except ValueError as exc:
+            console.print(f"[red]{escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
+        console.record = True
+
     console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
     with console.status("[cyan]Analyzing APK...[/cyan]"):
@@ -308,6 +470,13 @@ def audit(
         console.print()
 
     _print_law_check(_law_check(result, consent_violation=consent_violation))
+
+    # Written last, so the file holds the whole report — the law citations
+    # included. A scan that errored has already left through Exit(1) above:
+    # a report of an analysis that did not happen is worse than no file.
+    if output and chosen:
+        _save_report(output, chosen)
+        console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
 
 
 @app.command()
