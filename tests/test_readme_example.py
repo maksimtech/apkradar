@@ -11,8 +11,13 @@ false negative was left on display as current behaviour, and the paragraph under
 it explained arithmetic (100 − 3×5 − 1×5 = 80) that no longer describes the app,
 while asserting that Crashlytics is not on the tracker list.
 
-The tables had drifted too, in a way nobody would notice by eye: the README drew
-them with rounded corners and the renderer draws them square.
+The example is rendered here through a console this file declares — 80 columns,
+no colour, `legacy_windows=False` — and not through whatever console the
+developer happens to have. rich substitutes box characters when it decides the
+terminal cannot draw them: `box.ROUNDED`, which is what the code asks for, comes
+out square on a legacy Windows console and rounded everywhere else. Generating
+the block from such a console rewrote the README's tables with the wrong glyphs
+and the CI caught it, which is the whole point of having this test.
 
 So the example is no longer maintained by hand. It is rendered from
 tests/fixtures/readme_audit_example.json by the same code path `apkradar audit`
@@ -24,16 +29,23 @@ which file by hash so the check is possible.
 
 from __future__ import annotations
 
+import io
 import json
 import pathlib
 from unittest.mock import patch
 
 import pytest
+from rich.console import Console
 from typer.testing import CliRunner
 
+import apkradar.cli as cli
 import apkradar.scanner as scanner
 from apkradar.cli import app
 from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
+
+# What the README shows: a terminal 80 columns wide, no colour, and able to draw
+# the box characters the tables ask for.
+CANONICAL_WIDTH = 80
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
@@ -76,11 +88,34 @@ def example_result(documented) -> ScanResult:
 
 @pytest.fixture(scope="module")
 def rendered(example_result) -> str:
-    """What `apkradar audit` prints for the documented findings."""
-    with patch.object(scanner, "scan", lambda path, **kw: example_result):
+    """What `apkradar audit` prints for the documented findings.
+
+    Through a console this test owns, so that the result does not depend on the
+    machine running it. Left to `Console()`, rich asks the environment whether it
+    can draw box characters and answers differently on a legacy Windows console
+    than on the CI runner — and the README can only show one of the two.
+    """
+    buffer = io.StringIO()
+    canonical = Console(
+        file=buffer,
+        width=CANONICAL_WIDTH,
+        legacy_windows=False,
+        no_color=True,
+        highlight=False,
+    )
+    with patch.object(cli, "console", canonical), \
+         patch.object(scanner, "scan", lambda path, **kw: example_result):
         outcome = CliRunner().invoke(app, ["audit", example_result.apk_path])
-    assert outcome.exit_code == 0, outcome.output
-    return outcome.output
+    assert outcome.exit_code == 0, buffer.getvalue() or outcome.output
+    return buffer.getvalue()
+
+
+def test_the_rendering_is_the_canonical_one(rendered):
+    """A guard on the guard: if this file is ever made to render through a legacy
+    Windows console, the tables come out square, the README gets regenerated with
+    the wrong glyphs, and every assertion below still passes. It happened once."""
+    assert "╭" in rendered, "box characters were substituted; see the docstring"
+    assert "┌" not in rendered
 
 
 def _lines(text: str) -> list[str]:
