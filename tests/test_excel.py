@@ -434,7 +434,13 @@ class TestBatchExcelCommand(unittest.TestCase):
         self.assertEqual(mock_scan.call_count, 2)
         mock_write.assert_called_once()
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("🔴 CRITICAL — 0/100", result.output)
+        # Was "🔴 CRITICAL — 0/100". The spreadsheet cell is blank for the same
+        # reason: a 0 in that column gets averaged, sorted and charted.
+        # On the failed line only: "0/100" also occurs inside "100/100".
+        failed_line = next(
+            line for line in result.output.splitlines() if "N/A" in line
+        )
+        self.assertNotIn("/100", failed_line)
 
     def test_batch_excel_all_ok_exit_0(self):
         from apkradar.scanner import ScanResult

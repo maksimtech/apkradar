@@ -149,7 +149,9 @@ def write_results(results: list, output_path: str, input_path: str | None = None
         for row_idx, result in enumerate(results, 2):
             tracker_names = ", ".join(t.name for t in result.trackers)
             values = [
-                "" if result.skipped else result.score,
+                # Blank, not 0: a zero in this column gets averaged,
+                # sorted and charted alongside real scores.
+                "" if result.score is None else result.score,
                 result.score_label,
                 result.tracker_count,
                 result.sensitive_permission_count,
@@ -170,7 +172,9 @@ def write_results(results: list, output_path: str, input_path: str | None = None
                 result.package_name,
                 result.apk_format.upper(),
                 result.version_name,
-                "" if result.skipped else result.score,
+                # Blank, not 0: a zero in this column gets averaged,
+                # sorted and charted alongside real scores.
+                "" if result.score is None else result.score,
                 result.score_label,
                 result.tracker_count,
                 result.sensitive_permission_count,

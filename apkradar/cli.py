@@ -5,6 +5,7 @@ Requires: mailradar + cookieradar
 """
 import asyncio
 import contextlib
+import pathlib
 import socket
 import ssl
 import sys
@@ -124,7 +125,15 @@ def _print_result(result) -> None:
     }.get(result.score_label, "white")
 
     console.print(f"\n[bold]📱 APKRadar Report — {escape(result.package_name or result.apk_path)}[/bold]")
-    console.print(f"[{score_color}]Score: {result.score}/100 — {result.score_label}[/{score_color}]\n")
+    # "Score: N/A", not "0/100": the second invites a comparison with results
+    # that were actually measured.
+    score_text = "N/A" if result.score is None else f"{result.score}/100"
+    console.print(f"[{score_color}]Score: {score_text} — {result.score_label}[/{score_color}]")
+    # The working, so the number is auditable without reading the source — and so
+    # that a 0 reached by clamping does not read as a measured bottom of scale.
+    if result.score_arithmetic:
+        console.print(f"[dim]{escape(result.score_arithmetic)}[/dim]")
+    console.print()
 
     if result.error:
         console.print(f"[red]❌ Error: {escape(result.error)}[/red]")
@@ -320,14 +329,44 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
         return None, None
 
 
-def _full_stack_domain(domain: str, verbose: bool = False) -> bool:
+def _domains_to_analyse(result):
+    """(publisher resolution, its candidates, the other domains) for one APK.
+
+    One place, because `audit --full` and `batch --full` were each deciding it
+    and only one of them would have learned anything. The other domains are
+    everything the APK points at that the publisher resolution did not set
+    aside — without that subtraction, a domain dropped for being on sale came
+    back as an SDK domain.
+    """
+    from apkradar import publisher
+    from apkradar.utils import get_all_domains
+
+    pub = publisher.without_parked(publisher.from_result(result))
+    candidates = pub.candidates
+    others = sorted(
+        set(get_all_domains(result)) - {d for d, _ in candidates} - pub.set_aside
+    )
+    return pub, candidates, others
+
+
+def _full_stack_domain(domain: str, verbose: bool = False, note: str = "") -> bool:
     """
     Run full stack analysis on a single domain.
+
+    Args:
+        domain: the host to check
+        verbose: narrate each downstream call
+        note: where this domain came from, printed beside it. A guessed publisher
+            domain and a domain read out of the APK are different kinds of claim,
+            and they used to be printed identically.
 
     Returns:
         True if CookieRadar found trackers that persist after rejection.
     """
-    console.print(f"\n[bold cyan]🔗 {escape(domain)}[/bold cyan]")
+    heading = f"🔗 {escape(domain)}"
+    if note:
+        heading += f" [dim]({escape(note)})[/dim]"
+    console.print(f"\n[bold cyan]{heading}[/bold cyan]")
 
     # MailRadar
     if verbose:
@@ -438,7 +477,14 @@ def audit(
         False, "--full", "-f",
         help="Full stack analysis: APK + MailRadar + CookieRadar on all SDK domains",
     ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show debug output during full stack analysis"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v",
+        help="Show debug output, including androguard's own log",
+    ),
+    offline: bool = typer.Option(
+        False, "--offline",
+        help="Do not ask Google Play who publishes the app",
+    ),
 ):
     """
     Audit an APK for GDPR compliance.
@@ -446,8 +492,13 @@ def audit(
     Use --full for complete stack analysis on publisher and all SDK domains.
     Use --verbose to see what is happening during analysis.
     """
-    from apkradar.scanner import scan
-    from apkradar.utils import get_all_domains
+    from apkradar import publisher as publisher_domain
+    from apkradar.scanner import scan, set_library_logging
+
+    # --verbose is what asks for this much detail. Without it androguard's log
+    # was 98.7% to 99.5% of the output, measured on six real APKs, and the flag
+    # had no effect on it either way.
+    set_library_logging(verbose)
 
     # Checked first: the two things that can be wrong with the target are
     # knowable before the APK is opened, and refusing it afterwards would
@@ -463,8 +514,10 @@ def audit(
 
     console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
+    # The Play listing is only worth fetching when the publisher domain is going
+    # to be printed, and --full is already a networked command.
     with console.status("[cyan]Analyzing APK...[/cyan]"):
-        result = scan(apk)
+        result = scan(apk, lookup_publisher=full and not offline)
 
     _print_result(result)
 
@@ -473,14 +526,66 @@ def audit(
 
     consent_violation = False
     if full and result.package_name:
-        domains = get_all_domains(result)
+        # Asked before anything is analysed: a domain on sale has no holder, and
+        # a finding against it would belong to whoever buys it next.
+        pub, candidates, others = _domains_to_analyse(result)
+        domains = [domain for domain, _ in candidates] + others
+
+        # Outside the `if domains` below: when the only candidate was set aside
+        # there is nothing to analyse and that is exactly when the reason has to
+        # be given, or the output is indistinguishable from an app that points
+        # nowhere.
+        if pub.overridden_by_play:
+            # Named only under --verbose: it is the domain of whoever built
+            # the app, and an audit that prints it invites a reader to treat
+            # it as a subject of the audit.
+            console.print(
+                "[yellow]⚠️  The publisher's domain comes from the Google "
+                "Play listing and is not verified. The package name "
+                "suggested a different domain, which was not analysed: it is "
+                "the reverse-DNS of whoever built the app.[/yellow]"
+            )
+            if verbose:
+                console.print(
+                    f"[dim]   set aside: {escape(pub.overridden_by_play)}[/dim]"
+                )
+        if pub.parked:
+            console.print(
+                "[yellow]⚠️  A candidate domain answers with a "
+                "domain-for-sale page and was not analysed: it has no holder "
+                "to attribute a finding to, and anyone may buy it.[/yellow]"
+            )
+        if pub.rejected_play or pub.rejected_package:
+            rejected = pub.rejected_play or pub.rejected_package
+            console.print(
+                f"[dim]Not analysed: {escape(str(rejected))} — a helpdesk, "
+                "site builder or social page, not the publisher's own domain.[/dim]"
+            )
+        console.print()
+
+        for domain, source in candidates:
+            if _full_stack_domain(
+                domain, verbose=verbose,
+                note=publisher_domain.PROVENANCE_LABELS[source],
+            ):
+                consent_violation = True
 
         if domains:
-            console.print(f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]")
-            console.print("[dim]Publisher + SDK domains detected[/dim]\n")
+            console.print(
+                f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]\n"
+            )
+            for domain, source in candidates:
+                if _full_stack_domain(
+                    domain, verbose=verbose,
+                    note=publisher_domain.PROVENANCE_LABELS[source],
+                ):
+                    consent_violation = True
 
-            for domain in sorted(domains):
-                if _full_stack_domain(domain, verbose=verbose):
+            for domain in others:
+                if _full_stack_domain(
+                    domain, verbose=verbose,
+                    note="SDK or deep-link domain found in the APK",
+                ):
                     consent_violation = True
 
         console.print()
@@ -493,6 +598,65 @@ def audit(
     if output and chosen:
         _save_report(output, chosen)
         console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
+
+
+_BATCH_STATUS = {
+    "CRITICAL": "🔴 CRITICAL",
+    "POOR": "🟠 POOR",
+    "MODERATE": "🟡 MODERATE",
+    "GOOD": "🟢 GOOD",
+    "SKIPPED": "⚪ SKIPPED",
+    "N/A": "⚪ N/A",
+}
+
+
+def _batch_line(result, out=None) -> None:
+    """One line per APK in a batch run.
+
+    Extracted from the loop so it can be tested: the version built inline
+    printed "0/100 — 0 trackers, 0 sensitive permissions" for a file that was
+    never opened, in the same column as measured results.
+    """
+    out = out or console
+    status = _BATCH_STATUS.get(result.score_label, "⚪ " + result.score_label)
+    if result.score is None:
+        # Nothing was counted, so nothing is claimed.
+        out.print(f"  {status} — not analysed")
+        return
+    out.print(
+        f"  {status} — {result.score}/100 — {result.tracker_count} trackers, "
+        f"{result.sensitive_permission_count} sensitive permissions"
+    )
+
+
+def _check_report_dir(output: str) -> pathlib.Path:
+    """The directory to write batch reports into, created if need be.
+
+    Checked before the first APK is opened: a target that cannot be written is
+    knowable up front, and discovering it after twenty scans wastes them.
+    """
+    target = pathlib.Path(output).expanduser()
+    if target.exists() and not target.is_dir():
+        raise ValueError(f"not a directory: {target}")
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _report_name(apk_path: str, used: set[str]) -> str:
+    """A filename per APK, distinct even when two share a basename.
+
+    `one/app.apk` and `two/app.apk` are two results. Writing both to `app.txt`
+    would lose one of them without saying so — the same collision cookieradar's
+    batch already guards against.
+    """
+    stem = pathlib.Path(apk_path).stem or "report"
+    name = f"{stem}.txt"
+    n = 2
+    while name in used:
+        name = f"{stem}-{n}.txt"
+        n += 1
+    used.add(name)
+    return name
 
 
 def _read_list(path: str) -> list[str]:
@@ -516,8 +680,23 @@ def batch(
     """
     Audit multiple APKs from a file.
     Supports .apk, .xapk and .apkm formats.
+    Use --output to save one report per APK, --full for the three-way analysis.
     """
+    from apkradar import publisher as publisher_mod
     from apkradar.scanner import scan
+
+    # Before anything is scanned, for the same reason audit checks its filename
+    # first: the work would be thrown away otherwise.
+    reports = None
+    if output:
+        try:
+            reports = _check_report_dir(output)
+        except OSError as exc:
+            console.print(f"[red]❌ Cannot write into {escape(output)}: {escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
+        except ValueError as exc:
+            console.print(f"[red]❌ {escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
 
     try:
         paths = _read_list(file)
@@ -534,19 +713,48 @@ def batch(
     console.print(f"\n[dim]Loaded {len(paths)} APKs from {escape(file)}[/dim]\n")
 
     failed = 0
+    used_names: set[str] = set()
+    # Remembered across the whole batch: --full costs three network checks per
+    # domain, and two apps embedding the same SDK share domains.
+    analysed_domains: set[str] = set()
+
     for path in paths:
+        if reports is not None:
+            console.record = True
         console.print(f"[cyan]Auditing {escape(path)}...[/cyan]")
         result = scan(path)
-        status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
-                 "🟠 POOR" if result.score_label == "POOR" else \
-                 "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
-        console.print(
-            f"  {status} — {result.score}/100 — {result.tracker_count} trackers, "
-            f"{result.sensitive_permission_count} sensitive permissions"
-        )
+        _batch_line(result)
         if result.error:
             failed += 1
             console.print(f"  [red]❌ {escape(result.error)}[/red]")
+
+        if full and not result.error and result.package_name:
+            # Through the same helper as `audit`: batch used to take every domain
+            # get_all_domains returned, which included the ones set aside.
+            pub, candidates, others = _domains_to_analyse(result)
+            for domain, source in candidates:
+                if domain not in analysed_domains:
+                    analysed_domains.add(domain)
+                    _full_stack_domain(
+                        domain, note=publisher_mod.PROVENANCE_LABELS[source]
+                    )
+            for domain in others:
+                if domain not in analysed_domains:
+                    analysed_domains.add(domain)
+                    _full_stack_domain(
+                        domain, note="SDK or deep-link domain found in the APK"
+                    )
+
+        # Only for a scan that produced something: a report of an analysis that
+        # did not happen is worse than no file.
+        if reports is not None:
+            if result.error:
+                console.record = False
+            else:
+                name = _report_name(path, used_names)
+                console.save_text(str(reports / name))
+                console.record = False
+                console.print(f"  [green]report → {escape(str(reports / name))}[/green]")
         console.print()
 
     if failed:
@@ -611,6 +819,10 @@ def send(
     apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
     to: str = typer.Option(..., "--to", help="DPO email address"),
     publisher: str = typer.Option(..., "--publisher", help="Publisher name"),
+    publisher_domain: str = typer.Option(
+        None, "--publisher-domain",
+        help="The publisher's own domain, if you have established it",
+    ),
     from_email: str = typer.Option(..., "--from", help="Sender email"),
     smtp_host: str = typer.Option(..., "--smtp-host", help="SMTP host"),
     smtp_port: int = typer.Option(465, "--smtp-port", help="SMTP port"),
@@ -620,6 +832,10 @@ def send(
     lang: str = typer.Option("it", "--lang", help="Letter language (it/en)"),
     noyb: bool = typer.Option(False, "--noyb", help="Include NOYB reference in escalation"),
     noyb_id: str = typer.Option(None, "--noyb-id", help="NOYB supporter ID (e.g. 7645)"),
+    offline: bool = typer.Option(
+        False, "--offline",
+        help="Do not ask Google Play who publishes the app",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print letter without sending"),
 ):
     """
@@ -631,14 +847,14 @@ def send(
         apkradar send app.apk --to dpo@example.com --noyb ...
         apkradar send app.apk --to dpo@example.com --noyb-id 7645 ...
     """
+    from apkradar import publisher as publisher_mod
     from apkradar.scanner import scan
     from apkradar.sender import render_letter, send_letter
-    from apkradar.utils import package_to_domain
 
     console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
     with console.status("[cyan]Analyzing APK...[/cyan]"):
-        result = scan(apk)
+        result = scan(apk, lookup_publisher=not offline)
 
     _print_result(result)
 
@@ -649,7 +865,20 @@ def send(
         )
         raise typer.Exit(1)
 
-    domain = package_to_domain(result.package_name) or ""
+    # Whose domain is it? The package name is a guess, the Play listing is free
+    # text, and a letter under art. 32 names a legal entity. So the two are
+    # weighed against each other, and the sender can settle it with
+    # --publisher-domain.
+    pub = publisher_mod.without_parked(
+        publisher_mod.from_result(result, stated=publisher_domain)
+    )
+    if pub.parked:
+        console.print(
+            "[yellow]⚠️  A candidate domain is for sale and was not analysed. "
+            "A letter cannot attribute a technical failing to a domain with no "
+            "holder.[/yellow]"
+        )
+    domain = pub.best or ""
 
     mail_score = None
     mail_grade = None
@@ -657,6 +886,7 @@ def send(
     ssl_expiry = None
 
     if domain:
+        console.print(f"[dim]Publisher domain: {escape(pub.describe(domain))}[/dim]")
         console.print(f"[dim]Running MailRadar on {escape(domain)}...[/dim]")
         mail_score, mail_grade = _check_mailradar(domain)
         if mail_score is not None:
@@ -665,6 +895,23 @@ def send(
         console.print(f"[dim]Checking SSL on {escape(domain)}...[/dim]")
         ssl_status, ssl_expiry = _check_ssl(domain)
         console.print(f"🔒 SSL {_ssl_status_text(ssl_status, ssl_expiry)}")
+    else:
+        for candidate, source in pub.candidates:
+            console.print(
+                f"[dim]Candidate: {escape(candidate)} "
+                f"({escape(publisher_mod.PROVENANCE_LABELS[source])})[/dim]"
+            )
+
+    if not pub.verified:
+        # pub.note never names a domain that was set aside — see publisher.note.
+        console.print(
+            "[yellow]⚠️  The publisher's domain has not been established"
+            f"{' — ' + escape(pub.note) if pub.note else ''}.\n"
+            "   Section 4 of the letter will state that no art. 32 finding is "
+            "made rather than attribute one.\n"
+            "   Pass [bold]--publisher-domain[/bold] if you have established "
+            "it yourself.[/yellow]"
+        )
 
     if noyb_id:
         noyb = True
@@ -672,7 +919,10 @@ def send(
     letter = render_letter(
         result=result,
         publisher=publisher,
-        publisher_domain=domain,
+        # Only an established domain reaches the letter: naming a third party's
+        # domain in a formal allegation is the defect this fixes.
+        publisher_domain=domain if pub.verified else "",
+        publisher_domain_verified=pub.verified,
         sender_name=name,
         sender_org=org,
         sender_email=from_email,
@@ -770,7 +1020,8 @@ def batch_excel(
             status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
                      "🟠 POOR" if result.score_label == "POOR" else \
                      "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
-            console.print(f"  {status} — {result.score}/100 — {result.tracker_count} trackers")
+            score_text = "N/A" if result.score is None else f"{result.score}/100"
+            console.print(f"  {status} — {score_text} — {result.tracker_count} trackers")
         if result.error:
             console.print(f"  [red]❌ {escape(result.error)}[/red]")
 

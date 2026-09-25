@@ -42,19 +42,21 @@ Non sono stati rilevati trasferimenti di dati extra-UE noti.
 {% endif %}
 
 4. MISURE TECNICHE — art. 32 GDPR
-{% if mail_poor %}
-L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}, indicando misure tecniche inadeguate per la protezione delle comunicazioni.
+{% if not publisher_domain_verified %}
+Non è stato possibile accertare quale dominio internet sia riferibile al titolare del trattamento: il nome del package Android è il reverse-DNS di chi ha compilato l'applicazione e non prova la titolarità di alcun dominio. Non viene pertanto formulato alcun rilievo ai sensi dell'art. 32 GDPR in merito alle misure tecniche di un dominio la cui titolarità non risulti accertata. Ciò non costituisce accertamento di conformità: la verifica non è stata effettuata.
+{% elif mail_poor %}
+L'analisi della sicurezza email del dominio {{ publisher_domain }} ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}, indicando misure tecniche inadeguate per la protezione delle comunicazioni.
 {% elif mail_score is not none %}
-L'analisi della sicurezza email del dominio publisher ({{ publisher_domain }}) ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}.
+L'analisi della sicurezza email del dominio {{ publisher_domain }} ha prodotto un punteggio di {{ mail_score }}/100 — {{ mail_grade }}.
 {% endif %}
-{% if ssl_status == "expired" %}
+{% if publisher_domain_verified and ssl_status == "expired" %}
 Il certificato SSL del sito {{ publisher_domain }} risulta scaduto, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
-{% elif ssl_status == "self_signed" %}
+{% elif publisher_domain_verified and ssl_status == "self_signed" %}
 Il certificato SSL del sito {{ publisher_domain }} è autofirmato e non verificabile dagli utenti, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
-{% elif ssl_status == "unknown_ca" %}
+{% elif publisher_domain_verified and ssl_status == "unknown_ca" %}
 Il certificato SSL del sito {{ publisher_domain }} è emesso da un'autorità di certificazione non riconosciuta, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
 {% endif %}
-{% if not mail_poor and not ssl_issue %}
+{% if publisher_domain_verified and not mail_poor and not ssl_issue %}
 Non sono state rilevate criticità nelle misure tecniche del publisher.
 {% endif %}
 

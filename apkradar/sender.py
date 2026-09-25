@@ -32,6 +32,7 @@ def render_letter(
     mail_score: int | None = None,
     mail_grade: str | None = None,
     ssl_status: str | None = None,
+    publisher_domain_verified: bool = False,
     noyb_id: str | None = None,
     noyb: bool = False,
     lang: str = "it",
@@ -51,6 +52,12 @@ def render_letter(
         ssl_status: SSL check status (valid, expired, self_signed, unknown_ca,
             hostname_mismatch, invalid, timeout, error). Only expired,
             self_signed and unknown_ca are reported as issues in the letter.
+        publisher_domain_verified: Whether publisher_domain is established rather
+            than guessed — the sender stated it, or the package name and the Play
+            listing agree. Section 4 makes no art. 32 allegation without it, and
+            it defaults to False so that omitting it cannot produce one.
+            An unverified domain is not named in the letter at all: naming a
+            third party's domain, even as unverified, is not this letter's place.
         noyb_id: NOYB supporter ID e.g. '7645' (optional)
         noyb: Include NOYB reference without membership ID
         lang: Language (it/en)
@@ -85,6 +92,7 @@ def render_letter(
         mail_poor=mail_score is not None and mail_score < MAIL_SCORE_POOR_THRESHOLD,
         ssl_status=ssl_status,
         ssl_issue=ssl_status in SSL_LETTER_ISSUES,
+        publisher_domain_verified=publisher_domain_verified,
         noyb_id=noyb_id,
         noyb=noyb,
         date=datetime.now().strftime("%d/%m/%Y"),

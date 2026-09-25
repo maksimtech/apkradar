@@ -98,7 +98,7 @@ APKRadar 2026.09.29
 | Command | Purpose |
 |---|---|
 | `apkradar audit <file>` | Audit one app file |
-| `apkradar audit <file> --full` | Audit the app, then check the publisher and SDK domains with MailRadar, SSL and CookieRadar |
+| `apkradar audit <file> --full` | Audit the app, then check the publisher and SDK domains with MailRadar, SSL and CookieRadar (`--offline` skips the Google Play lookup) |
 | `apkradar batch <list.txt>` | Audit every app file listed in a text file |
 | `apkradar batch-excel <file.xlsx>` | Audit the apps listed in an Excel sheet and write the results to Excel |
 | `apkradar search <package>` | Look up an app on Google Play by package name |
@@ -109,10 +109,17 @@ Run `apkradar <command> --help` for the full list of options.
 
 ## Usage
 
-The examples below are real output from APKRadar 2026.09.29, captured on
-18 September 2026 with public builds of Bitwarden (GitHub release), Wikipedia
-and Nextcloud (F-Droid). Results for third-party apps and domains change over
-time. Colours are not shown.
+The examples below are real output from APKRadar 2026.09.32, with public
+builds of Bitwarden (GitHub release `v2026.9.0-bwpm`, SHA-256
+`954967bb3c9b940c16edb981242461b03c34f0e60671f42793c07a46190d64b3`),
+Wikipedia and Nextcloud (F-Droid). Colours are not shown.
+
+The `audit` example is generated from the renderer by
+`tests/test_readme_example.py`, which fails if this document stops matching what
+the tool prints. That check has no APK, so it cannot notice the tracker database
+improving on the real file — which is exactly what made the previous example
+stale — hence the hash above: re-run the tool on that artifact to confirm the
+findings. Results for third-party apps and domains change over time.
 
 ### Audit an app
 
@@ -122,7 +129,8 @@ $ apkradar audit bitwarden.apk
 Auditing bitwarden.apk...
 
 📱 APKRadar Report — com.x8bit.bitwarden
-Score: 80/100 — GOOD
+Score: 70/100 — MODERATE
+100 − 10 (1 tracker) − 15 (3 sensitive permissions) − 5 (1 transfer) = 70
 
 App:     Bitwarden
 Version: 2026.9.0 (21909)
@@ -130,43 +138,61 @@ SDK:     min=29 target=37
 Format:  APK
 SHA256:  954967bb3c9b940c...
 
-✅ No trackers detected
+                 🔴 Trackers (1)
+┌─────────────┬─────────────────────────────────┐
+│ Tracker     │ Package                         │
+├─────────────┼─────────────────────────────────┤
+│ Crashlytics │ com.google.firebase.crashlytics │
+└─────────────┴─────────────────────────────────┘
   ⚠️  Sensitive Permissions (3)
-╭─────────────────┬──────────────╮
+┌─────────────────┬──────────────┐
 │ Permission      │ GDPR Concern │
 ├─────────────────┼──────────────┤
 │ USE_BIOMETRIC   │ biometrics   │
 │ USE_FINGERPRINT │ fingerprint  │
 │ CAMERA          │ camera       │
-╰─────────────────┴──────────────╯
+└─────────────────┴──────────────┘
       🌍 Extra-EU Transfers (1)
-╭──────────────────┬────────────────╮
+┌──────────────────┬────────────────┐
 │ Entity           │ Package Prefix │
 ├──────────────────┼────────────────┤
 │ Google LLC (USA) │ com.google     │
-╰──────────────────┴────────────────╯
+└──────────────────┴────────────────┘
+
+⚖️  Provisions applied
+GDPR: verified against EUR-Lex (CELEX 32016R0679)
+Contenuti digitali dir. 2019/770: verified against EUR-Lex (CELEX 32019L0770)
+Codice del Consumo D.Lgs. 206/2005: verified against Normattiva (URN
+urn:nir:stato:decreto.legislativo:2005-09-06;206)
+  testo vigente
+...
 ```
 
-Score: 100 − 3 permissions × 5 − 1 transfer × 5 = 80. The Google LLC entry
-comes from Google components that are not on the tracker list: Firebase Cloud
-Messaging (push notifications), ML Kit and Play Core. For more on this, see
+Score: 100 − 1 tracker × 10 − 3 permissions × 5 − 1 transfer × 5 = 70. The
+Google LLC entry covers both Crashlytics and the Google components that are not
+on the tracker list: Firebase Cloud Messaging (push notifications), ML Kit and
+Play Core. For more on this, see
 [Reading the results](#reading-the-results).
+
+The `⚖️  Provisions applied` block lists, for each finding, the provision it
+relates to and the hash of the legal text APKRadar verified it against — so a
+citation can be checked against the source, not taken on trust. It is elided
+above because those hashes and dates change whenever the cached legal texts are
+refreshed.
 
 The command exits with code 1 if the file cannot be analysed.
 
 ### Full stack analysis
 
 ```
-$ apkradar audit wikipedia.apk --full
+$ apkradar audit wikipedia.apk --full --offline
 ...
 ✅ No extra-EU transfers detected
 
 
 🔗 Full stack analysis — 1 domains
-Publisher + SDK domains detected
 
-
-🔗 wikipedia.org
+🔗 wikipedia.org (guessed from package name — unverified)
   📡 MailRadar: 49/100 — POOR
   🔒 SSL: valid until 03/11/2026
   🍪 CookieRadar: 0 pre-consent trackers, none persist
@@ -366,6 +392,8 @@ Options:
 | `--org` | Sender organisation |
 | `--smtp-host`, `--smtp-user` | SMTP server and username (required) |
 | `--smtp-port` | SMTP port. Default 465 (implicit TLS). Any other port uses STARTTLS. |
+| `--publisher-domain` | The publisher's own domain, if you have established it. Without it, section 4 of the letter makes no art. 32 finding |
+| `--offline` | Do not ask Google Play who publishes the app |
 | `--noyb` | Add a reference to NOYB in the escalation section |
 | `--noyb-id` | Add a reference to NOYB with your supporter number (implies `--noyb`) |
 | `--dry-run` | Print the letter without sending it |
@@ -389,7 +417,20 @@ Every app starts at 100 points. Points are deducted for each finding:
 | Sensitive permission | −5 each |
 | Extra-EU vendor | −5 each |
 
-The score never goes below 0. It maps to a grade:
+The report prints the arithmetic under the score, so the number can be checked
+without reading the source:
+
+```
+Score: 70/100 — MODERATE
+100 − 10 (1 tracker) − 15 (3 sensitive permissions) − 5 (1 transfer) = 70
+```
+
+The printed score never goes below 0, but the sum can: an app with sixteen
+tracking SDKs comes to −95, and the line then reads
+`… = −95, clamped to 0`. Below zero the score stops distinguishing one app from
+another, which is why the clamp is stated rather than hidden.
+
+It maps to a grade:
 
 | Score | Grade |
 |---|---|
@@ -398,12 +439,21 @@ The score never goes below 0. It maps to a grade:
 | 40–59 | 🟠 POOR |
 | 0–39 | 🔴 CRITICAL |
 
-A file that cannot be analysed scores 0 and is shown with an error. In
-`batch-excel`, rows without an app file are shown as `SKIPPED`.
+A file that cannot be analysed has **no** score: the report shows `N/A` and the
+error, because 0 is the score of the worst possible app and not the absence of a
+measurement. In `batch-excel`, rows without an app file are shown as `SKIPPED`
+and the score cell is left empty.
 
 The score is a way to compare and sort apps. It is not a legal assessment:
 one tracker without a valid legal basis can matter more than several
 permissions that are justified.
+
+It also weighs breadth of functionality heavily. Five sensitive permissions cost
+more than two tracking SDKs, so an app with no third-party code and no extra-EU
+transfers can score below one that has both — Nextcloud 35.0.0 scores 55 with
+nine permissions and nothing else, Bitwarden 70 with three permissions, one
+tracker and one transfer to Google. The arithmetic line shows which is which, and
+it is worth reading before comparing two scores.
 
 ### Trackers
 
@@ -492,12 +542,18 @@ full. This lets you show later exactly which file was audited.
 `apkradar audit <file> --full` also looks at the websites behind the app. It
 collects these domains:
 
-- the **publisher domain**, inferred from the package name
-  (`org.wikipedia` → `wikipedia.org`; generic segments are skipped, so
-  `com.game.asteroids_revenge` → `asteroids-revenge.com`)
+- the **publisher domain candidates**, each labelled with where it came from:
+  reversing the package name (`org.wikipedia` → `wikipedia.org`; generic
+  segments are skipped, so `com.game.asteroids_revenge` →
+  `asteroids-revenge.com`) and the developer website on the Google Play listing.
+  Both sources are guesses, and they are treated as such — see
+  [Which domain belongs to the publisher](#which-domain-belongs-to-the-publisher)
 - the **known domains of every detected tracker SDK**, for example
   `appsflyer.com` for AppsFlyer, or `googleadservices.com` and
   `doubleclick.net` for Google Ads
+- the **deep-link hosts declared in the manifest**, which are often the
+  publisher's own site. Links to a platform — the Play store page, a social
+  profile — are skipped: nearly every app declares one.
 
 For each domain it runs three checks:
 
@@ -519,8 +575,56 @@ The CookieRadar line reads:
   missing (see [Installation](#installation)).
 
 `send` also runs the MailRadar and SSL checks on the publisher domain, and
-includes the results in the technical measures section of the letter. It does
-not run CookieRadar.
+includes the results in the technical measures section of the letter — but only
+if that domain has been established, as described next. It does not run
+CookieRadar.
+
+## Which domain belongs to the publisher
+
+An Android package name is the reverse-DNS of whoever *built* the app, and that
+is not always who publishes it. `it.Beta80Group.whereareu` is published by AREU,
+a regional health agency; reversing the package name gives the domain of Beta 80
+Group, the software house that wrote it. `com.x8bit.bitwarden` gives `x8bit.com`,
+a Spanish software company unrelated to Bitwarden.
+
+Google Play's developer website field is not authoritative either: it is free
+text, and for Coin Master it holds a Zendesk helpdesk tenant whose email posture
+is largely Zendesk's configuration rather than the publisher's.
+
+So APKRadar consults both, and at most one domain is ever analysed as the
+publisher's:
+
+| Situation | What APKRadar does |
+|---|---|
+| Both sources give the same domain | Treats it as established, labelled *package name and Google Play listing agree* |
+| They give different domains | Uses the Google Play listing, labelled **unverified**. The reverse-DNS of the package name is set aside: not analysed, not printed |
+| Only the package name gives one | Checks it, labelled *guessed from package name* — **unverified** |
+| A source gives a helpdesk, site builder or social page | Leaves it out and says so: a finding there would describe the platform |
+| The candidate answers with a domain-for-sale page | Leaves it out. It has no holder to attribute anything to |
+
+Wherever a domain is printed it carries its label, so a guess cannot be read as a
+measurement — and a domain that was set aside is not printed at all. Reporting it,
+even under "not analysed", puts a third party's domain in a document about someone
+else's app; `beta80group.it` belongs to the software house that wrote AREU's app
+and it is not a party to anything. `--verbose` shows it to whoever asks.
+
+**A domain that is for sale is never audited.** `com.gameitech.…` reverses to
+`gameitech.com`, which today redirects to a GoDaddy for-sale page: its MailRadar
+score of 0/100 is the mail posture of a lander, the publisher's own `gameitech.in`
+scores 14/100, and anyone can buy the name — including after a report quoting it
+has been written. A row like that invalidates the audit that contains it, so the
+candidate is fetched once and dropped if it answers with a sale.
+
+In the DPO letter this matters legally: section 4 states a failing under art. 32
+GDPR against the addressee. It is written only for a domain that has been
+established — because both sources agree, or because you passed
+`--publisher-domain` yourself. Otherwise the section says that the domain could
+not be established and that no finding is made, which is not the same as finding
+nothing. An unverified domain is never named in the letter.
+
+Pass `--offline` to `audit --full` or `send` to skip the Google Play lookup. It
+does not switch off the for-sale check, which is part of the analysis rather than
+part of asking Google.
 
 ## Known limitations
 
@@ -549,21 +653,18 @@ not run CookieRadar.
   prefixes are not reported.
 - **Fixed signature lists.** Only the 43 trackers, 23 permissions and 13
   vendors listed in the code are recognised.
-- **Publisher domain is a guess.** It is inferred from the package name and
-  can be wrong. For example, `com.x8bit.bitwarden` gives `x8bit.com`, not
-  `bitwarden.com`. Check the domain before relying on `--full` results, or
-  before sending a letter that quotes them. The letter does not state an SSL
-  hostname mismatch as an issue for this reason.
+- **The publisher domain is still a guess, unless two sources agree.** Both
+  the package name and the Play listing can be wrong, and when they disagree
+  APKRadar cannot tell you which is right — it shows both, labelled. Check the
+  domain yourself before relying on `--full` results, and pass
+  `--publisher-domain` before sending a letter that quotes them. An SSL hostname
+  mismatch is never stated as an issue in the letter.
 - **Google Play lookup by package name only.** Search by app name is not
   supported. The removal-reason search depends on DuckDuckGo having a summary
   for the package, and often returns nothing.
 - **DPO letter in Italian only** (see [Send a GDPR letter](#send-a-gdpr-letter-to-the-dpo)).
-- **Options not yet implemented.** Some options are accepted but have no
-  effect: `audit --output` and `audit --lang`, `batch --output` and
-  `batch --full`, and `search --audit`. For full stack analysis, use
-  `audit --full` on each app.
-- **Log noise.** Androguard, the APK parsing library, may print `WARNING`
-  lines on standard error for some apps. They do not affect the results.
+- **Options not yet implemented.** Two options are accepted and have no
+  effect: `audit --lang` (reports are in English) and `search --audit`.
 
 ## Development
 

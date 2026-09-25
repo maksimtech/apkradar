@@ -101,12 +101,18 @@ class TestRenderLetter(unittest.TestCase):
         self.assertIn("Mixpanel Inc. (USA)", letter)
 
     def test_render_with_mailradar_score(self):
-        """Letter should include MailRadar score when provided."""
+        """Letter should include MailRadar score when provided.
+
+        publisher_domain_verified says the sender established that wonet.com is
+        WONE SAGL's domain. Section 4 states a finding against the addressee, so
+        without that it now declines to — see test_publisher_letter.py.
+        """
         result = _make_result()
         letter = render_letter(
             result=result,
             publisher="WONE SAGL",
             publisher_domain="wonet.com",
+            publisher_domain_verified=True,
             sender_name="Test User",
             sender_org="",
             sender_email="test@example.com",
@@ -117,12 +123,13 @@ class TestRenderLetter(unittest.TestCase):
         self.assertIn("CRITICAL", letter)
 
     def test_render_with_ssl_expired(self):
-        """Letter should mention SSL expiry."""
+        """Letter should mention SSL expiry — on a domain known to be theirs."""
         result = _make_result()
         letter = render_letter(
             result=result,
             publisher="WONE SAGL",
             publisher_domain="wonet.com",
+            publisher_domain_verified=True,
             sender_name="Test User",
             sender_org="",
             sender_email="test@example.com",
@@ -203,7 +210,13 @@ class TestRenderLetter(unittest.TestCase):
 
 
 class TestRenderLetterMailScore(unittest.TestCase):
-    """Section 4 must reflect the actual MailRadar score."""
+    """Section 4 must reflect the actual MailRadar score.
+
+    These are about the threshold, so the domain is stated as established: a
+    letter that declines to make any finding would not test where 60 falls.
+    Whether the domain may be treated as established is the subject of
+    test_publisher_letter.py.
+    """
 
     INADEQUATE = "misure tecniche inadeguate"
     NO_ISSUES = "Non sono state rilevate criticità"
@@ -213,6 +226,7 @@ class TestRenderLetterMailScore(unittest.TestCase):
             result=_make_result(),
             publisher="WONE SAGL",
             publisher_domain="wonet.com",
+            publisher_domain_verified=True,
             sender_name="Test User",
             sender_org="",
             sender_email="test@example.com",
@@ -304,7 +318,14 @@ class TestCheckSsl(unittest.TestCase):
 
 
 class TestRenderLetterSsl(unittest.TestCase):
-    """The letter must only claim 'expired' when the certificate is expired."""
+    """The letter must only claim 'expired' when the certificate is expired.
+
+    Which certificate, though, is the other half: these tests state that the
+    domain belongs to the addressee so that the wording of each status can be
+    checked. hostname_mismatch is excluded from the claims partly because the
+    domain used to be a guess — that reason is now handled upstream, and the
+    exclusion stands on its own.
+    """
 
     NO_ISSUES = "Non sono state rilevate criticità"
 
@@ -313,6 +334,7 @@ class TestRenderLetterSsl(unittest.TestCase):
             result=_make_result(),
             publisher="WONE SAGL",
             publisher_domain="wonet.com",
+            publisher_domain_verified=True,
             sender_name="Test User",
             sender_org="",
             sender_email="test@example.com",

@@ -33,10 +33,17 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_audit_missing_apk(self):
+        """Exit 1, and a label that is neither a pass nor a number.
+
+        It asserted CRITICAL. The part worth keeping is the second line — the
+        output must not read as compliant — and that is now checked without
+        requiring a verdict the tool never reached.
+        """
         result = self.runner.invoke(app, ["audit", "nonexistent.apk"])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("CRITICAL", result.output)
+        self.assertIn("N/A", result.output)
         self.assertNotIn("GOOD", result.output)
+        self.assertNotIn("0/100", result.output)
 
     def test_audit_unknown_format_exit_1(self):
         result = self.runner.invoke(app, ["audit", "notes.txt"])
@@ -59,7 +66,15 @@ class TestCLI(unittest.TestCase):
                 result = self.runner.invoke(app, ["batch", tmp])
             self.assertEqual(mock_scan.call_count, 2)
             self.assertEqual(result.exit_code, 1)
-            self.assertIn("🔴 CRITICAL — 0/100", result.output)
+            # Was "🔴 CRITICAL — 0/100": a file that was never opened is
+            # reported as not analysed, without counters it never measured.
+            # Asserted on that line alone: "0/100" is a substring of the
+            # "100/100" the other APK in this same run prints.
+            failed_line = next(
+                line for line in result.output.splitlines() if "not analysed" in line
+            )
+            self.assertNotIn("/100", failed_line)
+            self.assertNotIn("trackers", failed_line)
         finally:
             os.unlink(tmp)
 

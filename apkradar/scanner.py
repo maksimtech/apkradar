@@ -10,6 +10,34 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+
+def set_library_logging(enabled: bool) -> None:
+    """Let androguard's own log through, or keep it out of the report.
+
+    androguard 4.1.4 logs through loguru, whose default handler writes DEBUG to
+    stderr. Measured on six real APKs on 2026-09-25, that log was between 98.7%
+    and 99.5% of everything `apkradar audit` produced — 8,201 lines against 42
+    of report on one of them. `--verbose` exists to ask for this level of
+    detail, so without it the library stays quiet.
+
+    Disabled by prefix, so this package's own logging is untouched. loguru is a
+    dependency of androguard rather than of this package, so its absence is not
+    an error: nothing to silence means nothing to do.
+    """
+    try:
+        from loguru import logger
+    except ImportError:
+        return
+    if enabled:
+        logger.enable("androguard")
+    else:
+        logger.disable("androguard")
+
+
+# Quiet by default, from the moment the module is imported: a caller should not
+# have to remember to ask, and the scan is a library call as often as a command.
+set_library_logging(False)
+
 # ─── Tracker database ────────────────────────────────────────────────────────
 
 TRACKER_SIGNATURES = {
@@ -84,6 +112,19 @@ SENSITIVE_PERMISSIONS = {
     "android.permission.GET_ACCOUNTS": "device accounts",
     "android.permission.USE_BIOMETRIC": "biometrics",
     "android.permission.USE_FINGERPRINT": "fingerprint",
+    # Play services permissions live outside the android.permission.* namespace,
+    # and the table used to contain nothing but that prefix — so the advertising
+    # identifier, which is the mechanism by which a user is profiled on Android,
+    # could not be matched at all. GDPR art. 4(1) and recital 30 make it an
+    # online identifier; ACCESS_ADSERVICES_TOPICS names interest-based
+    # advertising in the permission itself.
+    #
+    # Found on an app for toddlers that reported "No sensitive permissions"
+    # while requesting all four (2026-09-25).
+    "com.google.android.gms.permission.AD_ID": "advertising ID",
+    "android.permission.ACCESS_ADSERVICES_AD_ID": "advertising ID (Privacy Sandbox)",
+    "android.permission.ACCESS_ADSERVICES_TOPICS": "interest-based advertising (Topics API)",
+    "android.permission.ACCESS_ADSERVICES_ATTRIBUTION": "ad attribution (Privacy Sandbox)",
 }
 
 EXTRA_EU_TRANSFERS = {
@@ -140,6 +181,14 @@ class ScanResult:
     permissions: list[PermissionFound] = field(default_factory=list)
     sensitive_permissions: list[PermissionFound] = field(default_factory=list)
     extra_eu_transfers: list[TransferFound] = field(default_factory=list)
+    # From the Play listing, and only when the caller asked for the lookup.
+    # The package name alone cannot establish who publishes an app — see
+    # apkradar.publisher for what the two sources are worth against each other.
+    developer: str = ""
+    developer_site: str = ""
+    # Deep-link hosts declared in the manifest. Collected here because the one
+    # caller of get_all_domains never had an APK object to pass it.
+    manifest_domains: list[str] = field(default_factory=list)
     error: str | None = None
     skipped: bool = False
 
@@ -152,10 +201,64 @@ class ScanResult:
         return len(self.sensitive_permissions)
 
     @property
-    def score(self) -> int:
-        """Compliance score 0-100. Higher is better. A failed scan scores 0."""
+    def score_deductions(self) -> list[tuple[str, int]]:
+        """What was subtracted from 100, as (what was found, points).
+
+        Only findings that exist are listed: a `0 (0 trackers)` term would read
+        as a measurement of zero rather than as nothing found. Empty when there
+        is no score to explain.
+        """
+        if self.score is None:
+            return []
+
+        counted = (
+            (self.tracker_count, 10, "tracker", "trackers"),
+            (self.sensitive_permission_count, 5, "sensitive permission",
+             "sensitive permissions"),
+            # Short on purpose: the Extra-EU Transfers table is printed a few
+            # lines below, and the full term pushed this line past 80 columns.
+            (len(self.extra_eu_transfers), 5, "transfer", "transfers"),
+        )
+        return [
+            (f"{count} {one if count == 1 else many}", count * weight)
+            for count, weight, one, many in counted
+            if count
+        ]
+
+    @property
+    def score_arithmetic(self) -> str | None:
+        """The score as a sum a reader can check, or None if there is no score.
+
+        A clamp is stated rather than hidden: 16 trackers, 3 permissions and 4
+        transfers come to −95, and printing 0 without saying so implies the app
+        was measured at the bottom of the scale instead of below it.
+        """
+        if self.score is None:
+            return None
+
+        deductions = self.score_deductions
+        if not deductions:
+            return "100, nothing deducted"
+
+        raw = 100 - sum(points for _, points in deductions)
+        terms = " ".join(f"− {points} ({what})" for what, points in deductions)
+        if raw < 0:
+            return f"100 {terms} = −{abs(raw)}, clamped to 0"
+        return f"100 {terms} = {raw}"
+
+    @property
+    def score(self) -> int | None:
+        """Compliance score 0-100, higher being better, or None.
+
+        None when the APK could not be parsed or was skipped. It used to be 0,
+        which is the score of the worst possible app rather than the absence of
+        one — and the counters printed beside it were the initial values of
+        counters, not measurements. The distinction is the one exeradar draws
+        between `unsigned` and `unknown`: "bad" and "could not tell" are
+        different answers.
+        """
         if self.error or self.skipped:
-            return 0
+            return None
         score = 100
         score -= self.tracker_count * 10
         score -= self.sensitive_permission_count * 5
@@ -166,11 +269,15 @@ class ScanResult:
     def score_label(self) -> str:
         if self.skipped:
             return "SKIPPED"
-        if self.score >= 80:
+        score = self.score
+        if score is None:
+            # No verdict was reached, so none is reported. CRITICAL is a verdict.
+            return "N/A"
+        if score >= 80:
             return "GOOD"
-        elif self.score >= 60:
+        elif score >= 60:
             return "MODERATE"
-        elif self.score >= 40:
+        elif score >= 40:
             return "POOR"
         else:
             return "CRITICAL"
@@ -231,13 +338,33 @@ def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
     return found
 
 
-def scan(apk_path: str) -> ScanResult:
+def _fill_publisher(result: ScanResult) -> None:
+    """Add what Google Play says about the publisher, if it will say anything.
+
+    Never fatal: an app that is no longer listed, or no network at all, leaves
+    the APK findings exactly as valid as they were. The Play data only ever adds
+    a second opinion on the publisher's domain.
+    """
+    try:
+        from apkradar.search_cmd import lookup
+
+        info = lookup(result.package_name)
+        result.developer = info.developer or ""
+        result.developer_site = info.developer_website or ""
+    except Exception:
+        pass
+
+
+def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
     """
     Scan an APK file for GDPR compliance issues.
     Supports .apk, .xapk (APKPure) and .apkm (APKMirror) formats.
 
     Args:
         apk_path: Path to the APK/XAPK/APKM file
+        lookup_publisher: Ask Google Play who publishes the app and what site
+            they declare. Off by default: this is a static analysis of a file on
+            disk, and a library call should not dial out unless asked.
 
     Returns:
         ScanResult with all findings
@@ -283,6 +410,13 @@ def scan(apk_path: str) -> ScanResult:
         result.version_code = str(apk.get_androidversion_code() or "")
         result.min_sdk = str(apk.get_min_sdk_version() or "")
         result.target_sdk = str(apk.get_target_sdk_version() or "")
+
+        # Deep-link hosts, read while the manifest is open
+        from apkradar.utils import extract_domains_from_apk
+        result.manifest_domains = extract_domains_from_apk(apk)
+
+        if lookup_publisher and result.package_name:
+            _fill_publisher(result)
 
         # Scan permissions
         permissions = apk.get_permissions() or []

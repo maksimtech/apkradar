@@ -234,10 +234,16 @@ class TestScanFileNotFound(unittest.TestCase):
         result = scan("/nonexistent/app.apk")
         self.assertEqual(result.apk_path, "/nonexistent/app.apk")
 
-    def test_scan_missing_file_score_0_critical(self):
+    def test_scan_missing_file_has_no_score(self):
+        """A file that is not there was not measured, so it has no score.
+
+        This asserted 0/CRITICAL. The intent — never look compliant — is kept
+        below; what changed is that 0 is a measurement and this is not one.
+        """
         result = scan("/nonexistent/app.apk")
-        self.assertEqual(result.score, 0)
-        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertIsNone(result.score)
+        self.assertEqual(result.score_label, "N/A")
+        self.assertNotIn(result.score_label, ("GOOD", "MODERATE"))
 
 
 class TestSkippedResult(unittest.TestCase):
@@ -256,27 +262,44 @@ class TestSkippedResult(unittest.TestCase):
         result = ScanResult(apk_path="com.example.app", skipped=True)
         self.assertNotEqual(result.score_label, "CRITICAL")
 
-    def test_error_still_critical(self):
-        """Regression guard: a failed scan is still CRITICAL, not skipped."""
-        result = ScanResult(apk_path="a.apk", error="boom")
-        self.assertEqual(result.score_label, "CRITICAL")
-        self.assertFalse(result.skipped)
+    def test_an_error_is_still_not_a_skip(self):
+        """Regression guard, restated: the two must stay distinguishable.
+
+        It used to enforce that with CRITICAL against SKIPPED. Both now decline
+        to give a number, so the guard is on the labels — which still differ —
+        rather than on one of them being a verdict.
+        """
+        errored = ScanResult(apk_path="a.apk", error="boom")
+        skipped = ScanResult(apk_path="a.apk", skipped=True)
+
+        self.assertFalse(errored.skipped)
+        self.assertEqual(errored.score_label, "N/A")
+        self.assertEqual(skipped.score_label, "SKIPPED")
+        self.assertNotEqual(errored.score_label, skipped.score_label)
 
 
 class TestFailedScanScore(unittest.TestCase):
-    """A failed scan must never look compliant."""
+    """A failed scan must never look compliant — nor measured.
 
-    def test_unknown_format_score_0_critical(self):
+    The first half is the original requirement and still holds: no GOOD, no
+    MODERATE, nothing that reads as a pass. The second is what these tests were
+    missing: 0/100 is the score of the worst possible app, and a file that could
+    not be opened has not earned even that. Both are asserted below.
+    """
+
+    def test_unknown_format_has_no_score(self):
         result = scan("notes.txt")
         self.assertIsNotNone(result.error)
-        self.assertEqual(result.score, 0)
-        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertIsNone(result.score)
+        self.assertEqual(result.score_label, "N/A")
+        self.assertNotIn(result.score_label, ("GOOD", "MODERATE"))
 
-    def test_missing_bundle_score_0_critical(self):
+    def test_missing_bundle_has_no_score(self):
         result = scan("/nonexistent/app.xapk")
         self.assertIsNotNone(result.error)
-        self.assertEqual(result.score, 0)
-        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertIsNone(result.score)
+        self.assertEqual(result.score_label, "N/A")
+        self.assertNotIn(result.score_label, ("GOOD", "MODERATE"))
 
     def test_corrupted_apk_score_0_critical(self):
         import os
@@ -289,13 +312,18 @@ class TestFailedScanScore(unittest.TestCase):
         finally:
             os.unlink(tmp)
         self.assertIsNotNone(result.error)
-        self.assertEqual(result.score, 0)
-        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertIsNone(result.score)
+        self.assertEqual(result.score_label, "N/A")
 
-    def test_error_overrides_findings(self):
+    def test_an_error_overrides_findings(self):
+        """An error wins over whatever was collected before it.
+
+        Half-collected findings are not a result, so the score stays absent
+        rather than being computed from them.
+        """
         result = ScanResult(apk_path="test.apk", error="boom")
-        self.assertEqual(result.score, 0)
-        self.assertEqual(result.score_label, "CRITICAL")
+        self.assertIsNone(result.score)
+        self.assertEqual(result.score_label, "N/A")
 
 
 if __name__ == "__main__":

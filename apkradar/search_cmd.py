@@ -16,6 +16,10 @@ class AppInfo:
     installs: str
     category: str
     description: str
+    # Free text the developer types into the Play console: it is a real site as
+    # often as it is a helpdesk tenant or a Facebook page, so it is weighed
+    # against the package name rather than trusted — see apkradar.publisher.
+    developer_website: str = ""
     available: bool = True
     removal_reason: str | None = None
 
@@ -41,6 +45,7 @@ def lookup(package_name: str) -> AppInfo:
             installs=r.get("installs", "unknown"),
             category=r.get("genre", "unknown"),
             description=(r.get("description", "") or "")[:300],
+            developer_website=r.get("developerWebsite", "") or "",
             available=True,
         )
     except Exception:

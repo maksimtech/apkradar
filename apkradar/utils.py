@@ -54,6 +54,11 @@ def package_to_domain(package_name: str) -> str | None:
     - Skips generic second-level segments (game, app, mobile, etc.)
     - Falls back to package name parts when domain is ambiguous
 
+    The result is lowercased: `it.Beta80Group.whereareu` used to give
+    `Beta80Group.it` from this branch while the generic-segment branch below
+    lowercased its own, and `get_all_domains` collects into a set — so the
+    capitals bought a second MailRadar, SSL and CookieRadar run on the same host.
+
     Examples:
         com.scopely.monopolygo     → scopely.com
         com.google.android.gms     → google.com
@@ -82,9 +87,9 @@ def package_to_domain(package_name: str) -> str | None:
     # If second segment is generic, try third segment
     if sld.lower() in GENERIC_SEGMENTS and len(parts) > 2:
         company = parts[2].replace("_", "-").lower()
-        return f"{company}.{tld}"
+        return f"{company}.{tld}".lower()
 
-    return f"{sld}.{tld}"
+    return f"{sld}.{tld}".lower()
 
 
 def domain_to_url(domain: str) -> str:
@@ -144,36 +149,67 @@ def extract_sdk_domains(trackers: list) -> list[str]:
     return list(set(domains))
 
 
+def deep_link_domains(hosts) -> list[str]:
+    """Deep-link hosts worth auditing: the publisher's own, not the platforms'.
+
+    An app declaring `where.areu.lombardia.it` in an intent filter is pointing at
+    its publisher. An app declaring `play.google.com` is pointing at the store,
+    which nearly all of them do — auditing the mail records and cookies of
+    Google's store page once per APK measures nothing about the app.
+
+    Only deep links are filtered this way. SDK domains come from trackers found
+    in the file, where facebook.com is the domain the finding is about.
+    """
+    from apkradar.publisher import is_platform_host
+
+    return [host for host in dict.fromkeys(hosts) if not is_platform_host(host)]
+
+
+def publisher_domains(result) -> list[str]:
+    """The publisher's own domain, or nothing — see apkradar.publisher.
+
+    At most one: the Google Play listing when it names a site, the reverse-DNS of
+    the package name only when it does not. This used to return both whenever the
+    two differed, which meant auditing the domain of whoever built the app.
+
+    Offline and pure, so it cannot know whether a domain is for sale; the caller
+    that analyses these passes them through `publisher.without_parked` first.
+    """
+    from apkradar.publisher import from_result
+
+    return [domain for domain, _ in from_result(result).candidates]
+
+
 def get_all_domains(result, apk=None) -> list[str]:
     """
     Get all domains associated with an APK scan result.
 
     Combines:
-    - Publisher domain (from package name)
+    - Publisher domain candidates (package name and/or Google Play listing)
     - SDK domains (from detected trackers)
-    - Deep link domains (from APK manifest, if apk object provided)
+    - Deep link domains (from the manifest, collected during the scan)
 
     Args:
         result: ScanResult object
-        apk: androguard APK object (optional)
+        apk: androguard APK object (optional, for a manifest not already read)
 
     Returns:
         List of unique domains to audit
     """
     domains = set()
 
-    # 1. Publisher domain
-    publisher = package_to_domain(result.package_name)
-    if publisher:
-        domains.add(publisher)
+    # 1. Publisher candidates, labelled where they are printed — see publisher.py
+    domains.update(publisher_domains(result))
 
     # 2. SDK domains from detected trackers
     sdk_domains = extract_sdk_domains(result.trackers)
     domains.update(sdk_domains)
 
-    # 3. Deep link domains from manifest
+    # 3. Deep link domains from the manifest. Read during the scan: the only
+    #    caller passed no apk, so this branch was unreachable from `audit --full`.
+    declared = list(getattr(result, "manifest_domains", None) or [])
     if apk:
-        manifest_domains = extract_domains_from_apk(apk)
-        domains.update(manifest_domains)
+        declared += extract_domains_from_apk(apk)
+    domains.update(deep_link_domains(declared))
 
     return list(domains)
