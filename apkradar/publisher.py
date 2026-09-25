@@ -101,6 +101,7 @@ _SNIFF = 4096
 # What each provenance means, in the words that get printed next to the domain.
 PROVENANCE_LABELS = {
     "agreed": "package name and Google Play listing agree",
+    "corroborated": "from Google Play listing, and the app points at it",
     "stated": "stated by the sender",
     "play_listing": "from Google Play listing — unverified",
     "package_name": "guessed from package name — unverified",
@@ -211,6 +212,10 @@ class PublisherDomain:
     # Candidates that answer with a domain-for-sale page. Recorded so the report
     # can say why it has nothing, and never printed for the same reason as above.
     parked: tuple[str, ...] = ()
+    # What the package says about the domain Play declared. Only that one: the
+    # package name and the app's contents are both the builder's work, so one
+    # confirming the other is a single party speaking twice.
+    corroboration: object | None = None
 
     @property
     def agreed(self) -> bool:
@@ -240,9 +245,31 @@ class PublisherDomain:
         )
 
     @property
+    def corroborated(self) -> bool:
+        """The Play listing, and the app pointing at the same host.
+
+        Restricted to `from_play` on purpose. Corroborating the reverse-DNS guess
+        with the contents of the APK would be the developer agreeing with
+        themselves, and it would put an art. 32 finding back on whoever built the
+        app rather than on whoever publishes it.
+        """
+        mention = self.corroboration
+        return bool(
+            self.from_play
+            and self.best == self.from_play
+            and mention is not None
+            and getattr(mention, "deliberate", False)
+        )
+
+    @property
     def verified(self) -> bool:
-        """Established, as opposed to guessed. Only two things do that."""
-        return bool(self.stated) or self.agreed
+        """Established, as opposed to guessed. Three things do that.
+
+        The sender says so; the two declared sources agree; or the listing is
+        confirmed by the package itself — two parties that did not copy from each
+        other naming the same host.
+        """
+        return bool(self.stated) or self.agreed or self.corroborated
 
     @property
     def best(self) -> str | None:
@@ -260,6 +287,8 @@ class PublisherDomain:
             return "stated"
         if self.agreed:
             return "agreed"
+        if self.corroborated:
+            return "corroborated"
         if self.from_play:
             return "play_listing"
         if self.from_package:
@@ -328,6 +357,7 @@ def resolve(
     package_name: str | None,
     play_site: str | None = None,
     stated: str | None = None,
+    corroboration: object | None = None,
 ) -> PublisherDomain:
     """Weigh the package name against what Play says, and keep both labelled.
 
@@ -365,6 +395,9 @@ def resolve(
         rejected_package=rejected_package,
         rejected_play=rejected_play,
         overridden_by_play=overridden,
+        # Attached only when the listing survived: there is nothing for the
+        # package to confirm if Play named no usable domain.
+        corroboration=corroboration if declared else None,
     )
 
 
@@ -399,4 +432,5 @@ def from_result(result, stated: str | None = None) -> PublisherDomain:
         getattr(result, "package_name", "") or "",
         getattr(result, "developer_site", "") or None,
         stated,
+        getattr(result, "site_mention", None),
     )

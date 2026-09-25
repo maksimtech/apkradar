@@ -10,6 +10,8 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from apkradar.content import Mention, mentions_of
+
 
 def set_library_logging(enabled: bool) -> None:
     """Let androguard's own log through, or keep it out of the report.
@@ -186,6 +188,10 @@ class ScanResult:
     # apkradar.publisher for what the two sources are worth against each other.
     developer: str = ""
     developer_site: str = ""
+    # What the package itself says about the domain Play declared: the third
+    # witness, and the only one that is not the developer's own word. Filled by
+    # the scan when the Play lookup ran; None means nobody asked.
+    site_mention: Mention | None = None
     # Deep-link hosts declared in the manifest. Collected here because the one
     # caller of get_all_domains never had an APK object to pass it.
     manifest_domains: list[str] = field(default_factory=list)
@@ -338,12 +344,15 @@ def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
     return found
 
 
-def _fill_publisher(result: ScanResult) -> None:
+def _fill_publisher(result: ScanResult, apk_path: str | None = None) -> None:
     """Add what Google Play says about the publisher, if it will say anything.
 
     Never fatal: an app that is no longer listed, or no network at all, leaves
     the APK findings exactly as valid as they were. The Play data only ever adds
     a second opinion on the publisher's domain.
+
+    And then asks the package about that same domain, which is the one question
+    whose answer does not come from the developer's own typing.
     """
     try:
         from apkradar.search_cmd import lookup
@@ -352,6 +361,17 @@ def _fill_publisher(result: ScanResult) -> None:
         result.developer = info.developer or ""
         result.developer_site = info.developer_website or ""
     except Exception:
+        return
+
+    if not (result.developer_site and apk_path):
+        return
+    try:
+        from apkradar.publisher import normalise_site
+
+        host = normalise_site(result.developer_site)
+        if host:
+            result.site_mention = mentions_of(host, apk_path)
+    except Exception:  # noqa: BLE001 - corroboration is a bonus, never a failure
         pass
 
 
@@ -416,7 +436,9 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
         result.manifest_domains = extract_domains_from_apk(apk)
 
         if lookup_publisher and result.package_name:
-            _fill_publisher(result)
+            # The extracted base APK for a bundle, the file itself otherwise:
+            # the strings live in the APK, not in the XAPK wrapper.
+            _fill_publisher(result, str(path))
 
         # Scan permissions
         permissions = apk.get_permissions() or []

@@ -597,10 +597,34 @@ publisher's:
 | Situation | What APKRadar does |
 |---|---|
 | Both sources give the same domain | Treats it as established, labelled *package name and Google Play listing agree* |
+| The listing's domain is named by the app itself | Treats it as established, labelled *from Google Play listing, and the app points at it* — see below |
 | They give different domains | Uses the Google Play listing, labelled **unverified**. The reverse-DNS of the package name is set aside: not analysed, not printed |
 | Only the package name gives one | Checks it, labelled *guessed from package name* — **unverified** |
 | A source gives a helpdesk, site builder or social page | Leaves it out and says so: a finding there would describe the platform |
 | The candidate answers with a domain-for-sale page | Leaves it out. It has no holder to attribute anything to |
+
+**The app as a third witness.** Neither of the first two sources is independent of
+the developer: the package name is their reverse-DNS and the Play listing is a
+field they typed. The APK is a third thing to ask, and it answers about one host
+at a time — *does this package name it, and does the mention look deliberate*. It
+cannot return a domain, so it cannot introduce a target to audit; it can only
+confirm one that Google Play already named.
+
+Measured on 112 Where ARE U: the base APK names `where.areu.lombardia.it` nine
+times, including the URL of its privacy notice, and `beta80group.it` — the
+software house that built it — not once. Play names the first. Two parties that
+did not copy from each other say the same thing, so the domain is established and
+the DPO letter can state its art. 32 finding without `--publisher-domain`.
+
+It confirms the **Play listing only**. The package name and the contents of the
+APK are both the builder's work, so one corroborating the other would be a single
+party speaking twice — and an `© …` line in a credits screen would put the finding
+back on the supplier. And a mention has to look deliberate: a policy or terms URL,
+or several occurrences. One string that happens to contain the name is not
+evidence.
+
+Where it does nothing: abc 123 Tracing mentions neither of its candidate domains
+anywhere in its package, so nothing is established and the letter stays silent.
 
 Wherever a domain is printed it carries its label, so a guess cannot be read as a
 measurement — and a domain that was set aside is not printed at all. Reporting it,
@@ -617,8 +641,8 @@ candidate is fetched once and dropped if it answers with a sale.
 
 In the DPO letter this matters legally: section 4 states a failing under art. 32
 GDPR against the addressee. It is written only for a domain that has been
-established — because both sources agree, or because you passed
-`--publisher-domain` yourself. Otherwise the section says that the domain could
+established — because both declared sources agree, because the app itself
+confirms the listing, or because you passed `--publisher-domain` yourself. Otherwise the section says that the domain could
 not be established and that no finding is made, which is not the same as finding
 nothing. An unverified domain is never named in the letter.
 
