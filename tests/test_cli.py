@@ -144,9 +144,13 @@ class TestInit(unittest.TestCase):
         self.assertIsInstance(apkradar.__version__, str)
 
     def test_version_format(self):
+        """Generation and count, no month — see tests/test_version_contract.py,
+        which holds the rule and the reason the month left."""
         import apkradar
         parts = apkradar.__version__.split(".")
-        self.assertEqual(len(parts), 3)
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(len(parts[0]), 4)
+        self.assertTrue(all(part.isdigit() for part in parts))
 
 
 class TestPrintResult(unittest.TestCase):

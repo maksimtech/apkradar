@@ -7,6 +7,76 @@ and this project uses calendar versioning (`YYYY.MM.N`).
 
 ## [Unreleased]
 
+## [2026.40] - 2026-09-26
+### Changed
+
+- **Baseline: the five Radar restart from a common number.** They had drifted to
+  .32, .12, .11, .6 and .3 of the same generation, which left the shared part of
+  the version meaning nothing at all. The highest count in the suite was taken,
+  rounded up for headroom, and every Radar starts again from 2026.40 — a jump
+  for most of them, and a number that means the same thing in all five.
+
+  From here the count belongs to each Radar again, and something urgent gets a
+  third segment on top: 2026.40.1 before 2026.41, the way a suite has always
+  done it. 2026 is a settling year; from 2027 the count moves when the code
+  moves.
+
+
+### Added
+
+- **The app itself is now a third witness on who publishes it.** Two sources
+  named the publisher's domain and neither could check the other: the reverse-DNS
+  of the package name and Play's `developerWebsite` are both written by whoever
+  built the app, so when they agreed the report called the domain established on
+  the strength of one party saying the same thing twice. The package is the one
+  source that is not a declaration. `apkradar/content.py` asks it a single
+  question about a single host — does this package name it, and does the mention
+  look deliberate — and deliberately cannot answer with a domain of its own, so
+  it can corroborate a candidate and never introduce one.
+
+  Deliberate means the app points at a page of the host that describes the
+  relationship (`/privacy`, `/informativa`, `/terms`, `/legal`) or names it at
+  least three times. One bare occurrence stays a coincidence.
+
+  Measured on three real apps: 112 Where ARE U names `where.areu.lombardia.it`
+  nine times including the URL of its privacy notice, and `beta80group.it` — the
+  software house that built it — not once, so the art. 32 letter now goes to the
+  agency rather than to its supplier. On abc 123 Tracing neither candidate
+  appears at all, which is the honest outcome for an app that says nothing about
+  itself: nothing established, no letter.
+
+  The corroboration never applies to the package-name guess. Corroborating that
+  with the contents of the APK is the developer agreeing with themselves.
+
+- `provenance` gains `corroborated`, printed as "from Google Play listing, and
+  the app points at it". Nothing that was established before stops being
+  established.
+
+### Fixed
+
+- **Seven audit defects, each reproduced on a real APK before being fixed.** Two
+  of the three artifacts are byte-identical to the ones in the report and the
+  Play listings were read live. Which domain belongs to the publisher: reversing
+  the package name gives whoever *built* the app — `it.Beta80Group.whereareu`
+  gives a software house for an app published by a regional health agency — and
+  `developerWebsite` is not authoritative either, since for one app it is a
+  Zendesk helpdesk tenant whose mail posture is Zendesk's. Both are consulted
+  now, platform tenants are dropped, the listing wins over the guess, and at most
+  one domain is ever analysed as the publisher's. A guess is never presented as a
+  fact, and a domain that was set aside is not printed at all: it belongs to a
+  third party.
+
+- **A domain that is for sale is never audited.** `gameitech.com`, the
+  reverse-DNS of a children's app, redirects to a for-sale lander; a score of
+  0/100 there is the posture of a parking page, and anyone may buy the name after
+  a report quoting it is written.
+
+- **The README example renders the way a real terminal shows it.** The tables had
+  square corners because the block was generated on a console reporting
+  `legacy_windows=True`, which substitutes the box characters `box.ROUNDED` asks
+  for. It is now rendered through a console the test declares — 80 columns, no
+  colour, `legacy_windows=False` — so the same bytes come out on any machine.
+
 ## [2026.09.32] - 2026-09-24
 
 ### Fixed
