@@ -188,10 +188,11 @@ def write_results(results: list, output_path: str, input_path: str | None = None
                     color = grade_colors.get(result.score_label, "FFFFFF")
                     cell.fill = PatternFill(fill_type="solid", fgColor=color)
 
-    # Auto-width columns. Il tetto di 50 tiene a bada le colonne con elenchi
-    # lunghi di tracker; un digest SHA-256 ne chiede 64 e sotto quel tetto
-    # uscirebbe tagliato a vista. Il valore nella cella resta intero comunque,
-    # ma una consegna in cui l'impronta si legge a metà è come stamparla a metà.
+    # Auto-width columns. The cap of 50 keeps the columns with long tracker
+    # lists in check; a SHA-256 digest asks for 64 and below that cap it would
+    # come out cut on sight. The value in the cell stays whole either way, but a
+    # deliverable in which the digest can only be half read is like printing half
+    # of it.
     for col in ws.columns:
         max_length = 0
         col_letter = get_column_letter(col[0].column)

@@ -61,24 +61,25 @@ console = Console()
 
 @contextlib.contextmanager
 def _status(message: str):
-    """console.status(), svuotando i flussi prima che lo spinner si fermi.
+    """console.status(), flushing the streams before the spinner stops.
 
-    Mentre lo spinner gira, Rich sostituisce sys.stdout e sys.stderr con un
-    FileProxy che trattiene il testo finche' non incontra un newline, e `Live`
-    ripristina i flussi originali senza svuotarlo. Una riga parziale scritta da
-    una libreria - androguard lo fa - resta nel buffer e viene stampata soltanto
-    quando l'interprete finalizza il proxy, quando importare non e' piu'
-    possibile:
+    While the spinner runs, Rich replaces sys.stdout and sys.stderr with a
+    FileProxy that holds text until it meets a newline, and `Live` puts the
+    original streams back without flushing it. A partial line written by a
+    library - androguard writes them - stays in that buffer and is printed only
+    when the interpreter finalises the proxy, at a point where importing is no
+    longer possible:
 
         Exception ignored while finalizing file <rich.file_proxy.FileProxy ...>
         ImportError: sys.meta_path is None, Python is likely shutting down
 
-    Visto su 112 Where ARE U con rich 15.0.0 e Python 3.14.7, a referto completo
-    e con uscita 0: l'analisi era riuscita e sembrava finita in un crash. Solo su
-    terminale, perche' solo allora Rich installa il proxy - in pipe non si vede.
+    Seen on 112 Where ARE U with rich 15.0.0 and Python 3.14.7, with the report
+    complete and an exit code of 0: the analysis had succeeded and looked as
+    though it had ended in a crash. Only on a terminal, because only there does
+    Rich install the proxy - through a pipe it cannot be seen.
 
-    Lo `finally` copre anche il caso con eccezione: e' quello in cui il messaggio
-    parziale della libreria serve di piu'.
+    The `finally` also covers the case with an exception: that is the one where
+    the library's partial message matters most.
     """
     with console.status(message):
         try:
@@ -173,11 +174,11 @@ def _print_result(result) -> None:
     console.print(f"[dim]Version: {escape(result.version_name)} ({escape(result.version_code)})[/dim]")
     console.print(f"[dim]SDK:     min={escape(result.min_sdk)} target={escape(result.target_sdk)}[/dim]")
     console.print(f"[dim]Format:  {escape(result.apk_format.upper())}[/dim]")
-    # Intera: un'impronta esiste per farsi verificare, e sedici caratteri su
-    # sessantaquattro non si confrontano con niente — né con l'hash pubblicato
-    # dallo store, né con un elenco, né in un allegato. La lettera al DPO la
-    # riportava già completa: il terzo contestato aveva di che controllare e
-    # chi analizzava no.
+    # Whole: a digest exists to be verified, and sixteen characters out of
+    # sixty-four compare with nothing — not with the hash the store publishes,
+    # not with a list, not in an annex. The letter to the DPO already carried it
+    # complete: the third party being challenged had something to check against
+    # and whoever was analysing did not.
     console.print(f"[dim]SHA256:  {result.sha256}[/dim]\n")
 
     if result.trackers:
@@ -598,13 +599,13 @@ def audit(
             )
         console.print()
 
-        # I candidati si analizzano una volta sola, qui sotto. Un ciclo identico
-        # stava anche prima di questo blocco: il dominio dell'editore riceveva
-        # due analisi complete — due interrogazioni DNS, due handshake TLS e due
-        # sessioni di browser contro il sito di un terzo — e il referto stampava
-        # due volte lo stesso riquadro, senza che si potesse capire se fosse una
-        # seconda misura o la stessa ripetuta. `domains` contiene gia' i
-        # candidati, quindi togliere il primo giro non perde nessun dominio.
+        # The candidates are analysed once, below. An identical loop also sat
+        # before this block: the publisher's domain received two complete
+        # analyses — two DNS interrogations, two TLS handshakes and two browser
+        # sessions against a third party's site — and the report printed the same
+        # panel twice, with no way of telling whether it was a second measurement
+        # or the same one repeated. `domains` already contains the candidates, so
+        # removing the first pass loses no domain.
         if domains:
             console.print(
                 f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]\n"

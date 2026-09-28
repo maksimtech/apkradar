@@ -1,27 +1,26 @@
 """
-APKRadar — lo spinner non deve lasciare niente nel buffer di Rich.
+APKRadar — the spinner must leave nothing in Rich's buffer.
 
-Osservato su 112 Where ARE U con rich 15.0.0 e Python 3.14.7, a referto già
-stampato per intero e con uscita 0:
+While `console.status()` runs, Rich replaces `sys.stdout` and `sys.stderr` with a
+`FileProxy` that holds text until it meets a newline. `Live` puts the original
+streams back **without flushing that buffer**: a partial line written by a library
+stays there, and is printed only when the interpreter finalises the object, at a
+point where importing is no longer possible:
 
     Exception ignored while finalizing file <rich.file_proxy.FileProxy object …>
-    Traceback (most recent call last):
-      File "…/rich/file_proxy.py", line 53, in flush
-      …
     ImportError: sys.meta_path is None, Python is likely shutting down
 
-Mentre `console.status()` gira, Rich sostituisce `sys.stdout` e `sys.stderr` con
-un `FileProxy` che trattiene il testo finché non incontra un newline. `Live`
-ripristina i flussi originali **senza svuotare quel buffer**: una riga parziale
-scritta da una libreria — androguard lo fa — resta lì, e viene stampata soltanto
-quando l'interprete finalizza l'oggetto, quando importare non è più possibile.
+Observed on 112 Where ARE U with rich 15.0.0 and Python 3.14.7, with the report
+already printed in full and an exit code of 0.
 
-Un'analisi andata a buon fine finisce quindi con un traceback, e chi guarda non
-ha modo di sapere che il risultato era valido: in una dimostrazione quel
-messaggio vale più di tutto il referto.
+A successful analysis therefore ends in a traceback, and whoever is watching has
+no way of knowing the result was valid: in a demonstration that message counts
+for more than the whole report.
 
-Il test gira in un sottoprocesso perché la finalizzazione è ciò che si sta
-misurando, e dentro il processo di pytest non avverrebbe mai.
+The test runs in a subprocess because finalisation is the thing being measured,
+and inside pytest's own process it would never happen. It needs a `Console` that
+believes it is a terminal: Rich installs the proxy only in that case, which is why
+the defect cannot be seen through a pipe.
 """
 import subprocess
 import sys
@@ -45,7 +44,7 @@ def fake_scan(path, **kwargs):
     # FileProxy di Rich oltre la fine dello spinner, con la riga parziale dentro.
     global held_stdout
     held_stdout = sys.stdout
-    sys.stdout.write("riga-parziale-senza-newline")
+    sys.stdout.write("partial-line-without-newline")
     return ScanResult(apk_path=path, error="analisi finta")
 
 
@@ -71,4 +70,4 @@ def test_audit_leaves_nothing_in_the_proxy_buffer():
     # E la riga parziale non va persa: svuotare il buffer significa stamparla,
     # non buttarla. Una correzione che la scartasse passerebbe i due controlli
     # sopra e nasconderebbe l'output di una libreria.
-    assert "riga-parziale-senza-newline" in proc.stdout
+    assert "partial-line-without-newline" in proc.stdout

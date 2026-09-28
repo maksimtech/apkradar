@@ -1,20 +1,20 @@
 """
-APKRadar — ogni dominio si analizza una volta sola.
+APKRadar — each domain is analysed once.
 
-In `audit --full` il ciclo sui candidati editore compare due volte: una prima
-del blocco `if domains:` e una identica dentro. Quando un candidato c'è — cioè
-quasi sempre — il dominio dell'editore riceve **due** analisi complete: due
-interrogazioni DNS con MailRadar, due handshake TLS e due sessioni di browser
-con rifiuto dei cookie tramite CookieRadar.
+In `audit --full` the loop over the publisher candidates appears twice: once
+before the `if domains:` block and once identically inside it. When a candidate
+exists — that is, nearly always — the publisher's domain receives **two**
+complete analyses: two DNS interrogations with MailRadar, two TLS handshakes and
+two browser sessions with cookie rejection through CookieRadar.
 
-Non è solo lavoro sprecato. È traffico doppio contro l'infrastruttura di un
-terzo, da uno strumento che quel terzo lo nomina in una contestazione per
-articoli, e sono due blocchi identici nel referto: chi legge non sa se il
-secondo sia una seconda misura o la stessa stampata due volte.
+It is not only wasted work. It is double traffic against a third party's
+infrastructure, from a tool that names that third party in an allegation under
+named articles, and it is two identical panels in the report: a reader cannot
+tell whether the second is a second measurement or the same one printed twice.
 
-Il test conta le chiamate per dominio, che è la cosa che conta: asserire su
-quante righe stampa il referto lascerebbe passare una correzione che nasconde
-il secondo giro senza smettere di farlo.
+The test counts the calls per domain, which is the thing that matters: asserting
+on how many lines the report prints would let through a fix that hides the second
+pass without stopping it.
 """
 from __future__ import annotations
 

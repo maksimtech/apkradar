@@ -1,23 +1,22 @@
 """
-APKRadar — l'impronta del pacchetto va mostrata intera.
+APKRadar — the package's digest must be shown whole.
 
-Il referto stampava `SHA256:  af0db3dc4a74b14b...`: sedici caratteri su
-sessantaquattro. Un'impronta serve a una cosa sola, farsi verificare, e
-sedici caratteri non permettono di verificare niente — non si confronta con
-l'hash pubblicato dallo store, non si cerca in un elenco, non si riporta in
-un allegato. Chi vuole controllare deve ricalcolarla e non ha con cosa.
+The report printed `SHA256:  af0db3dc4a74b14b...`: sixteen characters out of
+sixty-four. A digest serves one purpose, being verified, and sixteen characters
+verify nothing — they do not compare with the hash the store publishes, they
+cannot be looked up in a list, they cannot be reported in an annex. Whoever wants
+to check has to recompute it and has nothing to check it against.
 
-Due incoerenze mostravano il difetto già prima di cercarlo:
+Two inconsistencies showed the defect before anyone looked for it:
 
-- la lettera al DPO (`templates/dpo_letter_it.txt`) usa `{{ sha256 }}` intero,
-  quindi il terzo che riceve la contestazione ha l'impronta completa e
-  l'analista che deve verificarla no;
-- le citazioni di legge stampano i 64 caratteri dell'hash del testo applicato.
-  Lo strumento era più rigoroso con la formulazione della norma che con la
-  prova.
+- the letter to the DPO (`templates/dpo_letter_it.txt`) uses `{{ sha256 }}`
+  whole, so the third party receiving the challenge has the complete digest and
+  the analyst who has to verify it does not;
+- the law citations print the 64 characters of the hash of the text applied. The
+  tool was stricter with the wording of a provision than with the evidence.
 
-Il foglio Excel tronca allo stesso modo, ed è la consegna che resta in mano a
-chi legge dopo: lì una colonna larga non costa niente.
+The spreadsheet truncates the same way, and it is the deliverable that stays in
+the reader's hands afterwards: there a wide column costs nothing.
 """
 from __future__ import annotations
 
@@ -58,7 +57,7 @@ def test_the_report_shows_the_whole_digest():
 
 
 def test_the_report_does_not_offer_a_truncated_digest():
-    """Il troncamento con i puntini sembra un'impronta e non lo è."""
+    """A truncation with an ellipsis looks like a digest and is not one."""
     with patch("apkradar.scanner.scan", return_value=_scanned()):
         result = runner.invoke(app, ["audit", "demo.apk"])
 
