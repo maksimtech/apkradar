@@ -598,13 +598,13 @@ def audit(
             )
         console.print()
 
-        for domain, source in candidates:
-            if _full_stack_domain(
-                domain, verbose=verbose,
-                note=publisher_domain.PROVENANCE_LABELS[source],
-            ):
-                consent_violation = True
-
+        # I candidati si analizzano una volta sola, qui sotto. Un ciclo identico
+        # stava anche prima di questo blocco: il dominio dell'editore riceveva
+        # due analisi complete — due interrogazioni DNS, due handshake TLS e due
+        # sessioni di browser contro il sito di un terzo — e il referto stampava
+        # due volte lo stesso riquadro, senza che si potesse capire se fosse una
+        # seconda misura o la stessa ripetuta. `domains` contiene gia' i
+        # candidati, quindi togliere il primo giro non perde nessun dominio.
         if domains:
             console.print(
                 f"\n[bold]🔗 Full stack analysis — {len(domains)} domains[/bold]\n"
