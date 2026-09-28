@@ -136,7 +136,7 @@ App:     Bitwarden
 Version: 2026.9.0 (21909)
 SDK:     min=29 target=37
 Format:  APK
-SHA256:  954967bb3c9b940c...
+SHA256:  954967bb3c9b940c16edb981242461b03c34f0e60671f42793c07a46190d64b3
 
                  🔴 Trackers (1)
 ╭─────────────┬─────────────────────────────────╮
@@ -278,7 +278,8 @@ path are marked `SKIPPED`, with an empty score.
 
 The output workbook contains these columns: App Name, Package Name, Format,
 Version, Score, Grade (colour-coded), Trackers, Sensitive Permissions,
-Extra-EU Transfers, Tracker Names and SHA256 (first 16 characters).
+Extra-EU Transfers, Tracker Names and SHA256 — the whole digest, so the
+artifact each row describes can be identified and checked.
 
 With `--augment` (`-a`), the result columns (Score, Grade, Trackers,
 Permissions, Extra-EU, Tracker Names) are appended to the input sheet instead.

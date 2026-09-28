@@ -180,7 +180,7 @@ def write_results(results: list, output_path: str, input_path: str | None = None
                 result.sensitive_permission_count,
                 len(result.extra_eu_transfers),
                 tracker_names,
-                result.sha256[:16] + "..." if result.sha256 else "",
+                result.sha256 or "",   # intera: vedi _print_result in cli.py
             ]
             for col_idx, value in enumerate(values, 1):
                 cell = _write_cell(ws, row_idx, col_idx, value)
@@ -188,13 +188,17 @@ def write_results(results: list, output_path: str, input_path: str | None = None
                     color = grade_colors.get(result.score_label, "FFFFFF")
                     cell.fill = PatternFill(fill_type="solid", fgColor=color)
 
-    # Auto-width columns
+    # Auto-width columns. Il tetto di 50 tiene a bada le colonne con elenchi
+    # lunghi di tracker; un digest SHA-256 ne chiede 64 e sotto quel tetto
+    # uscirebbe tagliato a vista. Il valore nella cella resta intero comunque,
+    # ma una consegna in cui l'impronta si legge a metà è come stamparla a metà.
     for col in ws.columns:
         max_length = 0
         col_letter = get_column_letter(col[0].column)
         for cell in col:
             if cell.value:
                 max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = min(max_length + 4, 50)
+        cap = 70 if max_length >= 64 else 50
+        ws.column_dimensions[col_letter].width = min(max_length + 4, cap)
 
     wb.save(output_path)

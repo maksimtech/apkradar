@@ -173,7 +173,12 @@ def _print_result(result) -> None:
     console.print(f"[dim]Version: {escape(result.version_name)} ({escape(result.version_code)})[/dim]")
     console.print(f"[dim]SDK:     min={escape(result.min_sdk)} target={escape(result.target_sdk)}[/dim]")
     console.print(f"[dim]Format:  {escape(result.apk_format.upper())}[/dim]")
-    console.print(f"[dim]SHA256:  {result.sha256[:16]}...[/dim]\n")
+    # Intera: un'impronta esiste per farsi verificare, e sedici caratteri su
+    # sessantaquattro non si confrontano con niente — né con l'hash pubblicato
+    # dallo store, né con un elenco, né in un allegato. La lettera al DPO la
+    # riportava già completa: il terzo contestato aveva di che controllare e
+    # chi analizzava no.
+    console.print(f"[dim]SHA256:  {result.sha256}[/dim]\n")
 
     if result.trackers:
         t = Table(title=f"🔴 Trackers ({result.tracker_count})", box=box.ROUNDED)
