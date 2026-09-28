@@ -59,6 +59,36 @@ app = typer.Typer(
 console = Console()
 
 
+@contextlib.contextmanager
+def _status(message: str):
+    """console.status(), svuotando i flussi prima che lo spinner si fermi.
+
+    Mentre lo spinner gira, Rich sostituisce sys.stdout e sys.stderr con un
+    FileProxy che trattiene il testo finche' non incontra un newline, e `Live`
+    ripristina i flussi originali senza svuotarlo. Una riga parziale scritta da
+    una libreria - androguard lo fa - resta nel buffer e viene stampata soltanto
+    quando l'interprete finalizza il proxy, quando importare non e' piu'
+    possibile:
+
+        Exception ignored while finalizing file <rich.file_proxy.FileProxy ...>
+        ImportError: sys.meta_path is None, Python is likely shutting down
+
+    Visto su 112 Where ARE U con rich 15.0.0 e Python 3.14.7, a referto completo
+    e con uscita 0: l'analisi era riuscita e sembrava finita in un crash. Solo su
+    terminale, perche' solo allora Rich installa il proxy - in pipe non si vede.
+
+    Lo `finally` copre anche il caso con eccezione: e' quello in cui il messaggio
+    parziale della libreria serve di piu'.
+    """
+    with console.status(message):
+        try:
+            yield
+        finally:
+            sys.stdout.flush()
+            sys.stderr.flush()
+    console.file.flush()
+
+
 # `audit --output` writes whatever the terminal showed. Rich records the
 # rendered output, so the file is the report rather than a second rendering of
 # it that could drift from what the operator saw.
@@ -516,7 +546,7 @@ def audit(
 
     # The Play listing is only worth fetching when the publisher domain is going
     # to be printed, and --full is already a networked command.
-    with console.status("[cyan]Analyzing APK...[/cyan]"):
+    with _status("[cyan]Analyzing APK...[/cyan]"):
         result = scan(apk, lookup_publisher=full and not offline)
 
     _print_result(result)
@@ -781,7 +811,7 @@ def search(
         # Package name lookup
         console.print(f"\n[dim]Looking up [bold]{escape(query)}[/bold]...[/dim]")
 
-        with console.status("[cyan]Querying Google Play Store...[/cyan]"):
+        with _status("[cyan]Querying Google Play Store...[/cyan]"):
             result = lookup(query)
 
         if result.available:
@@ -853,7 +883,7 @@ def send(
 
     console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
-    with console.status("[cyan]Analyzing APK...[/cyan]"):
+    with _status("[cyan]Analyzing APK...[/cyan]"):
         result = scan(apk, lookup_publisher=not offline)
 
     _print_result(result)
