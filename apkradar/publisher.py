@@ -174,8 +174,12 @@ def _fetch(domain: str) -> tuple[str, str]:
         try:
             response = client.get(f"https://{domain}")
         except httpx.HTTPError:
-            # NOSONAR python:S5332 — cleartext on purpose, and only after https
-            # has already failed. Reviewed 2026-09-29; re-read by 2026-12-31.
+            # Cleartext on purpose, and only after https has already failed.
+            # Reviewed 2026-09-29; re-read by 2026-12-31. The `# NOSONAR` that
+            # accepts python:S5332 is at the end of the request line below, not
+            # here: Sonar applies the marker to the line carrying it, so a comment
+            # block above the code suppresses nothing — which is how the first
+            # attempt at this left the gate red.
             #
             # Sonar is right that this is a cleartext request and there is no way
             # to write one that it accepts. Removing it would be the worse trade:
@@ -191,7 +195,7 @@ def _fetch(domain: str) -> tuple[str, str]:
             # parked. `looks_parked` already returns False on anything
             # unreachable, so the opposite direction — hiding a parked domain — is
             # free to an attacker with or without this line.
-            response = client.get(f"http://{domain}")
+            response = client.get(f"http://{domain}")  # NOSONAR python:S5332
         # The status is not the point — GoDaddy's lander answers 403 — the URL it
         # settled on is.
         return str(response.url), response.text[:_SNIFF]
