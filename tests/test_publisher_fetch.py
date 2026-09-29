@@ -17,6 +17,9 @@ second is where this started.
 """
 from __future__ import annotations
 
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 import httpx
 import pytest
 
@@ -123,6 +126,50 @@ def test_the_body_is_cut_short(client):
     client({"https://big.example": Response("https://big.example/", "x" * 100_000)})
 
     assert len(publisher._fetch("big.example")[1]) == publisher._SNIFF
+
+
+def test_the_fallback_works_against_a_real_socket():
+    """The one thing a fake client cannot prove.
+
+    Every test above replaces httpx.Client, so they all pass whatever httpx does
+    with a TLS failure. If a future version raised something outside
+    httpx.HTTPError there, `except httpx.HTTPError` would stop catching it, the
+    fallback would never run in production, and these tests would stay green —
+    apkradar would silently stop finding parked domains, which is the failure that
+    looks like good news.
+
+    A local listener answering http and nothing on https is the shape of a parked
+    domain with no certificate for its own name. Nothing is replaced here:
+    `looks_parked` runs the shipped path with the real client over a real socket.
+
+    Checked against the network on 2026-09-29 as well, on nine real domains: the
+    https-first change altered no verdict, and python.org, example.com and
+    maksimtech.com moved from cleartext to https. The one case the network could
+    not reach was this one — neverssl.com timed out on both schemes — which is why
+    it lives here instead of in a notebook.
+    """
+    page = b"<html><body><h1>Buy this domain</h1></body></html>"
+
+    class Lander(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Lander)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        assert publisher.looks_parked(f"127.0.0.1:{server.server_address[1]}") is True
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def test_an_https_only_site_is_never_asked_over_cleartext(client):
