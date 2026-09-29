@@ -25,6 +25,8 @@ the defect cannot be seen through a pipe.
 import subprocess
 import sys
 
+import pytest
+
 # Un `Console` che si crede un terminale: Rich installa il proxy solo in quel
 # caso, ed è la ragione per cui in pipe il difetto non si vede.
 _SHUTDOWN_SCRIPT = """
@@ -71,3 +73,56 @@ def test_audit_leaves_nothing_in_the_proxy_buffer():
     # non buttarla. Una correzione che la scartasse passerebbe i due controlli
     # sopra e nasconderebbe l'output di una libreria.
     assert "partial-line-without-newline" in proc.stdout
+
+
+def test_the_console_is_flushed_even_when_the_body_raises():
+    """The path the docstring of `_status` claims to cover and did not.
+
+    `console.file.flush()` sat after the `with console.status(...)` block rather
+    than in a `finally`, so an exception leaving the body skipped it — and that is
+    the path where a library's partial line matters most, because it is the run
+    that is about to print a traceback. SonarCloud's python:S9152 found it
+    ("Cleanup after this yield may be skipped on early exit"); no test did,
+    because every test exercised the success path.
+
+    `console.status` is replaced with a no-op for the duration, and that is the
+    whole point of the test rather than a convenience. The first version of it did
+    not do this, and passed against the broken code: Rich's own `Live.stop()`
+    writes to the console on its way out, which flushes `console.file` as a side
+    effect, so the recorder saw a flush that `_status` never performed. A test that
+    cannot fail is worse than no test, and only replacing the spinner leaves this
+    module's own flush as the only thing that could have done it.
+    """
+    from contextlib import contextmanager
+
+    from apkradar import cli
+
+    flushed: list[str] = []
+
+    class Recorder:
+        def flush(self):
+            flushed.append("console.file")
+
+        def write(self, *_a, **_k):
+            return 0
+
+        def isatty(self):
+            return False
+
+    @contextmanager
+    def no_spinner(_message):
+        yield
+
+    original_file, original_status = cli.console.file, cli.console.status
+    cli.console.file = Recorder()
+    cli.console.status = no_spinner
+    try:
+        with pytest.raises(RuntimeError, match="collector died"), \
+                cli._status("working..."):
+            raise RuntimeError("collector died")
+    finally:
+        cli.console.file, cli.console.status = original_file, original_status
+
+    assert flushed == ["console.file"], (
+        "the console was not flushed on the way out of an exception"
+    )

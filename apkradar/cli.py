@@ -78,16 +78,24 @@ def _status(message: str):
     though it had ended in a crash. Only on a terminal, because only there does
     Rich install the proxy - through a pipe it cannot be seen.
 
-    The `finally` also covers the case with an exception: that is the one where
-    the library's partial message matters most.
+    The exception path is covered too, and it is the one where the library's
+    partial message matters most — see the comment below for how it was not, until
+    2026-09-29.
     """
-    with console.status(message):
-        try:
-            yield
-        finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
-    console.file.flush()
+    # Both flushes in a `finally`, including the outer one. It sat after the
+    # `with` block until 2026-09-29, where an exception leaving the body skipped
+    # it — the path where a library's partial line matters most, because it is the
+    # run about to print a traceback. SonarCloud's python:S9152 found it; no test
+    # did, because every test exercised the success path.
+    try:
+        with console.status(message):
+            try:
+                yield
+            finally:
+                sys.stdout.flush()
+                sys.stderr.flush()
+    finally:
+        console.file.flush()
 
 
 # `audit --output` writes whatever the terminal showed. Rich records the
