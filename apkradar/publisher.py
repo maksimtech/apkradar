@@ -152,16 +152,29 @@ def normalise_site(value: str | None) -> str | None:
 
 
 def _fetch(domain: str) -> tuple[str, str]:
-    """Follow `http://domain` and report where it ended up, and what it said.
+    """Follow the domain and report where it ended up, and what it said.
 
-    Plain http, because that is what a parked domain answers on and a real site
-    redirects from. Failures raise: `looks_parked` treats them as "cannot tell",
-    which is not the same as "for sale".
+    HTTPS first, then plain http. The fallback is the part that matters: a parked
+    domain often has no certificate for the name at all, and refusing to look
+    would hide exactly the domains this exists to find — which was the original
+    reason for going straight to http.
+
+    Trying https first is not ceremony. What comes back decides whether a report
+    says a publisher's domain is for sale, and over cleartext anyone on the path
+    can put a for-sale marker in the body. `looks_parked` already fails safe on an
+    unreachable domain, so the direction that needed protecting was the false
+    accusation, not the missed one.
+
+    Failures raise: `looks_parked` treats them as "cannot tell", which is not the
+    same as "for sale".
     """
     import httpx
 
     with httpx.Client(follow_redirects=True, timeout=8.0) as client:
-        response = client.get(f"http://{domain}")
+        try:
+            response = client.get(f"https://{domain}")
+        except httpx.HTTPError:
+            response = client.get(f"http://{domain}")
         # The status is not the point — GoDaddy's lander answers 403 — the URL it
         # settled on is.
         return str(response.url), response.text[:_SNIFF]

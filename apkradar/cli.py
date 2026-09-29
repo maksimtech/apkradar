@@ -265,13 +265,19 @@ def _proxy_for_https(domain: str | None = None) -> tuple[str, int] | None:
         if not value:
             continue
         try:
-            parsed = urlparse(value if "://" in value else f"http://{value}")
+            # `//host:port` and not `http://host:port`: urlparse needs only a
+            # netloc to find the hostname, and prepending a scheme would assert
+            # one the variable never stated — `ALL_PROXY` is as likely to be
+            # socks5. Verified identical on every shape this loop sees, including
+            # a bare `proxy.corp:8080`, an IP with a port, and a value that is
+            # not a URL at all.
+            parsed = urlparse(value if "://" in value else f"//{value}")
         except ValueError:
             continue
         host = parsed.hostname
-        # urlparse takes "not a url at all" as a hostname once a scheme is
-        # prepended, so the shape is checked rather than assumed: a host has
-        # no whitespace in it.
+        # urlparse takes "not a url at all" as a hostname once there is a netloc
+        # to read, so the shape is checked rather than assumed: a host has no
+        # whitespace in it.
         if host and not any(ch.isspace() for ch in host):
             try:
                 port = parsed.port or _DEFAULT_PROXY_PORT
