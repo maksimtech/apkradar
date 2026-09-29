@@ -3,9 +3,61 @@
 All notable changes to APKRadar are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project uses calendar versioning (`YYYY.MM.N`).
+and this project uses **CalVer, Apple style**: `YYYY.count[.fix]`, not SemVer.
+`YYYY` is the generation, shared by the five Radar; the count belongs to each of
+them and moves when its code moves; the third segment is for something urgent on
+what has already shipped. The line above said `YYYY.MM.N` until 2026-09-29, which
+no version in this file has ever matched — 40 is not a month, and
+`tests/test_version_contract.py` has been enforcing the real form all along.
 
 ## [Unreleased]
+
+## [2026.41] - 2026-09-29
+
+### Fixed
+
+- **The report no longer ends with a traceback.** Rich wraps `sys.stdout` in a
+  `FileProxy` while a spinner runs and restores the stream without flushing it, so
+  a partial line sat in that buffer until the proxy was garbage-collected — often
+  during interpreter shutdown, where the message is
+  `ImportError: sys.meta_path is None`. It appeared after a completed analysis, on
+  a terminal only, and looked like the software failing at the worst possible
+  moment. Every spinner now flushes both streams before it stops.
+
+- **The SHA256 is shown whole, or it cannot be verified.** The digest was
+  truncated in both the terminal report and the Excel export, including under
+  `--full`. A hash that cannot be compared against another copy of the file is
+  decoration: whoever reads an APK's digest is reading it in order to check it.
+  The Excel column widens to 70 when a value reaches 64 characters.
+
+- **Each domain is analysed once.** Two loops over the full-stack domains meant a
+  domain could be reported twice in the same audit, which reads as two findings
+  where there is one.
+
+- **The publisher's domain is probed over https first.** `looks_parked` requested
+  `http://domain` in cleartext, and the body of that response decides whether a
+  report says a publisher's domain is for sale — on that path anyone can insert a
+  for-sale marker. https first, http only after it fails: a real site is never
+  asked over cleartext, and a parked domain with no certificate for its own name
+  is still found, which is what the fallback is for. Measured against nine real
+  domains on 2026-09-29: no verdict changed, and python.org, example.com and
+  maksimtech.com moved to https with the same answer.
+
+### Added
+
+- **A CI gate that refuses.** Every other security workflow reports: `snyk.yml`
+  carries `continue-on-error`, CodeQL and Docker Scout upload SARIF, and
+  SonarCloud decides its quality gate after the job has already succeeded. On
+  2026-09-29 all of them were green while twelve high-severity alerts were open.
+  `security-posture.yml` reads what they published and fails when a blocking
+  finding has nobody's name against it; `SECURITY-EXCEPTIONS.toml` records the
+  accepted ones, each with a reason and a review date. `sonarcloud.yml` now waits
+  for its own quality gate, without which a red gate is a green job.
+
+### Changed
+
+- The prose is in English throughout. The DPO letter and the quoted law stay in
+  Italian, because that is the language they are read in.
 
 ## [2026.40] - 2026-09-26
 ### Changed
