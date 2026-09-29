@@ -174,6 +174,23 @@ def _fetch(domain: str) -> tuple[str, str]:
         try:
             response = client.get(f"https://{domain}")
         except httpx.HTTPError:
+            # NOSONAR python:S5332 — cleartext on purpose, and only after https
+            # has already failed. Reviewed 2026-09-29; re-read by 2026-12-31.
+            #
+            # Sonar is right that this is a cleartext request and there is no way
+            # to write one that it accepts. Removing it would be the worse trade:
+            # a parked domain frequently has no certificate for its own name, so
+            # https alone would stop finding precisely the domains `looks_parked`
+            # exists to find, and the tests in tests/test_publisher_fetch.py would
+            # have to be deleted to make that pass. Satisfying the rule by
+            # computing the scheme would hide the same request from the next
+            # reader without changing it, which is worse than saying so here.
+            #
+            # What the exposure actually is: an on-path attacker could inject a
+            # for-sale marker and make a report claim a publisher's domain is
+            # parked. `looks_parked` already returns False on anything
+            # unreachable, so the opposite direction — hiding a parked domain — is
+            # free to an attacker with or without this line.
             response = client.get(f"http://{domain}")
         # The status is not the point — GoDaddy's lander answers 403 — the URL it
         # settled on is.
