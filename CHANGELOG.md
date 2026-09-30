@@ -14,6 +14,43 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **GDPR art. 9 is no longer cited for permissions that are not special
+  categories.** Every one of the twenty-eight entries in
+  `SENSITIVE_PERMISSIONS` was mapped to art. 9 — storage read, calendar, device
+  accounts, the advertising identifier — and that citation went into the letter
+  addressed to a data protection officer, in the heading of section 2:
+  "PERMESSI SENSIBILI — art. 5(1)(c), 9 GDPR".
+
+  Art. 9(1) is an exhaustive list: racial or ethnic origin, political opinions,
+  religious or philosophical beliefs, trade union membership, genetic data,
+  biometric data processed *for the purpose of uniquely identifying* a natural
+  person, health, sex life and sexual orientation. A letter that cites it for a
+  storage permission gives its reader something to dismiss in one line, ahead of
+  the findings that hold — the trackers, the extra-EU transfers, the
+  undisclosed permissions.
+
+  Two of them were worth naming in the code, because they look like art. 9 and
+  are not. **Location** can *reveal* a special category by inference, which is a
+  property of a purpose and a pattern rather than of the permission, and this
+  audit reads a manifest. **An on-device biometric unlock** — `USE_BIOMETRIC`,
+  `USE_FINGERPRINT` — asks Android to authenticate: the matching happens in the
+  operating system, the template never leaves the secure hardware, and the app
+  receives a boolean, so there is no biometric data being processed to identify
+  anybody.
+
+  What is left is health data: `BODY_SENSORS`, `ACTIVITY_RECOGNITION`, and Health
+  Connect records matched by their `android.permission.health.` prefix so that
+  adding one later cannot quietly inherit the old behaviour. Sensitive
+  permissions now cite art. 5(1)(c) and art. 6, which apply to all of them, and
+  art. 9 appears as a separate finding — phrased as a question about the purpose,
+  with the condition named, because the purpose is exactly what a manifest does
+  not state.
+
+  `BODY_SENSORS` was also described as "biometric sensors", which is what it
+  reads like and not what it gives; it now says "vital signs (heart rate)". Ten
+  tests were added, including one that reads the whole permission table and
+  asserts which entries may cite art. 9.
+
 - **The Docker build no longer races its own publish.** `docker.yml` and
   `publish.yml` both fire on the tag push, in parallel, and the Dockerfile
   installs `apkradar==<new version>` from PyPI. A fixed `sleep 60` stood in for

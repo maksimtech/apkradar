@@ -1,6 +1,7 @@
 """
 APKRadar — APK compliance auditor.
-GDPR art.9 — tracker detection, permissions analysis.
+GDPR art. 5, 6, 9 and 46 — tracker detection, permissions analysis.
+Art. 9 is cited only for the permissions it can apply to; see law_checker.
 Requires: mailradar + cookieradar
 """
 import asyncio
@@ -52,7 +53,7 @@ enable_utf8_output()
 
 app = typer.Typer(
     name="apkradar",
-    help="📱 APK compliance auditor — GDPR art.9",
+    help="📱 APK compliance auditor — GDPR",
     add_completion=False,
 )
 
@@ -151,7 +152,7 @@ def main(
         help="Show version and exit.",
     ),
 ) -> None:
-    """📱 APK compliance auditor — GDPR art.9"""
+    """📱 APK compliance auditor — GDPR"""
 
 
 def _print_result(result) -> None:

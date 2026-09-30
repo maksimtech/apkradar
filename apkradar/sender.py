@@ -11,7 +11,9 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from typing import NamedTuple
 
+from apkradar.law_checker import special_category_reason
 from apkradar.scanner import ScanResult
 
 # MailRadar scores below this are reported as inadequate technical measures
@@ -20,6 +22,39 @@ MAIL_SCORE_POOR_THRESHOLD = 60
 # SSL statuses stated as issues in the letter. hostname_mismatch is excluded:
 # the publisher domain is inferred from the package name and may be wrong.
 SSL_LETTER_ISSUES = {"expired", "self_signed", "unknown_ca"}
+
+
+class SpecialCategoryPermission(NamedTuple):
+    """A declared permission that can reach a special category of data.
+
+    `reason` says which category and under what condition, because art. 9 turns
+    on the purpose of the processing and a manifest does not state one. The
+    letter asks whether that purpose exists; it does not assert it.
+    """
+
+    permission: str
+    description: str
+    reason: str
+
+
+def special_category_permissions(
+    result: ScanResult, lang: str = "it"
+) -> list[SpecialCategoryPermission]:
+    """The subset of the sensitive permissions that art. 9 can apply to.
+
+    Usually empty. Until 2026-09-30 the letter cited art. 9 for all of them,
+    which put a claim a DPO can dismiss in front of findings that hold — see
+    law_checker._SPECIAL_CATEGORY_PERMISSIONS for what the article actually
+    covers.
+
+    `lang` is the letter's language: the reason is written into an Italian
+    sentence and has to be in Italian.
+    """
+    return [
+        SpecialCategoryPermission(perm.permission, perm.description, reason)
+        for perm in result.sensitive_permissions
+        if (reason := special_category_reason(perm.permission, lang))
+    ]
 
 
 def render_letter(
@@ -81,6 +116,7 @@ def render_letter(
         sha256=result.sha256,
         trackers=result.trackers,
         sensitive_permissions=result.sensitive_permissions,
+        special_category_permissions=special_category_permissions(result, lang),
         extra_eu_transfers=result.extra_eu_transfers,
         publisher=publisher,
         publisher_domain=publisher_domain,

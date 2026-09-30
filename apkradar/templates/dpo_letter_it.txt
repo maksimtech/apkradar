@@ -17,7 +17,7 @@ La presenza di questi SDK comporta la trasmissione di dati personali a soggetti 
 Non sono stati rilevati tracker o SDK di terze parti noti.
 {% endif %}
 
-2. PERMESSI SENSIBILI — art. 5(1)(c), 9 GDPR
+2. PERMESSI SENSIBILI — art. 5(1)(c), 6 GDPR
 {% if sensitive_permissions %}
 L'applicazione dichiara i seguenti permessi con rilevanza GDPR:
 {% for perm in sensitive_permissions %}
@@ -25,6 +25,15 @@ L'applicazione dichiara i seguenti permessi con rilevanza GDPR:
 {% endfor %}
 
 Si richiede di specificare la base giuridica e la finalità del trattamento per ciascun permesso, nonché i tempi di conservazione dei dati raccolti.
+{% if special_category_permissions %}
+
+Fra questi, i seguenti permessi possono riguardare categorie particolari di dati ai sensi dell'art. 9(1) GDPR:
+{% for perm in special_category_permissions %}
+  → {{ perm.permission.split('.')[-1] }}: {{ perm.reason }}
+{% endfor %}
+
+Non si afferma che tale trattamento abbia luogo. L'audit legge il manifest dell'applicazione, che dichiara la facoltà di accedere al dato e non la finalità per cui esso è trattato, e l'art. 9 dipende dalla finalità. Si richiede pertanto di indicare se i dati raccolti tramite tali permessi siano trattati per finalità che li qualificano come categorie particolari e, in caso affermativo, quale delle condizioni di cui all'art. 9(2) GDPR sia invocata.
+{% endif %}
 {% else %}
 Non sono stati rilevati permessi sensibili.
 {% endif %}

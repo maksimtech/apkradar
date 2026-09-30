@@ -209,6 +209,69 @@ class TestRenderLetter(unittest.TestCase):
         self.assertIn("Test User", letter)
 
 
+class TestLetterSectionTwoCitations(unittest.TestCase):
+    """Section 2 of the letter cited art. 9 for every permission it listed.
+
+    The heading read "PERMESSI SENSIBILI — art. 5(1)(c), 9 GDPR" whatever the
+    permissions were: location, storage read, the advertising identifier. Art. 9
+    is an exhaustive list of special categories and none of those are on it, so
+    the first thing a data protection officer could do with this letter was
+    dismiss its second section — ahead of the trackers, the extra-EU transfers
+    and the undisclosed permissions, which hold.
+
+    Art. 9 now appears only for the permissions it can apply to, and as a question
+    about the purpose rather than an allegation, because the purpose is exactly
+    what a manifest does not state.
+    """
+
+    def _letter(self, permissions):
+        result = _make_result()
+        result.sensitive_permissions = permissions
+        return render_letter(
+            result=result,
+            publisher="WONE SAGL",
+            publisher_domain="wonet.com",
+            sender_name="Test User",
+            sender_org="Test Org",
+            sender_email="test@example.com",
+        )
+
+    def test_location_and_imei_do_not_cite_art_9(self):
+        letter = self._letter(_make_result().sensitive_permissions)
+
+        self.assertIn("art. 5(1)(c), 6 GDPR", letter)
+        self.assertNotIn("art. 9", letter)
+        # the permissions are still listed and still asked about
+        self.assertIn("ACCESS_FINE_LOCATION", letter)
+        self.assertIn("base giuridica", letter)
+
+    def test_a_body_sensor_permission_raises_art_9_as_a_question(self):
+        letter = self._letter([
+            PermissionFound(
+                permission="android.permission.BODY_SENSORS",
+                description="vital signs (heart rate)",
+            ),
+        ])
+
+        self.assertIn("categorie particolari di dati ai sensi dell'art. 9(1) GDPR", letter)
+        self.assertIn("art. 9(2)", letter)          # which condition is invoked
+        self.assertIn("Non si afferma", letter)     # no allegation is made
+        self.assertIn("dati relativi alla salute", letter)   # in the letter's own language
+
+    def test_a_fingerprint_unlock_raises_nothing(self):
+        """Android authenticates and hands the app a boolean; no biometric data
+        reaches it, and art. 9 is about biometric data processed to identify."""
+        letter = self._letter([
+            PermissionFound(
+                permission="android.permission.USE_FINGERPRINT",
+                description="fingerprint",
+            ),
+        ])
+
+        self.assertIn("USE_FINGERPRINT", letter)
+        self.assertNotIn("art. 9", letter)
+
+
 class TestRenderLetterMailScore(unittest.TestCase):
     """Section 4 must reflect the actual MailRadar score.
 

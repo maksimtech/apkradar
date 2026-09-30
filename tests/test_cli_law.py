@@ -18,16 +18,18 @@ CDC_49_PAGE = FIXTURES / "normattiva_cdc_art49.html"
 runner = CliRunner()
 
 
-def _result(trackers=True, transfers=False, sensitive=False):
+LOCATION = PermissionFound("android.permission.ACCESS_FINE_LOCATION", "precise GPS location")
+BODY_SENSORS = PermissionFound("android.permission.BODY_SENSORS", "vital signs (heart rate)")
+
+
+def _result(trackers=True, transfers=False, sensitive=False, permission=LOCATION):
     return ScanResult(
         apk_path="app.apk",
         package_name="com.example.app",
         sha256="a" * 64,
         trackers=[TrackerFound(package="com.appsflyer", name="AppsFlyer")] if trackers else [],
         extra_eu_transfers=[TransferFound("com.appsflyer", "AppsFlyer Ltd. (USA/Israel)")] if transfers else [],
-        sensitive_permissions=[
-            PermissionFound("android.permission.ACCESS_FINE_LOCATION", "precise GPS location")
-        ] if sensitive else [],
+        sensitive_permissions=[permission] if sensitive else [],
     )
 
 
@@ -94,12 +96,30 @@ def test_sensitive_permissions_cite_consumer_code_49(eurlex):
     )
 
 
-def test_audit_cites_46_and_9(eurlex):
+def test_a_location_permission_cites_minimisation_and_a_lawful_basis(eurlex):
+    """Not art. 9, which is what this asserted until 2026-09-30.
+
+    Location is not a special category. It can *reveal* one by inference — where
+    somebody goes on a Friday afternoon — but that is a property of a purpose and
+    a pattern, not of the permission, and this audit reads a manifest. Citing
+    art. 9 for it put a claim a DPO can dismiss in front of the findings that
+    hold.
+    """
     out = _audit(_result(trackers=False, transfers=True, sensitive=True))
 
     assert "Provision applied: GDPR art. 46" in out.output
-    assert "Provision applied: GDPR art. 9" in out.output
+    assert "Provision applied: GDPR art. 5(1)(c)" in out.output
+    assert "Provision applied: GDPR art. 6" in out.output
+    assert "Provision applied: GDPR art. 9" not in out.output
     assert "art. 5(1)(a)" not in out.output
+
+
+def test_a_body_sensor_permission_does_cite_art_9(eurlex):
+    """The case the article is for: heart rate is data concerning health."""
+    out = _audit(_result(trackers=False, sensitive=True, permission=BODY_SENSORS))
+
+    assert "Provision applied: GDPR art. 9" in out.output
+    assert "Provision applied: GDPR art. 5(1)(c)" in out.output
 
 
 def test_audit_without_findings_downloads_nothing(eurlex):

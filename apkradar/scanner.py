@@ -107,7 +107,12 @@ SENSITIVE_PERMISSIONS = {
     "android.permission.READ_PHONE_STATE": "device ID/IMEI",
     "android.permission.READ_PHONE_NUMBERS": "phone numbers",
     "android.permission.PROCESS_OUTGOING_CALLS": "outgoing calls",
-    "android.permission.BODY_SENSORS": "biometric sensors",
+    # "biometric sensors" until 2026-09-30, which is what BODY_SENSORS reads
+    # like and not what it gives: heart rate and comparable vital signs, i.e.
+    # health data. The old wording is half of why art. 9 was cited for every
+    # permission in this table — biometric data under art. 9 means a template
+    # processed to identify somebody, which this is not.
+    "android.permission.BODY_SENSORS": "vital signs (heart rate)",
     "android.permission.ACTIVITY_RECOGNITION": "physical activity",
     "android.permission.READ_CALENDAR": "calendar",
     "android.permission.WRITE_CALENDAR": "calendar write",

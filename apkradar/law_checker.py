@@ -25,9 +25,101 @@ FINDING_ARTICLES = {
     "tracker_undisclosed": ((DIGITAL_CONTENT, "8(1)(b)"),),
     "extra_eu": ((GDPR, "46"),),
     "consent": ((GDPR, "7"),),
-    "sensitive": ((GDPR, "9"),),
+    "sensitive": ((GDPR, "5(1)(c)"), (GDPR, "6")),
+    "special_category": ((GDPR, "9"),),
     "permissions_undisclosed": ((CONSUMER_CODE, "49"),),
 }
+
+# ─── Which permissions can reach a special category of data ───────────────────
+#
+# Art. 9(1) lists what a special category is, exhaustively: racial or ethnic
+# origin, political opinions, religious or philosophical beliefs, trade union
+# membership, genetic data, biometric data processed *for the purpose of uniquely
+# identifying* a natural person, data concerning health, and data concerning sex
+# life or sexual orientation. Nothing else is in it.
+#
+# Until 2026-09-30 the `sensitive` finding cited art. 9 for every permission in
+# scanner.SENSITIVE_PERMISSIONS — twenty-eight of them, including storage read,
+# calendar, device accounts and the advertising identifier. That citation went
+# into a letter addressed to a data protection officer, which is the worst place
+# for a legal claim that does not hold: it is the part a DPO can dismiss without
+# reading the rest, and the findings underneath it are sound.
+#
+# Two cases are worth naming because they look like art. 9 and are not:
+#
+#   location      Not a special category. It can *reveal* one — a weekly visit
+#                 to a place of worship, a clinic — but that is an inference
+#                 from a purpose and a pattern, not a property of the
+#                 permission, and this audit reads a manifest. Art. 5(1)(c) and
+#                 art. 6 are what apply, and they apply to every entry here.
+#   biometrics    USE_BIOMETRIC and USE_FINGERPRINT ask the operating system to
+#                 authenticate the user. Android does the matching itself and
+#                 hands the app a boolean; the template never leaves the secure
+#                 hardware. Art. 9 requires biometric data processed for the
+#                 purpose of uniquely identifying someone, and an app that
+#                 receives no biometric data is not processing any.
+#
+# What is left is health data, and it stays conditional, because the article
+# turns on what the data is used for and a manifest does not say. The letter
+# asks; it does not allege.
+#
+# The reason is held in both languages the letter is written in. It reaches a
+# data protection officer inside an Italian sentence, and an English clause
+# dropped into the middle of it is how a reader learns the paragraph was
+# assembled rather than written.
+_SPECIAL_CATEGORY_PERMISSIONS = {
+    "android.permission.BODY_SENSORS": {
+        "en": "heart rate and comparable vital signs, which are data concerning health",
+        "it": "frequenza cardiaca e parametri vitali analoghi, che sono dati relativi alla salute",
+    },
+    "android.permission.BODY_SENSORS_BACKGROUND": {
+        "en": "heart rate and comparable vital signs, read while the app is in the background",
+        "it": (
+            "frequenza cardiaca e parametri vitali analoghi, letti mentre "
+            "l'applicazione è in background"
+        ),
+    },
+    "android.permission.ACTIVITY_RECOGNITION": {
+        "en": (
+            "physical activity, which concerns health where it is used to infer a "
+            "health status rather than to count steps for their own sake"
+        ),
+        "it": (
+            "attività fisica, che riguarda la salute quando è usata per inferire uno "
+            "stato di salute e non per contare i passi in quanto tali"
+        ),
+    },
+}
+
+# Health Connect addresses each kind of record with its own permission —
+# android.permission.health.READ_HEART_RATE and some fifty others — so the prefix
+# is matched rather than the names listed. None of these are in
+# scanner.SENSITIVE_PERMISSIONS yet; when one is added, it arrives here already
+# cited correctly instead of silently joining the art. 9 claim by default.
+_HEALTH_CONNECT_PREFIX = "android.permission.health."
+_HEALTH_CONNECT_REASON = {
+    "en": "a Health Connect record, which is data concerning health",
+    "it": "un record di Health Connect, che è un dato relativo alla salute",
+}
+
+
+def special_category_reason(permission: str, lang: str = "en") -> str | None:
+    """Why art. 9 is in play for this permission, or None if it is not.
+
+    None is the answer for most of them, and saying so is the point: an audit
+    that cites art. 9 for a calendar permission has said nothing a controller
+    needs to answer.
+
+    `lang` follows the letter's own languages and falls back to English, the way
+    the template does — a missing translation must not silence the finding.
+    """
+    if permission.startswith(_HEALTH_CONNECT_PREFIX):
+        return _HEALTH_CONNECT_REASON.get(lang, _HEALTH_CONNECT_REASON["en"])
+    reasons = _SPECIAL_CATEGORY_PERMISSIONS.get(permission)
+    if reasons is None:
+        return None
+    return reasons.get(lang, reasons["en"])
+
 
 # APKRadar cannot read what the app declares (privacy policy, the store's data
 # safety section): the "undisclosed" findings say so in their titles.
@@ -37,6 +129,7 @@ FINDING_TITLES = {
     "extra_eu": "Transfers outside the EU",
     "consent": "Consent",
     "sensitive": "Sensitive permissions",
+    "special_category": "Permissions that can reach a special category of data",
     "permissions_undisclosed": (
         "Excessive permissions not disclosed? "
         "To be checked against the pre-contractual information"
@@ -73,6 +166,13 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
         ]
         found["sensitive"] = permissions
         found["permissions_undisclosed"] = permissions
+        special = [
+            f"{perm.permission.split('.')[-1]} ({perm.description}): {reason}"
+            for perm in result.sensitive_permissions
+            if (reason := special_category_reason(perm.permission))
+        ]
+        if special:
+            found["special_category"] = special
     return {finding: found[finding] for finding in FINDING_ARTICLES if finding in found}
 
 
