@@ -14,6 +14,17 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **A test was pinning Rich's output stream for every test that ran after it.**
+  `test_the_console_is_flushed_even_when_the_body_raises` saved `cli.console.file`
+  and assigned it back, which looks like a restore and is not: Rich's `file` is a
+  property that falls back to `sys.stdout` when nothing was set, so writing the
+  current value into it fixes that stream for good. Measured here on 2026-09-30:
+  with the two files named explicitly in that order,
+  `tests/test_hash_is_verifiable.py` asserted against an empty `result.output` —
+  the whole report had gone to the terminal instead of the CliRunner's buffer. The
+  suite was green only because of the order the files are collected in. The test
+  builds a console of its own now and monkeypatches it in.
+
 - **"App not found on Google Play" was three different answers.** `lookup()`
   wrapped the whole query in one `except Exception` and returned
   `available=False` for all of them: the store having no such listing, the store
@@ -133,6 +144,11 @@ no version in this file has ever matched — 40 is not a month, and
   its tests: `tests/test_ci_scripts.py` drives the script with a fake pip and
   pins where the step sits, what version it is given, and that nothing in the
   workflow waits by sleeping again.
+
+### Changed
+
+- **The Italian comments are in English**, in `tests/test_shutdown_flush.py` — the
+  subprocess script included — and `tests/test_hash_is_verifiable.py`.
 
 ## [2026.41] - 2026-09-29
 

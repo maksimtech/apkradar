@@ -27,8 +27,8 @@ import sys
 
 import pytest
 
-# Un `Console` che si crede un terminale: Rich installa il proxy solo in quel
-# caso, ed è la ragione per cui in pipe il difetto non si vede.
+# A `Console` that believes it is a terminal: Rich installs the proxy only in
+# that case, which is why the defect cannot be seen through a pipe.
 _SHUTDOWN_SCRIPT = """
 import sys
 from unittest.mock import patch
@@ -42,18 +42,18 @@ from apkradar.scanner import ScanResult
 
 
 def fake_scan(path, **kwargs):
-    # Una libreria che tiene un riferimento a sys.stdout mantiene vivo il
-    # FileProxy di Rich oltre la fine dello spinner, con la riga parziale dentro.
+    # A library holding a reference to sys.stdout keeps Rich's FileProxy alive
+    # past the end of the spinner, with the partial line still inside it.
     global held_stdout
     held_stdout = sys.stdout
     sys.stdout.write("partial-line-without-newline")
-    return ScanResult(apk_path=path, error="analisi finta")
+    return ScanResult(apk_path=path, error="stand-in analysis")
 
 
 with patch.object(scanner, "scan", fake_scan), \\
      patch.object(cli, "console", Console(force_terminal=True, width=250)):
     try:
-        cli.app(["audit", "qualsiasi.apk"], standalone_mode=False)
+        cli.app(["audit", "anything.apk"], standalone_mode=False)
     except typer.Exit:
         pass
 """
@@ -69,13 +69,13 @@ def test_audit_leaves_nothing_in_the_proxy_buffer():
     assert proc.returncode == 0, proc.stderr
     assert "sys.meta_path is None" not in proc.stderr
     assert "Exception ignored" not in proc.stderr
-    # E la riga parziale non va persa: svuotare il buffer significa stamparla,
-    # non buttarla. Una correzione che la scartasse passerebbe i due controlli
-    # sopra e nasconderebbe l'output di una libreria.
+    # And the partial line must not be lost: flushing the buffer means printing
+    # it, not discarding it. A fix that threw it away would pass the two checks
+    # above and hide a library's output.
     assert "partial-line-without-newline" in proc.stdout
 
 
-def test_the_console_is_flushed_even_when_the_body_raises():
+def test_the_console_is_flushed_even_when_the_body_raises(monkeypatch):
     """The path the docstring of `_status` claims to cover and did not.
 
     `console.file.flush()` sat after the `with console.status(...)` block rather
@@ -95,6 +95,8 @@ def test_the_console_is_flushed_even_when_the_body_raises():
     """
     from contextlib import contextmanager
 
+    from rich.console import Console
+
     from apkradar import cli
 
     flushed: list[str] = []
@@ -113,15 +115,20 @@ def test_the_console_is_flushed_even_when_the_body_raises():
     def no_spinner(_message):
         yield
 
-    original_file, original_status = cli.console.file, cli.console.status
-    cli.console.file = Recorder()
-    cli.console.status = no_spinner
-    try:
-        with pytest.raises(RuntimeError, match="collector died"), \
-                cli._status("working..."):
-            raise RuntimeError("collector died")
-    finally:
-        cli.console.file, cli.console.status = original_file, original_status
+    # A console of its own, put in place of the module's. Reading
+    # `cli.console.file` and assigning it back looks like a restore and is not:
+    # Rich's `file` is a property that falls back to `sys.stdout` when nothing was
+    # set, so writing the current value into it pins that stream for good. Every
+    # later test rendering through this console then wrote to the terminal instead
+    # of to the CliRunner's buffer — measured on 2026-09-30, where
+    # tests/test_hash_is_verifiable.py failed on an empty `result.output` because
+    # it happened to run after this file.
+    console = Console(file=Recorder())
+    console.status = no_spinner
+    monkeypatch.setattr(cli, "console", console)
+
+    with pytest.raises(RuntimeError, match="collector died"), cli._status("working..."):
+        raise RuntimeError("collector died")
 
     assert flushed == ["console.file"], (
         "the console was not flushed on the way out of an exception"

@@ -29,8 +29,9 @@ from apkradar.scanner import ScanResult
 
 runner = CliRunner()
 
-# Un digest vero di 64 caratteri: quello del pacchetto base di 112 Where ARE U
-# non serve, serve che la lunghezza sia quella giusta e che non si ripeta.
+# A real 64-character digest: it does not have to be the one of the 112 Where ARE
+# U base package. What matters is that the length is right and that it does not
+# repeat itself.
 DIGEST = "af0db3dc4a74b14b9c2e7f1d05a836be41cc9df2e8b7a05614d3f2c8b9071e5a"
 
 
@@ -51,8 +52,8 @@ def test_the_report_shows_the_whole_digest():
         result = runner.invoke(app, ["audit", "demo.apk"])
 
     assert result.exit_code == 0, result.output
-    # Senza ritorni a capo in mezzo: un'impronta spezzata su due righe si
-    # incolla male tanto quanto una troncata.
+    # With no line breaks through the middle of it: a digest split across two
+    # lines pastes just as badly as a truncated one.
     assert DIGEST in result.output.replace("\n", "")
 
 
