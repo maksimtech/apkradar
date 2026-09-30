@@ -21,6 +21,11 @@ from rich.table import Table
 
 from apkradar import __version__
 
+# The store `search` asks unless told otherwise. Imported rather than repeated:
+# the option's default and the lookup's default have to be the same store, or the
+# result names one shop and came from another.
+from apkradar.search_cmd import DEFAULT_COUNTRY, DEFAULT_LANG
+
 
 def enable_utf8_output() -> None:
     """Make stdout and stderr accept characters the console cannot encode.
@@ -817,13 +822,21 @@ def batch(
 def search(
     query: str = typer.Argument(..., help="Package name (e.g. com.moonactive.coinmaster) or app name"),
     audit_app: bool = typer.Option(False, "--audit", "-a", help="Audit the app after lookup"),
+    country: str = typer.Option(
+        DEFAULT_COUNTRY, "--country", "-c",
+        help="Play store to ask, as a country code. An app absent from one is often on sale in another.",
+    ),
+    lang: str = typer.Option(DEFAULT_LANG, "--lang", "-l", help="Listing language to ask for."),
 ):
     """
     Lookup app info by package name on Google Play Store.
-    If the app is not found, searches for removal reason.
+
+    A package the store has no listing for is reported as that, naming the store
+    it was asked of, and separately from a store that did not answer at all.
 
     Examples:
         apkradar search com.moonactive.coinmaster
+        apkradar search com.moonactive.coinmaster --country it
         apkradar search "Coin Master"
     """
     from apkradar.search_cmd import lookup
@@ -832,8 +845,8 @@ def search(
         # Package name lookup
         console.print(f"\n[dim]Looking up [bold]{escape(query)}[/bold]...[/dim]")
 
-        with _status("[cyan]Querying Google Play Store...[/cyan]"):
-            result = lookup(query)
+        with _status(f"[cyan]Querying the Google Play store for {escape(country)}...[/cyan]"):
+            result = lookup(query, lang=lang, country=country)
 
         if result.available:
             console.print(f"\n[bold]📱 {escape(str(result.title))}[/bold]")
@@ -845,14 +858,29 @@ def search(
             if result.description:
                 console.print(f"\n[dim]{escape(result.description)}...[/dim]")
             console.print()
-        else:
-            console.print("\n[red]⚠️  App not found on Google Play[/red]")
+        elif result.not_listed:
+            # The store answered, about one store. An app can be absent from the
+            # United States and on sale in Italy, and that is not a removal.
+            console.print(
+                f"\n[red]⚠️  Not listed in the Google Play store for "
+                f"{escape(result.country)} ({escape(result.lang)})[/red]"
+            )
             console.print(f"[dim]Package: {escape(query)}[/dim]")
-            if result.removal_reason:
-                console.print("\n[yellow]Possible reason:[/yellow]")
-                console.print(f"[dim]{escape(result.removal_reason)}[/dim]")
+            if result.removal_hint:
+                console.print("\n[yellow]A web search says, unverified:[/yellow]")
+                console.print(f"[dim]{escape(result.removal_hint)}[/dim]")
             else:
-                console.print("[dim]No removal reason found — app may have been removed or never published.[/dim]")
+                console.print(
+                    "[dim]No reason established. It may have been removed, never published, "
+                    "or published in other countries only — try --country.[/dim]"
+                )
+        else:
+            # Nothing was established. Printing "not found" here is how a working
+            # app came to be described as taken down.
+            console.print("\n[yellow]⚠️  Could not tell whether the app is listed[/yellow]")
+            console.print(f"[dim]Package: {escape(query)}[/dim]")
+            console.print(f"[dim]The store did not answer: {escape(result.error or 'no reason given')}[/dim]")
+            console.print("[dim]This says nothing about the app.[/dim]")
     else:
         # Name search — guide user
         query_url = query.replace(" ", "+")

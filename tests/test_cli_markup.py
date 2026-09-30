@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from apkradar.cli import app
 from apkradar.scanner import ScanResult
-from apkradar.search_cmd import AppInfo
+from apkradar.search_cmd import NOT_LISTED, AppInfo
 
 SEND_ARGS = [
     "--to", "dpo@example.com",
@@ -196,16 +196,16 @@ class TestSearchMarkup(unittest.TestCase):
                      "Desc [link=https://evil.example]x[/link] [/dim]"):
             self.assertIn(text, result.output)
 
-    def test_removal_reason_escaped(self):
+    def test_removal_hint_escaped(self):
         info = AppInfo("com.gone.app", "", "", 0.0, "", "", "",
-                       available=False, removal_reason="Removed [/yellow]")
+                       status=NOT_LISTED, removal_hint="Removed [/yellow]")
         with patch("apkradar.search_cmd.lookup", return_value=info):
             result = self.runner.invoke(app, ["search", "com.gone.app"])
         self.assertIsNone(result.exception)
         self.assertIn("Removed [/yellow]", result.output)
 
     def test_query_escaped(self):
-        info = AppInfo("x", "", "", 0.0, "", "", "", available=False)
+        info = AppInfo("x", "", "", 0.0, "", "", "", status=NOT_LISTED)
         with patch("apkradar.search_cmd.lookup", return_value=info):
             result = self.runner.invoke(app, ["search", "com.evil[/bold]"])
         self.assertIsNone(result.exception)

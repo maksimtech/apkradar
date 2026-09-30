@@ -14,6 +14,36 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **"App not found on Google Play" was three different answers.** `lookup()`
+  wrapped the whole query in one `except Exception` and returned
+  `available=False` for all of them: the store having no such listing, the store
+  not answering at all — a timeout, a 429, a page that changed shape — and
+  google-play-scraper not being installed. It then searched the web for
+  "&lt;package&gt; removed banned Google Play Store" and printed the abstract as
+  `removal_reason`, so a working app behind a slow connection could be reported
+  as taken down, with a reason.
+
+  `status` now says which of the three happened — `listed`, `not_listed`,
+  `unknown` — the web abstract is fetched only when the store did answer "no",
+  and it is printed as what it is: an unverified hint, from a search that will
+  answer with a namesake or with Play policy in general if it has nothing better.
+  `available` stays, as a property meaning `status == listed`.
+
+  The store that answered is part of the answer, too.
+  `google_play_scraper.app` defaults to `country="us", lang="en"`, which nothing
+  said out loud, so an app published for Europe only answered "not found" from a
+  shop it had never been in. The defaults are unchanged and now recorded in every
+  result and printed with it, and `apkradar search --country it --lang it` asks
+  another store.
+
+  Measured rather than asserted: of the 147 rows in the app repository of
+  2026-09-29, 21 were recorded as absent from Play, and all 21 are absent from the
+  Italian store as well as the American one — every one of them the store
+  answering `App not found(404).` rather than failing. So on that corpus the
+  hidden locale changed nothing and the collapse hid nothing. The distinction is
+  made because the code could not have told the difference if it were there, which
+  is a different claim from having caught it doing so.
+
 - **Reading the advertising ID is no longer reported as serving advertising.**
   `com.google.android.gms.ads.identifier.AdvertisingIdClient` is the call that
   reads the advertising ID. It ships in play-services-ads-identifier, which
