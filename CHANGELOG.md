@@ -12,6 +12,30 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Docker build no longer races its own publish.** `docker.yml` and
+  `publish.yml` both fire on the tag push, in parallel, and the Dockerfile
+  installs `apkradar==<new version>` from PyPI. A fixed `sleep 60` stood in for
+  the wait and lost that race twice: 2026.9.32 on 2026-09-24, two failures, and
+  v2026.41 on 2026-09-30, one at `Dockerfile:24`.
+
+  Both were reported as `No matching distribution found for apkradar==<version>`,
+  listing versions up to the *previous* release — which reads as a failed
+  publish, while PyPI already held the files and only the index had not caught
+  up. Re-running the job alone was enough both times, and establishing that cost
+  a detour on each occasion.
+
+  `.github/scripts/wait_for_pypi.sh` now polls with pip itself, which is what the
+  Dockerfile uses and what the index answers for, for up to ten minutes. It runs
+  *after* the version is extracted rather than before, because the tag is
+  `v2026.41` while the distribution is `2026.41` and `==v2026.41` is not a
+  version pip can ever find — where the `sleep` sat, there was nothing to wait
+  for by name. Ported from cookieradar, which has polled since 2026-09-24, with
+  its tests: `tests/test_ci_scripts.py` drives the script with a fake pip and
+  pins where the step sits, what version it is given, and that nothing in the
+  workflow waits by sleeping again.
+
 ## [2026.41] - 2026-09-29
 
 ### Fixed
