@@ -14,6 +14,37 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **Reading the advertising ID is no longer reported as serving advertising.**
+  `com.google.android.gms.ads.identifier.AdvertisingIdClient` is the call that
+  reads the advertising ID. It ships in play-services-ads-identifier, which
+  arrives with measurement, analytics, basement and a long list of libraries that
+  have nothing to do with advertising — so the DEX search for
+  `Lcom/google/android/gms/ads/` found it in applications that had never
+  displayed an advertisement.
+
+  The signature table had one entry for that whole prefix, named "Google Ads",
+  and `SDK_DOMAINS` hung `googleadservices.com` and `doubleclick.net` on it. Those
+  domains are audited and then named in the letter sent to the publisher, so the
+  outcome was a written allegation that the app talks to DoubleClick, drawn from
+  evidence that it can read an identifier. Understating a report is one kind of
+  mistake; putting a false statement about somebody's traffic in a signed letter
+  is another.
+
+  `scanner.SIGNATURE_EXCEPTIONS` now narrows a signature against sub-packages
+  that mean something else, in the manifest and in the DEX alike, and the
+  identifier is reported under its own name — "Google advertising ID
+  (AdvertisingIdClient)". The finding itself was never in doubt and keeps its
+  place: the `AD_ID` permission is in `SENSITIVE_PERMISSIONS`, and an online
+  identifier is what art. 4(1) and recital 30 are about. AdMob is still detected,
+  from any of its hundreds of classes that are not under `ads/identifier/`.
+
+  `extract_sdk_domains` also matched with `prefix in package`, a substring test
+  on a package name, which is how `com.appsflyerish.sdk` would have collected
+  AppsFlyer's domain. It is segment-aware now, the same rule the scanner uses.
+  Eleven tests, including one that walks a class descriptor across the read
+  boundary at forty-eight offsets: the word that says "identifier" is exactly the
+  part that a short overlap would have cut off.
+
 - **GDPR art. 9 is no longer cited for permissions that are not special
   categories.** Every one of the twenty-eight entries in
   `SENSITIVE_PERMISSIONS` was mapped to art. 9 — storage read, calendar, device

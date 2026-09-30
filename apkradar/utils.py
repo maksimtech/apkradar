@@ -15,6 +15,9 @@ GENERIC_SEGMENTS = {
 SDK_DOMAINS = {
     "com.google.firebase":        ["firebase.google.com", "firebaseapp.com"],
     "com.google.android.gms":     ["google.com", "googleapis.com"],
+    # AdMob. Not the advertising-ID reader that lives under the same prefix:
+    # scanner.SIGNATURE_EXCEPTIONS keeps these two domains off an app that only
+    # reads the identifier, which is most of them.
     "com.google.android.gms.ads": ["googleadservices.com", "doubleclick.net"],
     "com.facebook":               ["facebook.com", "fbcdn.net"],
     "com.appsflyer":              ["appsflyer.com"],
@@ -135,17 +138,39 @@ def extract_sdk_domains(trackers: list) -> list[str]:
     """
     Extract known domains for detected trackers/SDKs.
 
+    These domains are audited — mail records, certificate, cookies — and named in
+    the letter, so a wrong one is an accusation about somebody's traffic. Two
+    things were wrong until 2026-09-30:
+
+    - the match was `startswith(prefix) or prefix in package`, and a substring
+      test on a package name has no reason to be right: it is now segment-aware,
+      the same rule the scanner uses.
+    - `com.google.android.gms.ads.identifier` — the class that reads the
+      advertising ID, present in a large share of apps through libraries that do
+      not advertise — inherited AdMob's googleadservices.com and doubleclick.net.
+
+    A tracker still collects the domains of every prefix it lives under:
+    Firebase Analytics is reached through googleapis.com as well as its own host.
+
     Args:
         trackers: List of TrackerFound objects
 
     Returns:
         List of unique domains associated with detected SDKs
     """
+    from apkradar.scanner import SIGNATURE_EXCEPTIONS, _in_package
+
     domains = []
     for tracker in trackers:
         for sdk_prefix, sdk_domains in SDK_DOMAINS.items():
-            if tracker.package.startswith(sdk_prefix) or sdk_prefix in tracker.package:
-                domains.extend(sdk_domains)
+            if not _in_package(tracker.package, sdk_prefix):
+                continue
+            if any(
+                _in_package(tracker.package, exc)
+                for exc in SIGNATURE_EXCEPTIONS.get(sdk_prefix, ())
+            ):
+                continue
+            domains.extend(sdk_domains)
     return list(set(domains))
 
 

@@ -47,6 +47,9 @@ TRACKER_SIGNATURES = {
     "com.google.firebase.analytics": "Firebase Analytics",
     "com.google.android.gms.measurement": "Firebase Analytics",
     "com.google.android.gms.ads": "Google Ads",
+    # Reading the advertising ID is not serving advertising, and until 2026-09-30
+    # this tool could not tell the two apart: see SIGNATURE_EXCEPTIONS below.
+    "com.google.android.gms.ads.identifier": "Google advertising ID (AdvertisingIdClient)",
     "com.facebook.appevents": "Facebook App Events",
     "com.facebook.ads": "Facebook Audience Network",
     "com.appsflyer": "AppsFlyer",
@@ -88,6 +91,29 @@ TRACKER_SIGNATURES = {
     "com.huawei.hms.analytics": "Huawei Analytics",
     "com.xiaomi.mipush": "Xiaomi Push",
     "com.baidu.mobads": "Baidu Ads",
+}
+
+# Sub-packages that do not count as the signature they sit under.
+#
+# `com.google.android.gms.ads.identifier` is AdvertisingIdClient: the call that
+# reads the advertising ID. It ships in play-services-ads-identifier, which
+# arrives with measurement, analytics, basement and a long list of libraries that
+# have nothing to do with advertising — so a DEX search for
+# `Lcom/google/android/gms/ads/` finds it in applications that have never
+# displayed an advertisement.
+#
+# Reported as "Google Ads", it also put googleadservices.com and doubleclick.net
+# into the audited domain list (utils.SDK_DOMAINS), and from there into the letter
+# sent to the publisher. That is an allegation that the application talks to
+# DoubleClick, made from evidence that it can read an identifier. The finding is
+# real — the identifier is what profiling on Android is built on, and the AD_ID
+# permission is in SENSITIVE_PERMISSIONS for that reason — but it is a different
+# finding, and it is reported under its own name.
+#
+# AdMob is still detected: it has hundreds of classes under `ads/` that are not
+# under `ads/identifier/`, and one is enough.
+SIGNATURE_EXCEPTIONS = {
+    "com.google.android.gms.ads": ("com.google.android.gms.ads.identifier",),
 }
 
 SENSITIVE_PERMISSIONS = {
@@ -305,6 +331,37 @@ def _in_package(name: str, package: str) -> bool:
 DEX_CHUNK_SIZE = 4 * 1024 * 1024
 
 
+def _descriptor(package: str) -> bytes:
+    """A package as DEX writes it: `com.appsflyer` → `Lcom/appsflyer/`."""
+    return b"L" + package.replace(".", "/").encode() + b"/"
+
+
+def _hit(buf: bytes, pattern: bytes, excluded: tuple[bytes, ...]) -> bool:
+    """True if `pattern` occurs in `buf` other than as one of `excluded`.
+
+    Without `excluded` this is `pattern in buf`. With it, every occurrence is
+    read a little further: `Lcom/google/android/gms/ads/identifier/` is not
+    `Lcom/google/android/gms/ads/` for the purposes of finding AdMob, and the
+    difference is the word after the last slash.
+
+    An occurrence whose remainder is a truncated beginning of an exception is
+    left undecided rather than counted: the caller keeps an overlapping tail, so
+    it comes back with the rest of the bytes instead of being judged on the half
+    that is present. `Lcom/google/android/gms/ads/AdView;` is decided at the "A",
+    though — it is not the start of "identifier/", and waiting for more bytes to
+    say so would be waiting for nothing.
+    """
+    if not excluded:
+        return pattern in buf
+    start = buf.find(pattern)
+    while start != -1:
+        rest = buf[start + len(pattern):]
+        if not rest.startswith(excluded) and not any(exc.startswith(rest) for exc in excluded):
+            return True
+        start = buf.find(pattern, start + 1)
+    return False
+
+
 def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
     """
     Find which of the given packages have classes in the APK's DEX files.
@@ -315,15 +372,33 @@ def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
     which is what this searches for. Matching the trailing slash keeps
     `com.appsflyerish` from matching `com.appsflyer`.
 
+    SIGNATURE_EXCEPTIONS narrows a signature that would otherwise swallow a
+    sub-package meaning something else — `com.google.android.gms.ads` against the
+    advertising-ID reader living under it.
+
     Returns:
         The subset of packages found. Unreadable APKs yield whatever was
         matched so far — a scan is never failed because of this.
     """
-    patterns = {p: b"L" + p.replace(".", "/").encode() + b"/" for p in packages}
+    patterns = {
+        p: (
+            _descriptor(p),
+            tuple(
+                _descriptor(exc)[len(_descriptor(p)):]
+                for exc in SIGNATURE_EXCEPTIONS.get(p, ())
+            ),
+        )
+        for p in packages
+    }
     if not patterns:
         return set()
 
-    overlap = max(len(pat) for pat in patterns.values()) - 1
+    # Room for the longest descriptor and for the longest exception under it, so
+    # an occurrence split across two chunks is judged on the whole thing.
+    overlap = max(
+        len(pat) + max((len(exc) for exc in excluded), default=0)
+        for pat, excluded in patterns.values()
+    ) - 1
     found: set[str] = set()
 
     try:
@@ -339,7 +414,9 @@ def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
                         if not chunk:
                             break
                         buf = tail + chunk
-                        for pkg in [p for p, pat in patterns.items() if pat in buf]:
+                        for pkg in [
+                            p for p, (pat, excluded) in patterns.items() if _hit(buf, pat, excluded)
+                        ]:
                             found.add(pkg)
                             del patterns[pkg]
                         tail = buf[-overlap:] if overlap else b""
@@ -477,10 +554,16 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
             if item
         }
 
-        # Match against tracker signatures, in the manifest first
+        # Match against tracker signatures, in the manifest first. A component
+        # under an excepted sub-package does not count as the signature above it,
+        # the same way it does not in the DEX.
         matched = {
             sig for sig in TRACKER_SIGNATURES
-            if any(_in_package(c, sig) for c in components)
+            if any(
+                _in_package(c, sig)
+                and not any(_in_package(c, exc) for exc in SIGNATURE_EXCEPTIONS.get(sig, ()))
+                for c in components
+            )
         }
 
         # Then in the DEX, for the SDKs the manifest did not reveal
