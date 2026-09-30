@@ -124,8 +124,12 @@ def test_the_identifier_does_not_pull_in_doubleclick():
         TrackerFound(package=IDENTIFIER, name=TRACKER_SIGNATURES[IDENTIFIER]),
     ])
 
-    assert "doubleclick.net" not in domains
-    assert "googleadservices.com" not in domains
+    # Set operations rather than `in`: CodeQL reads a host literal on the left of
+    # `in` as a URL being checked by substring (py/incomplete-url-substring-
+    # sanitization) and cannot see that the right side is a list of hosts, where
+    # membership is equality. The rule is worth keeping sharp elsewhere, and this
+    # says the same thing without tripping it.
+    assert {"doubleclick.net", "googleadservices.com"}.isdisjoint(domains)
     # what is true stays: this is a Play services call
     assert set(domains) == {"google.com", "googleapis.com"}
 
@@ -135,8 +139,7 @@ def test_admob_does_pull_them_in():
         TrackerFound(package=ADS, name=TRACKER_SIGNATURES[ADS]),
     ])
 
-    assert "doubleclick.net" in domains
-    assert "googleadservices.com" in domains
+    assert {"doubleclick.net", "googleadservices.com"} <= set(domains)
 
 
 def test_the_match_is_segment_aware_and_not_a_substring_search():
@@ -246,8 +249,7 @@ def test_an_app_that_only_reads_the_identifier_is_reported_as_that(scanned):
     assert "Google Ads" not in names
 
     domains = utils.get_all_domains(result)
-    assert "doubleclick.net" not in domains
-    assert "googleadservices.com" not in domains
+    assert {"doubleclick.net", "googleadservices.com"}.isdisjoint(domains)
 
     # and the permission it does declare is still a finding
     assert [p.permission for p in result.sensitive_permissions] == [
@@ -259,7 +261,7 @@ def test_an_app_with_admob_is_still_reported_as_that(scanned):
     result = scanned(ADMOB_CLASS)
 
     assert "Google Ads" in {tracker.name for tracker in result.trackers}
-    assert "doubleclick.net" in utils.get_all_domains(result)
+    assert {"doubleclick.net"} <= set(utils.get_all_domains(result))
 
 
 def test_the_exception_is_declared_where_a_reader_will_look():
