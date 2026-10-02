@@ -151,6 +151,24 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **The image Snyk scans has a fixed tag, so code scanning keeps one
+  configuration for it.** It was built as `snyk-scan:${GITHUB_SHA}`, and Snyk
+  Container writes its own automation id into the SARIF from the image reference it
+  scanned — overriding the `category:` given to `upload-sarif`. So every commit
+  minted a new code-scanning configuration that nothing could ever find again, and a
+  pull request was told *"configurations present on refs/heads/main were not
+  found"* and could no longer be shown which alerts it had introduced.
+
+  Measured on 2026-10-02: apkradar had reached **32** such configurations and pull
+  request #16 could not be diffed. The other four showed one each — the tag is
+  identical in all five, and the difference is only that apkradar's image carries
+  an extra target (`/usr/share/ca-certificates-java/1`) that Snyk reports under the
+  image reference. The fix therefore goes in all five: the defect is there whether
+  or not it has surfaced.
+
+  The 32 already recorded stay listed until the stale configurations are deleted,
+  which is a deletion of code-scanning data and not done here.
+
 - **The gcc advisories are recorded, under each scanner's id.** CVE-2026-102010
   and CVE-2026-95619 reached this image on 2026-10-02. Snyk and Docker Scout give
   one flaw two ids and the gate matches by id, so one flaw needs two entries —
