@@ -18,6 +18,7 @@ from rich import box
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
+from rich.text import Text
 
 from apkradar import __version__
 
@@ -225,7 +226,59 @@ def _print_result(result) -> None:
     else:
         console.print("[green]✅ No extra-EU transfers detected[/green]")
 
+    _print_hosts(result)
+
     console.print()
+
+
+# How many endpoints the inline list names before it stops. A report is read by a
+# person, and past this the list has stopped being evidence: the count above it
+# is the finding, and `result.dex_hosts` holds all of them for a library caller.
+HOSTS_SHOWN = 40
+
+
+def _print_hosts(result) -> None:
+    """The hosts the DEX carries — what the code can reach, not what it contacts.
+
+    Printed as a count and a list rather than scored. `apkradar.hosts` has the
+    argument in full: an app offering fifty weather providers carries fifty
+    endpoints and talks to the one that is configured, so deducting a point per
+    host would penalise choice. The one subset worth its own table is the hosts
+    belonging to vendors the Extra-EU Transfers check above already names, which
+    is where an app with no SDK and a dozen foreign endpoints shows up.
+    """
+    endpoints = result.dex_endpoints
+    references = result.dex_references
+    if not endpoints and not references:
+        return
+
+    counts = f"{len(endpoints)} endpoint{'s' if len(endpoints) != 1 else ''}"
+    if references:
+        counts += f", {len(references)} reference{'s' if len(references) != 1 else ''}"
+    if result.dex_hosts_truncated:
+        counts += f", stopped at {len(result.dex_hosts)}"
+    console.print(f"\n[bold]🌐 Hosts in the code ({counts})[/bold]")
+    console.print("[dim]Carried in the DEX — reachable by the code, not observed in traffic.[/dim]")
+
+    vendors = result.dex_vendor_hosts
+    if vendors:
+        t = Table(
+            title=f"🌍 Of those, under a vendor this tool reports on ({len(vendors)})",
+            box=box.ROUNDED,
+        )
+        t.add_column("Host", style="magenta")
+        t.add_column("Entity", style="dim")
+        for found in vendors:
+            t.add_row(Text(found.host), Text(found.entity))
+        console.print(t)
+
+    if endpoints:
+        shown = [found.host for found in endpoints[:HOSTS_SHOWN]]
+        rest = len(endpoints) - len(shown)
+        line = ", ".join(shown) + (f" … and {rest} more" if rest else "")
+        console.print(Text(line, style="dim"))
+    if references:
+        console.print(Text("references: " + ", ".join(references), style="dim"))
 
 
 # OpenSSL X509_V_ERR_* codes → SSL status

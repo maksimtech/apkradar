@@ -523,6 +523,57 @@ ML Kit, as in the Bitwarden example above. Treat this finding as "code from
 this vendor is present, so ask how transfers to it are governed". It does not
 show that data is transferred.
 
+### Hosts in the code
+
+The check above reads *packages*, so it sees a vendor only when that vendor ships
+an SDK. A service reached over plain HTTP ships nothing, and until 2026-10-02
+APKRadar could not see it at all: the domain list came from the package name, the
+Play listing and the manifest's deep links, none of which is where an app keeps
+the servers it talks to. Those are string literals in the DEX, and R8 does not
+touch them — it renames classes and methods, so a release build says nothing about
+its dependencies, but the URLs survive verbatim.
+
+Breezy Weather 6.2.2 is the case that prompted it. The manifest declared one deep
+link and the package name guessed one domain; the DEX held **161** hosts, and the
+audit said "no extra-EU transfers" — correctly, because AccuWeather, NOAA, JMA,
+Baidu and Xiaomi all ship no SDK:
+
+```
+🌐 Hosts in the code (153 endpoints, 8 references)
+Carried in the DEX — reachable by the code, not observed in traffic.
+    🌍 Of those, under a vendor this tool reports on (5)
+┌──────────────────────────────┬────────────────────────────┐
+│ Host                         │ Entity                     │
+├──────────────────────────────┼────────────────────────────┤
+│ api.map.baidu.com            │ Baidu Inc. (China)         │
+│ lbs.baidu.com                │ Baidu Inc. (China)         │
+│ privacy.mi.com               │ Xiaomi Corporation (China) │
+│ weatherapi.intl.xiaomi.com   │ Xiaomi Corporation (China) │
+│ weatherapi.market.xiaomi.com │ Xiaomi Corporation (China) │
+└──────────────────────────────┴────────────────────────────┘
+```
+
+Three things about this finding are deliberate.
+
+**It changes no score.** A host in a string literal is a host the code *can*
+reach, which is not traffic. An app offering fifty weather providers carries fifty
+endpoints and contacts the one that is configured, so deducting a point per host
+would penalise choice. The line under the count says so in the report itself.
+
+**It is not audited by `--full`.** That would be MailRadar, an SSL check and
+CookieRadar on 153 domains, about servers the app may never contact.
+
+**References are labelled, not dropped.** `www.w3.org` and `www.opengis.net`
+arrive as XML namespace URIs — identifiers that nothing dereferences — so they are
+counted separately. The list of what counts as a reference is a short one of
+standards bodies, licences and schemas: anything arguable stays an endpoint,
+because a tool that silently reclassifies an endpoint as documentation hides
+precisely what it was built to show.
+
+Only `http://` and `https://` literals count. A bare hostname is
+indistinguishable from a class name or an author's e-mail domain, and endpoints
+built by concatenation (`"https://" + host`) cannot be recovered at all.
+
 ## Supported formats
 
 | Format | Source | How it is analysed |
@@ -678,6 +729,14 @@ part of asking Google.
   prefix counts, including infrastructure libraries that are not trackers (see
   [Extra-EU transfers](#extra-eu-transfers)). Vendors outside the 13 listed
   prefixes are not reported.
+- **Host extraction finds literals only.** A URL built by concatenation or held
+  in a resource, an asset or a remote configuration is not seen, so the host list
+  is a floor and not an inventory. Conversely a host that is present may never be
+  contacted — the list says what the code can reach. The jurisdiction column is
+  filled only for the 13 vendors above: resolving where an arbitrary endpoint is
+  operated is not something a static scan can do, and a table guessing at it would
+  put legal conclusions about a hundred national weather services into a letter to
+  a DPO. The list stops at 500 hosts and says when it did.
 - **Fixed signature lists.** Only the 43 trackers, 23 permissions and 13
   vendors listed in the code are recognised.
 - **The publisher domain is still a guess, unless two sources agree.** Both

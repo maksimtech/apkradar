@@ -38,6 +38,57 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Added
 
+- **The hosts an APK carries in its code.** The domain list came from the package
+  name, the Google Play listing and the manifest's deep links — none of which is
+  where an application keeps the servers it talks to. Those are string literals in
+  the DEX, and R8 leaves them alone: it renames classes and methods, so a release
+  build says nothing about its dependencies, but the URLs survive verbatim.
+
+  Auditing Breezy Weather 6.2.2 on 2026-10-02 is what prompted it. The manifest
+  declared one deep link and the package name guessed one domain, while the DEX
+  held 161 hosts — AccuWeather, NOAA, JMA, Baidu and Xiaomi among them. The report
+  said "no extra-EU transfers", and it was right to: that check reads SDK
+  packages, and a weather service reached over plain HTTP ships no SDK. The two
+  builds of that release differ by this finding and by nothing else the tool
+  measures — `standard` carries five hosts belonging to vendors APKRadar reports
+  on, `freenet` carries none, and both score 80/100.
+
+  `apkradar.hosts` reads the same DEX files the tracker search reads, in chunks so
+  a large one never lands in memory whole, and `ScanResult` gains `dex_hosts` plus
+  `dex_endpoints`, `dex_references` and `dex_vendor_hosts`.
+
+  Three decisions hold the finding to what it can support:
+
+  - **It changes no score.** A host in a literal is a host the code *can* reach,
+    which is not traffic: an app offering fifty providers carries fifty endpoints
+    and contacts the one configured, so a point per host would penalise choice.
+    The report says "carried in the DEX — reachable by the code, not observed in
+    traffic", and a test asserts the score is untouched by three endpoints
+    including Xiaomi's.
+  - **The hosts are not added to `get_all_domains`.** `--full` would otherwise run
+    MailRadar, an SSL check and CookieRadar on 153 domains the app may never
+    contact. A test pins that too, so it stays a decision rather than becoming a
+    drift.
+  - **Specification URIs are labelled, not dropped.** `www.w3.org` and
+    `www.opengis.net` arrive as XML namespaces, which nothing dereferences. The
+    reference set is a short one of standards bodies, licences and schemas;
+    anything arguable stays an endpoint, because silently reclassifying an
+    endpoint as documentation hides what the feature exists to show.
+
+  Two ways of inventing a hostname are closed off, and they are the same mistake
+  twice. A URL cut by a chunk boundary would yield its own prefix — `api.exam` out
+  of `api.example.com`, which passes every DNS rule there is — so a match touching
+  the end of a buffer is deferred to the next one, the last chunk's tail being read
+  as final so nothing at the end of a DEX is lost. The host pattern also stops at
+  the 253-character DNS limit, so a longer string left the regex holding a
+  truncation of it, and a truncation that ends at a dot is a well-formed hostname
+  that never existed: a match whose next byte could still belong to the host is
+  refused. The second case was found by the test written for the first.
+
+  Format strings (`https://%s/`), templates, single labels, IPv4 literals and
+  malformed labels are refused; hosts are lowercased, deduplicated and sorted; the
+  list stops at 500 and reports that it did.
+
 - **The gate reads FIRST's forecast on the CVEs it already holds.** EPSS is indexed
   by CVE, and `SECURITY-EXCEPTIONS.toml` is the one surface in this repository that
   holds CVE ids: Docker Scout names its alerts by CVE, so every accepted finding
