@@ -909,6 +909,11 @@ def send(
     name: str = typer.Option(..., "--name", help="Sender full name"),
     org: str = typer.Option("", "--org", help="Sender organization"),
     lang: str = typer.Option("it", "--lang", help="Letter language (it/en)"),
+    tlp: str = typer.Option(
+        None, "--tlp",
+        help="Mark the letter with a FIRST TLP 2.0 label: clear, green, amber, "
+             "amber+strict, red. Omitted, the letter goes out unmarked.",
+    ),
     noyb: bool = typer.Option(False, "--noyb", help="Include NOYB reference in escalation"),
     noyb_id: str = typer.Option(None, "--noyb-id", help="NOYB supporter ID (e.g. 7645)"),
     offline: bool = typer.Option(
@@ -927,8 +932,18 @@ def send(
         apkradar send app.apk --to dpo@example.com --noyb-id 7645 ...
     """
     from apkradar import publisher as publisher_mod
+    from apkradar import tlp as tlp_mod
     from apkradar.scanner import scan
     from apkradar.sender import render_letter, send_letter
+
+    # Before the APK is opened and before anything reaches the network: a label
+    # the standard does not define is answerable on its own, and doing the work
+    # first would mean failing after the scan over a typo.
+    try:
+        tlp_label = tlp_mod.parse_optional(tlp)
+    except tlp_mod.TlpError as error:
+        console.print(f"[red]ERROR {escape(str(error))}[/red]")
+        raise typer.Exit(2) from None
 
     console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold]...[/dim]")
 
@@ -1011,6 +1026,7 @@ def send(
         noyb_id=noyb_id,
         noyb=noyb,
         lang=lang,
+        tlp_label=tlp_label,
     )
 
     if dry_run:
@@ -1020,6 +1036,10 @@ def send(
 
     console.print(f"\n[dim]Sending DPO letter to [bold]{escape(to)}[/bold]...[/dim]")
     subject = f"Esercizio diritti GDPR — {result.app_name or result.package_name}"
+    if tlp_label is not None:
+        # FIRST's guidance for email: the label in the subject as well as the
+        # body, so it is read before the message is opened.
+        subject = tlp_mod.subject(subject, tlp_label)
 
     try:
         send_letter(

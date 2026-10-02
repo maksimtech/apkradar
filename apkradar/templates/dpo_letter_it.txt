@@ -1,4 +1,6 @@
-Oggetto: Esercizio diritti GDPR — {{ app_name }} ({{ package_name }}) — Audit tecnico indipendente
+{% if tlp_banner %}{{ tlp_banner }}
+
+{% endif %}Oggetto: Esercizio diritti GDPR — {{ app_name }} ({{ package_name }}) — Audit tecnico indipendente
 
 Spettabile {{ publisher }},
 All'attenzione del Responsabile della Protezione dei Dati

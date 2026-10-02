@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import NamedTuple
 
+from apkradar import tlp
 from apkradar.law_checker import special_category_reason
 from apkradar.scanner import ScanResult
 
@@ -71,6 +72,7 @@ def render_letter(
     noyb_id: str | None = None,
     noyb: bool = False,
     lang: str = "it",
+    tlp_label: tlp.Label | None = None,
 ) -> str:
     """
     Render DPO letter from scan result.
@@ -96,6 +98,10 @@ def render_letter(
         noyb_id: NOYB supporter ID e.g. '7645' (optional)
         noyb: Include NOYB reference without membership ID
         lang: Language (it/en)
+        tlp_label: a `tlp.Label`, or None for a document with no marking. None
+            is not CLEAR: a sender who said nothing has not granted unlimited
+            redistribution, so the letter then carries no distribution block at
+            all. See apkradar.tlp.
 
     Returns:
         Rendered letter as string
@@ -117,6 +123,9 @@ def render_letter(
         trackers=result.trackers,
         sensitive_permissions=result.sensitive_permissions,
         special_category_permissions=special_category_permissions(result, lang),
+        # The block goes at the top of the document, which is where the template
+        # puts it: a letter declares its own distribution terms.
+        tlp_banner=tlp.banner(tlp_label, lang=lang) if tlp_label is not None else "",
         extra_eu_transfers=result.extra_eu_transfers,
         publisher=publisher,
         publisher_domain=publisher_domain,

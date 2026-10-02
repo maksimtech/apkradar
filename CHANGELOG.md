@@ -12,6 +12,44 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Added
+
+- **The letter can carry its distribution terms: `apkradar send --tlp amber`.**
+  The document goes to a company and describes an unpublished audit of its
+  application; whether the recipient may forward it is the sender's decision, and
+  until now there was no way to express one. TLP 2.0 is FIRST's standard for
+  exactly that — the same body behind EPSS and the team directory — so
+  `apkradar/tlp.py` is part of treating FIRST as a source these tools cite rather
+  than consume.
+
+  The label goes in two places, as FIRST's guidance for email asks: in front of
+  the subject line, so it is read before the message is opened, and in a block at
+  the top of the body saying what the recipient may do. The label is never
+  translated — the letter is Italian and `TLP:AMBER+STRICT` stays as the standard
+  writes it, because a recipient's mail rules match on the token — while the
+  permission underneath it is in the language of the document.
+
+  Four rules, and only the first is about spelling:
+
+  - **`TLP:WHITE` is refused, not quietly mapped.** TLP 2.0 renamed WHITE to
+    CLEAR in 2022; accepting it would put a label on a document that the current
+    standard does not define. The refusal names the replacement, and it happens
+    before the APK is opened — a typo is answerable without doing the work.
+  - **AMBER and AMBER+STRICT say different things.** AMBER permits sharing with
+    the recipient's clients, AMBER+STRICT stops at the organisation. They are the
+    pair people conflate, and that difference is why +STRICT exists.
+  - **An unmarked letter is unmarked, not CLEAR.** No `--tlp` means the sender
+    said nothing about redistribution, and reading silence as unlimited permission
+    would be the same mistake as reading an empty result list as "nothing is
+    there". Verified by mutation: making `parse_optional(None)` return CLEAR fails
+    three tests, two of them about the letter rather than the parser.
+  - **The standard is cited with its version.** A label without one is a word:
+    WHITE meant something in TLP 1.0 and AMBER+STRICT did not exist. The block
+    names TLP 2.0 and links first.org, so the letter still reads correctly in five
+    years.
+
+  Forty-three tests, written before the code.
+
 ### Fixed
 
 - **A test was pinning Rich's output stream for every test that ran after it.**
