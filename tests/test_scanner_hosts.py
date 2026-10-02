@@ -220,6 +220,32 @@ class BoundsTestCase(unittest.TestCase):
         self.assertTrue(truncated)
         self.assertLessEqual(len(found), MAX_HOSTS)
 
+    def test_truncation_stops_before_the_next_dex(self):
+        """The cap is for the APK, not for each DEX in it.
+
+        classes.dex fills the list on its own; classes2.dex holds one host that is
+        nowhere in it. Reading the second file anyway would make MAX_HOSTS a
+        per-file limit, and an obfuscated APK with ten DEX files would come back
+        with ten times the cap.
+
+        The second host is named to sort *before* the filler on purpose. Called
+        `second-dex-only.example.org` it sorts after every `h000NN.example.com`
+        and the final `ordered[:MAX_HOSTS]` would drop it whether or not the loop
+        had stopped — the test would pass against the bug it exists to catch.
+        """
+        first = [f"https://h{n:05d}.example.com/" for n in range(MAX_HOSTS + 50)]
+        path = _make_apk({
+            "classes.dex": _dex_blob(first),
+            "classes2.dex": _dex_blob(["https://aaa-second-dex.example.org/"]),
+        })
+        try:
+            with patch.object(hosts_mod, "DEX_CHUNK_SIZE", 1024):
+                found, truncated = hosts_in_dex(path)
+        finally:
+            Path(path).unlink(missing_ok=True)
+        self.assertTrue(truncated)
+        self.assertNotIn("aaa-second-dex.example.org", found)
+
     def test_nothing_is_truncated_when_the_list_fits(self):
         path = _make_apk({"classes.dex": _dex_blob(["https://one.example.com/"])})
         try:
