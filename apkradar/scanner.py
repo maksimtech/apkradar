@@ -200,6 +200,13 @@ class TransferFound:
 
 
 @dataclass
+class HostFound:
+    """A host carried in the DEX, and the vendor behind it when it is a known one."""
+    host: str
+    entity: str = ""
+
+
+@dataclass
 class ScanResult:
     apk_path: str
     package_name: str = ""
@@ -226,8 +233,41 @@ class ScanResult:
     # Deep-link hosts declared in the manifest. Collected here because the one
     # caller of get_all_domains never had an APK object to pass it.
     manifest_domains: list[str] = field(default_factory=list)
+    # Hosts the DEX string literals carry — see apkradar.hosts for why these are
+    # not the same thing as the domains above, and why none of them is scored:
+    # the code *can* reach them, which is not evidence that it does.
+    dex_hosts: list[str] = field(default_factory=list)
+    dex_hosts_truncated: bool = False
     error: str | None = None
     skipped: bool = False
+
+    @property
+    def dex_endpoints(self) -> list[HostFound]:
+        """The DEX hosts that are servers, each with its vendor when known."""
+        from apkradar.hosts import is_reference, vendor_of
+
+        return [
+            HostFound(host=host, entity=vendor_of(host) or "")
+            for host in self.dex_hosts
+            if not is_reference(host)
+        ]
+
+    @property
+    def dex_references(self) -> list[str]:
+        """The DEX hosts that are specifications, schemas or licences."""
+        from apkradar.hosts import is_reference
+
+        return [host for host in self.dex_hosts if is_reference(host)]
+
+    @property
+    def dex_vendor_hosts(self) -> list[HostFound]:
+        """DEX endpoints belonging to the vendors EXTRA_EU_TRANSFERS names.
+
+        The overlap between the two findings, and the reason this extraction
+        exists: an app can carry AccuWeather, Baidu and Xiaomi endpoints while
+        shipping none of their SDKs, which is what the transfer check reads.
+        """
+        return [found for found in self.dex_endpoints if found.entity]
 
     @property
     def tracker_count(self) -> int:
@@ -568,6 +608,13 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
 
         # Then in the DEX, for the SDKs the manifest did not reveal
         matched |= _packages_in_dex(str(path), set(TRACKER_SIGNATURES) - matched)
+
+        # The same files, read for the hosts their string literals hold. A second
+        # pass rather than one combined with the search above: that one stops as
+        # soon as every signature is decided, which is the right thing for it and
+        # would leave this one reading half a DEX.
+        from apkradar.hosts import hosts_in_dex
+        result.dex_hosts, result.dex_hosts_truncated = hosts_in_dex(str(path))
 
         # One entry per SDK: several signatures can name the same one
         seen_trackers = set()
