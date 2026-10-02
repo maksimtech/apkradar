@@ -250,6 +250,13 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **ruff now lints `tools/` as well, because it never did.** Every one of the five
+  Radar lints its package and its tests and stops there, which left
+  `tools/security_exceptions.py` outside the check — the script that refuses a build
+  over an unexplained alert had never been seen by the linter that gates the build.
+  Found on 2026-10-02 by running ruff over the whole tree by hand while working on
+  something else, which is not a way of finding things that scales.
+
 - **The Italian comments are in English**, in `tests/test_shutdown_flush.py` — the
   subprocess script included — and `tests/test_hash_is_verifiable.py`.
 
