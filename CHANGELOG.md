@@ -52,6 +52,23 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **The gcc advisories are recorded, under each scanner's id.** CVE-2026-102010
+  and CVE-2026-95619 reached this image on 2026-10-02. Snyk and Docker Scout give
+  one flaw two ids and the gate matches by id, so one flaw needs two entries —
+  zlib has been in that position since September. Both positions were read with
+  `patchradar debian`: open in trixie for gcc-12 and gcc-14, no fix in any suite,
+  no Debian bug.
+
+  They were not written earlier in the day, when the same survey showed this
+  repository with nothing missing: an entry that matches no alert fails the gate
+  too, deliberately, so the record follows the scanners instead of anticipating
+  them.
+
+  `tests/docker/inspect.sh` now prints the gcc, g++, cpp, libgcc and libstdc++
+  packages. The entries say libstdc++6 is what is installed and not the compiler,
+  and that sentence had been asserted and never measured; a flaw in cc1 needs
+  something to compile, and nothing in this image compiles anything.
+
 - **A test was pinning Rich's output stream for every test that ran after it.**
   `test_the_console_is_flushed_even_when_the_body_raises` saved `cli.console.file`
   and assigned it back, which looks like a restore and is not: Rich's `file` is a

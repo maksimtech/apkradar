@@ -71,5 +71,16 @@ find / -path '*/pip/_vendor*' -name 'bom.cdx.json' 2>/dev/null | sed 's/^/  /' |
 echo "  (nothing above means the path Scout reports on other Radar is not here)"
 
 echo
+echo "── the C++ toolchain, or only its runtime ──"
+# Snyk reports CVE-2026-102010 and CVE-2026-95619 against the *source* package
+# gcc-14, and Debian's gcc source produces both the compiler and libstdc++6. Those
+# are not the same exposure: a flaw in cc1 needs something to compile, and nothing
+# in this image compiles anything. SECURITY-EXCEPTIONS.toml says libstdc++6 is what
+# is installed; this is the measurement behind that sentence.
+dpkg-query -W -f '  ${Package} ${Version} priority=${Priority}\n' \
+    'libstdc++*' 'gcc*' 'g++*' 'cpp*' 'libgcc*' 2>/dev/null \
+    || echo "  no gcc or libstdc++ package installed"
+
+echo
 echo "── size of the installed set ──"
 printf '  %s packages\n' "$(dpkg-query -f '.\n' -W | wc -l)"
