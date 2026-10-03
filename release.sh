@@ -29,12 +29,19 @@ sed -i "s/__version__ = \"${OLD_VERSION}\"/__version__ = \"${VERSION}\"/" apkrad
 git add apkradar/__init__.py
 git commit -m "chore: bump version to ${VERSION}"
 
-echo "📤 Push main..."
-git push origin main
-
+# Annotated and with a message, not a bare `git tag`: where `tag.gpgsign` is
+# true a bare tag is a signed tag, a signed tag needs a message, and git answers
+# `fatal: no tag message?` — which it did on 2026-10-03, after main had already
+# been pushed.
 echo "🏷️  Tag ${TAG}..."
-git tag ${TAG}
-git push origin ${TAG}
+git tag -a "${TAG}" -m "APKRadar ${VERSION}"
+
+# Atomic, and the tag made first: either both refs arrive or neither does. The
+# old order pushed main and then tagged, so a failure at the tag step left a
+# version on the remote that nothing pointed at and no workflow reacted to —
+# they trigger on `push: tags: v*`.
+echo "📤 Push main + tag ${TAG}..."
+git push --atomic origin main "${TAG}"
 
 echo "✅ Done! GitHub Actions takes it from here"
 echo "   → Release: github.com/maksimtech/apkradar/releases"
