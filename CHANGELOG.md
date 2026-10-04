@@ -12,6 +12,35 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.43] - 2026-10-04
+
+### Changed
+
+- **`release.sh` is cookieradar's, which is the one with tests.** This script had
+  none, and that is why `git tag ${TAG}` with no message survived in it until it
+  stopped the 2026.42 release on 2026-10-03: where `tag.gpgsign` is true a bare
+  `git tag` is a signed tag, and a signed tag needs a message. cookieradar's suite
+  would have caught it — it asserts `git cat-file -t <tag>` is `tag`, and a bare tag
+  is lightweight, which resolves to `commit`.
+
+  Porting those tests failed fourteen times and was right to. This script was 49
+  lines against cookieradar's 88, and what it did not do is the point: **no CalVer
+  validation at all** — its own usage line suggested `2026.09.4`, the month scheme
+  abandoned on 2026-09-29, which under PEP 440 sorts *below* `2026.10`, and the
+  script would have released it. No check of tags already on the remote, none of the
+  branch, none that local main matches `origin/main`, and no refusal when the version
+  asked for is the one already current.
+
+  Two tests are new. The tag's message is asserted, not only that it is annotated.
+  And a tag that cannot be made must leave the remote untouched — signing on with a
+  signing program that does not exist, so `git tag -a` fails exactly where it failed
+  in the incident. That one is the half that did the damage: main was pushed *before*
+  the tag, so the bump reached the remote and the tag never did, leaving a version
+  nothing pointed at and no workflow reacting, since they trigger on the tag. The tag
+  is now made before anything is pushed and the push is atomic.
+
+  Checked against the old order rather than assumed: three of the twenty-one fail.
+
 ## [2026.42] - 2026-10-03
 
 ### Removed
