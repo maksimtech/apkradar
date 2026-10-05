@@ -1,16 +1,26 @@
 name: Docker Build Check
 # Builds the image and runs the smoke test without pushing anything. docker.yml
-# cannot serve this purpose: it publishes to Docker Hub, including the :latest
-# tag, so it is only safe to run for an already released version.
+# cannot serve this purpose: it publishes to Docker Hub, including the :latest tag, so
+# running it is a release.
 #
-# The Dockerfile installs apkradar from PyPI rather than from this checkout, so
-# the build needs a published version. It is resolved here rather than taken
-# from the Dockerfile's APKRADAR_VERSION default, which lags many releases behind.
+# On every push and pull request, because the only other thing that builds this image
+# is the workflow that publishes it — so until this ran on its own, the first attempt
+# at a build was the one that released. It could not run on its own before: the
+# Dockerfile only knew how to install from the index, so this had to be handed a
+# published version to build anything at all.
+#
+# Given a version it still builds that one from the index, which is how an older image
+# is reproduced. Given nothing it builds this checkout, which is what the next release
+# will build.
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Published version to build (default: the latest on PyPI)'
+        description: 'Published version to reproduce (default: build this checkout)'
         required: false
 permissions:
   contents: read
@@ -21,18 +31,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Resolve the version to build
+      # A version was asked for → reproduce that one from the index. Nothing was asked
+      # for → build what is in this checkout, and take the version out of the package
+      # rather than off the index, so the smoke test compares the image against the code
+      # it was built from.
+      - name: Decide what to build
         id: ver
         env:
           REQUESTED: ${{ inputs.version }}
         run: |
           if [ -n "$REQUESTED" ]; then
+            SOURCE=pypi
             VERSION="${REQUESTED#v}"
           else
-            VERSION=$(python3 .github/scripts/latest_pypi_version.py apkradar)
+            SOURCE=local
+            VERSION=$(python3 -c "import apkradar; print(apkradar.__version__)")
           fi
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building apkradar $VERSION"
+          echo "Building apkradar $VERSION from $SOURCE"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -45,6 +62,7 @@ jobs:
           push: false
           tags: apkradar:build-check
           build-args: |
+            APKRADAR_SOURCE=${{ steps.ver.outputs.source }}
             APKRADAR_VERSION=${{ steps.ver.outputs.version }}
 
       - name: Smoke test (the CLI runs as the container user)

@@ -206,29 +206,103 @@ def _docker_steps():
     return _workflow("docker.yml")["jobs"]["docker"]["steps"]
 
 
-def test_the_wait_runs_after_the_version_is_known_and_before_the_build():
+def _publish_steps():
+    return _workflow("publish.yml")["jobs"]["build-and-publish"]["steps"]
+
+
+def test_the_release_image_is_built_from_the_tag_and_not_from_the_index():
+    """What closes the race instead of narrowing it.
+
+    This job installed `apkradar==<the new version>` from PyPI while publish.yml was
+    still uploading it, and polled the index first to make that work. The poll runs
+    on the runner; the multi-platform build resolves the index again, per platform,
+    from whichever edge answers. This repository is where that was measured: on
+    2026-10-03 the build failed with "No matching distribution found" at 16:31:36,
+    fifteen seconds after the poll reported the version available at 16:31:21.
+    Nothing that waits can close it. Not asking does.
+    """
     steps = _docker_steps()
+    build = next(s for s in steps if "build-push-action" in s.get("uses", ""))
+    args = build["with"]["build-args"]
+
+    assert "APKRADAR_SOURCE=local" in args
+    assert "APKRADAR_VERSION=" not in args, (
+        "built from the checkout, there is no version to hand the image"
+    )
+    assert not [s for s in steps if "wait_for_pypi.sh" in s.get("run", "")], (
+        "nothing here needs the index now, so nothing here should wait for it"
+    )
+
+
+def test_a_rebuild_checks_out_the_version_it_was_asked_for():
+    """The trap that building from the checkout sets, and that the index did not.
+
+    This workflow can be dispatched with the tag of an already published release.
+    While the image installed that version from PyPI, where the job stood in the tree
+    did not matter; built from the checkout it decides what ships. And unlike exeradar
+    and cookieradar there is no smoke test between the build and the push here — this
+    job logs in, builds and pushes — so a checkout left on the default branch would
+    publish `main`'s code under an old release's tag rather than failing.
+    """
+    checkout = next(s for s in _docker_steps() if "actions/checkout" in s.get("uses", ""))
+
+    assert "inputs.version" in checkout.get("with", {}).get("ref", "")
+
+
+def test_the_dispatch_offers_no_stale_version_as_its_default():
+    """`default: 'v2026.09.8'` sat in this workflow while the project was at 2026.43.
+
+    A default that is a version is a version that rots, and the rot is invisible: the
+    dispatch form arrives pre-filled with something that looks deliberate. Whoever
+    rebuilds without reading it republishes August.
+    """
+    dispatch = _workflow("docker.yml")["on"]["workflow_dispatch"]
+    version = dispatch["inputs"]["version"]
+
+    assert "default" not in version, f"a default version rots: {version.get('default')!r}"
+
+
+def test_the_image_is_built_before_a_release_and_not_only_during_one():
+    """Otherwise the first attempt at building the image is the one that publishes it.
+
+    docker.yml pushes to Docker Hub, `:latest` included, so running it *is* a release.
+    docker-build-check.yml exists for that and was reachable by hand only — and it had
+    to be, because it could not build anything without being handed a published
+    version to install. Building from the checkout removes that, so it can run on
+    every change like the suite does.
+    """
+    triggers = _workflow("docker-build-check.yml")["on"]
+
+    assert "pull_request" in triggers, "a change that breaks the image should say so in its PR"
+    assert "push" in triggers, "and on main, because that is what the next release builds"
+
+
+def test_the_published_file_is_still_checked_where_it_was_published():
+    """The old arrangement proved one thing by accident: that what lands on PyPI can
+    be installed. Taking the image off the index would lose it, so the job that
+    uploads says it on purpose — after the upload, where a slow index delays a check
+    instead of failing a build."""
+    steps = _publish_steps()
     names = [s.get("name", s.get("uses", "")) for s in steps]
 
-    version = next(i for i, s in enumerate(steps) if s.get("id") == "version")
+    upload = next(i for i, s in enumerate(steps) if "gh-action-pypi-publish" in s.get("uses", ""))
     wait = next(i for i, s in enumerate(steps) if "wait_for_pypi.sh" in s.get("run", ""))
-    build = next(i for i, s in enumerate(steps) if "build-push-action" in s.get("uses", ""))
+    verify = next(i for i, s in enumerate(steps) if "--version" in s.get("run", ""))
 
-    assert version < wait < build, names
+    assert upload < wait < verify, names
+    assert "apkradar==" in steps[verify]["run"], "it has to be the version just uploaded"
 
 
-def test_the_wait_is_given_the_pip_version_and_not_the_tag():
-    """The part that would have made the fix useless.
+def test_the_check_asks_for_no_margin_because_there_is_one_resolver():
+    """The grace exists because the runner and the buildx container ask different
+    edges of the index — measured here, on 2026-10-03. In publish.yml there is only
+    the runner, which has just had `pip download` answer, so a margin would buy
+    nothing, and a wait that buys nothing is what that script was rewritten to stop
+    doing."""
+    wait = next(s for s in _publish_steps() if "wait_for_pypi.sh" in s.get("run", ""))
+    arguments = wait["run"].split("wait_for_pypi.sh", 1)[1].split()
 
-    The tag is v2026.41 and the distribution is 2026.41. Waiting for the tag
-    would poll for a version that cannot exist, for ten minutes, and then fail
-    with the same message the race produced — the fix would have looked like the
-    bug.
-    """
-    wait = next(s for s in _docker_steps() if "wait_for_pypi.sh" in s.get("run", ""))
-
-    assert wait["env"]["VERSION"] == f"${{{{ steps.version.outputs.{PIP_VERSION_OUTPUT} }}}}"
-    assert '"$VERSION"' in wait["run"]        # through the environment, not interpolated
+    assert arguments[-1] == "0", wait["run"]
 
 
 def test_nothing_in_the_docker_workflow_waits_by_sleeping():

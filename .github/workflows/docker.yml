@@ -6,17 +6,25 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v2026.09.8)'
+        # No default: a default that is a version is a version that rots, and the
+        # dispatch form arrives pre-filled with something that looks deliberate.
+        # `v2026.09.8` sat here while this project was at 2026.43.
+        description: 'Tag of a published release to rebuild (e.g. v2026.43)'
         required: true
-        default: 'v2026.09.8'
 permissions:
   contents: read
 jobs:
   docker:
     runs-on: ubuntu-26.04
     steps:
+      # The tag being built, not the default branch. The image is built from this
+      # checkout now, and there is no smoke test between the build and the push below,
+      # so a checkout standing in the wrong place publishes the wrong code rather than
+      # failing on a version mismatch.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
@@ -37,20 +45,6 @@ jobs:
           echo "VERSION=${RAW}" >> $GITHUB_OUTPUT
           NORMALIZED=$(python3 -c "parts='${RAW#v}'.split('.'); print('.'.join(str(int(p)) for p in parts))")
           echo "NORMALIZED=${NORMALIZED}" >> $GITHUB_OUTPUT
-      # publish.yml runs in parallel on the same tag push, so this job can reach
-      # `pip install apkradar==<new version>` before the version exists at all.
-      # A fixed `sleep 60` stood here and lost that race twice — 2026.9.32 on
-      # 2026-09-24 and v2026.41 on 2026-09-30 — each time reported as
-      # "No matching distribution found", which reads like a failed publish while
-      # PyPI already had the files. Polling asks the question the Dockerfile asks,
-      # with pip, until the index answers it.
-      #
-      # After the version step, not before it: the wait needs the normalized
-      # version, because `apkradar==v2026.41` is not a version pip can ever find.
-      - name: Wait for apkradar on PyPI
-        env:
-          VERSION: ${{ steps.version.outputs.NORMALIZED }}
-        run: bash .github/scripts/wait_for_pypi.sh apkradar "$VERSION"
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
@@ -61,4 +55,4 @@ jobs:
             maksimtech/apkradar:latest
             maksimtech/apkradar:${{ steps.version.outputs.VERSION }}
           build-args: |
-            APKRADAR_VERSION=${{ steps.version.outputs.NORMALIZED }}
+            APKRADAR_SOURCE=local
