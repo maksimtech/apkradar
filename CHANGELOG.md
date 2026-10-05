@@ -35,6 +35,11 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **The OCI licence label is the key the standard names.** It read
+  `org.opencontainers.image.license`, singular, which nothing reads — so a tool asking the
+  image what it is licensed under got no answer, while the label looked right in the file.
+  cookieradar's suite has rejected that spelling for a while; this one had not been asked.
+
 - **Two defences in `release.sh` that the tests did not actually measure.** Found by
   mutating the script rather than by reading it.
 
@@ -87,6 +92,51 @@ no version in this file has ever matched — 40 is not a month, and
   guard removed so zero waits anyway.
 
 ### Changed
+
+- **The race with PyPI is closed rather than narrowed, and two stale defaults went with
+  it.** This is the repository where the race was measured: on 2026-10-03 the Docker build
+  failed with `No matching distribution found` at 16:31:36, **fifteen seconds after** the
+  wait had reported the version available at 16:31:21. The poll runs on the runner; the
+  multi-platform build resolves the index again, per platform, from whichever edge answers.
+  Before the poll a fixed `sleep 60` lost the same race twice, on 2026-09-24 and
+  2026-09-30. Nothing that waits can close it. Not asking does, so the image is built from
+  the source the tag points at.
+
+  The Dockerfile could not do that — it only knew how to install from the index — so it
+  gained the `local`/`pypi` switch the other Radar have, with `local` as the default,
+  `--only-binary :all:` on both branches, and the source copied in. Nothing is compiled
+  while building this image: it is built for amd64 and arm64, and a dependency without an
+  aarch64 wheel would be compiled under QEMU, which in a release means tens of minutes or
+  an out-of-memory.
+
+  Two defaults had rotted, and both published August's code without anything looking
+  wrong: `ARG APKRADAR_VERSION=2026.9.1` in the Dockerfile, while this project was at
+  2026.43, so `docker build .` built August; and `default: 'v2026.09.8'` on the rebuild
+  dispatch, so the form arrived pre-filled with something that looked deliberate.
+
+  The checkout now stands on the tag being built. That matters more here than in exeradar
+  or cookieradar, where a smoke test compares the version in the image against the tag
+  before anything is pushed: this workflow logs in, builds and pushes, so a checkout left
+  on the default branch would have published `main`'s code under an old release's tag
+  rather than failing.
+
+  And the image is built on every push and pull request, not only when asked.
+  `docker-build-check.yml` could not run on its own before — the Dockerfile needed a
+  published version handed to it — so the only thing that built this image automatically
+  was the workflow that publishes it, and the first attempt at a build was the one that
+  released. Given a version it still reproduces that one from the index, which keeps
+  `latest_pypi_version.py` in use rather than orphaned.
+
+  That the file on PyPI can be installed, which the old arrangement proved by accident, is
+  now checked on purpose in `publish.yml` after the upload — where a slow index delays a
+  check instead of failing a build, and with no margin, because there is a single resolver
+  there.
+
+  Ten mutations hold all of this, and all ten fail: the image back on the index, the
+  checkout off the tag, either stale default restored, the published file unchecked, a
+  margin where there is one resolver, the build check no longer running on pull requests,
+  the Dockerfile defaulting to `pypi`, the local branch compiling dependencies, and the
+  licence label back to singular.
 
 - **`release.sh` runs the suite after the bump, and refuses before committing.**
   The version is written as the script's first act, so a suite run *before* a
