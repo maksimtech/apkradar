@@ -1,9 +1,13 @@
 """Tests for APKRadar CLI."""
+import contextlib
+import io
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 from unittest.mock import patch
 
 from typer.testing import CliRunner
@@ -43,6 +47,24 @@ class TestCLI(unittest.TestCase):
             env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
         self.assertEqual(proc.returncode, 0, proc.stderr[-500:])
+
+    def test_main_block_in_process_knows_batch_excel(self):
+        """Same check as above, but in-process, so coverage sees the
+        `__main__` block run: the subprocess is invisible to it."""
+        saved_argv = sys.argv
+        out = io.StringIO()
+        sys.argv = ["apkradar", "batch-excel", "--help"]
+        try:
+            with warnings.catch_warnings(), contextlib.redirect_stdout(out):
+                # The module is already imported by this file; runpy warns
+                # about it, and executing it afresh is exactly the point.
+                warnings.filterwarnings("ignore", message=".*found in sys.modules", category=RuntimeWarning)
+                with self.assertRaises(SystemExit) as cm:
+                    runpy.run_module("apkradar.cli", run_name="__main__")
+        finally:
+            sys.argv = saved_argv
+        self.assertIn(cm.exception.code, (0, None))
+        self.assertIn("batch-excel", out.getvalue())
 
     def test_audit_missing_apk(self):
         """Exit 1, and a label that is neither a pass nor a number.
