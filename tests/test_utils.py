@@ -1,6 +1,5 @@
 """Tests for APKRadar utils module."""
 import unittest
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -110,24 +109,13 @@ class TestExtractDomainsFromApk(unittest.TestCase):
         result = extract_domains_from_apk(mock_apk)
         self.assertEqual(result, [])
 
-    def test_extract_domains_with_mock(self):
+    def test_extract_domains_from_a_real_manifest(self):
         """Should extract domains from manifest XML."""
-        from unittest.mock import MagicMock
-
         from apkradar.utils import extract_domains_from_apk
 
-        mock_apk = MagicMock()
-        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
-            # bytes: what androguard 4 returns. A str here hid that the
-            # function raised, and returned nothing, on every real APK.
-            b'<manifest>'
-            b'<data android:scheme="https" android:host="www.example.com"/>'
-            b'<data android:scheme="https" android:host="api.example.com"/>'
-            b'<data android:scheme="https" android:host="localhost"/>'
-            b'<data android:scheme="https" android:host="*.wildcard.com"/>'
-            b'</manifest>'
-        )
-        result = extract_domains_from_apk(mock_apk)
+        result = extract_domains_from_apk(_real_apk(
+            "www.example.com", "api.example.com", "localhost", "*.wildcard.com",
+        ))
         self.assertIn("www.example.com", result)
         self.assertIn("api.example.com", result)
         self.assertNotIn("localhost", result)
@@ -135,55 +123,36 @@ class TestExtractDomainsFromApk(unittest.TestCase):
 
     def test_extract_domains_skips_ip(self):
         """Should skip IP addresses."""
-        from unittest.mock import MagicMock
-
         from apkradar.utils import extract_domains_from_apk
 
-        mock_apk = MagicMock()
-        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
-            b'<data android:host="192.168.1.1"/>'
-            b'<data android:host="127.0.0.1"/>'
-        )
-        result = extract_domains_from_apk(mock_apk)
+        result = extract_domains_from_apk(_real_apk("192.168.1.1", "127.0.0.1"))
         self.assertEqual(result, [])
 
     def test_extract_domains_skips_placeholders(self):
         """Should skip template placeholders."""
-        from unittest.mock import MagicMock
-
         from apkradar.utils import extract_domains_from_apk
 
-        mock_apk = MagicMock()
-        mock_apk.get_android_manifest_axml.return_value.get_xml.return_value = (
-            b'<data android:host="{dynamic_host}"/>'
-        )
-        result = extract_domains_from_apk(mock_apk)
+        result = extract_domains_from_apk(_real_apk("{dynamic_host}"))
         self.assertEqual(result, [])
 
 
-def _real_axml_printer(xml: str):
-    """An androguard AXMLPrinter with its lxml tree already built.
+def _real_apk(*hosts: str):
+    """androguard's APK, opened on a real APK whose manifest declares `hosts`.
 
-    It is androguard 4's REAL get_xml() that runs, which returns bytes, rather
-    than a mock handing back a str.
+    Built by tests/android_files.py: a binary manifest inside a ZIP, read by the
+    real parser, so get_xml() returns what androguard 4 returns — bytes. The
+    str these tests used to be handed by a mock hid that the function raised,
+    and returned nothing, on every real APK.
     """
-    from androguard.core.axml import AXMLPrinter
+    import tempfile
+    from pathlib import Path
 
-    # lxml comes in through androguard and is not declared in pyproject:
-    # test_declared_imports asks for it to be reached through importorskip.
-    etree = pytest.importorskip("lxml.etree")
+    from androguard.core.apk import APK
 
-    printer = object.__new__(AXMLPrinter)
-    printer.root = etree.fromstring(xml.encode("utf-8"))
-    return printer
+    from tests.android_files import manifest, write_apk
 
-
-MANIFEST_WITH_DEEP_LINK = (
-    '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.app">'
-    "<application><activity android:name=\".Main\"><intent-filter>"
-    '<data android:scheme="https" android:host="where.areu.lombardia.it"/>'
-    "</intent-filter></activity></application></manifest>"
-)
+    with tempfile.TemporaryDirectory() as root:
+        return APK(write_apk(Path(root) / "app.apk", manifest("com.example.app", hosts=hosts)))
 
 
 def test_extract_domains_reads_the_bytes_androguard_actually_returns():
@@ -192,8 +161,7 @@ def test_extract_domains_reads_the_bytes_androguard_actually_returns():
     real APK were NEVER collected: manifest_domains was always empty."""
     from apkradar.utils import extract_domains_from_apk
 
-    apk = MagicMock()
-    apk.get_android_manifest_axml.return_value = _real_axml_printer(MANIFEST_WITH_DEEP_LINK)
+    apk = _real_apk("where.areu.lombardia.it")
     assert isinstance(apk.get_android_manifest_axml().get_xml(), bytes)
 
     assert extract_domains_from_apk(apk) == ["where.areu.lombardia.it"]
@@ -207,9 +175,7 @@ def test_extract_domains_rejects_values_that_are_not_hostnames(host):
     sent to a proxy."""
     from apkradar.utils import extract_domains_from_apk
 
-    apk = MagicMock()
-    apk.get_android_manifest_axml.return_value.get_xml.return_value = f'<data android:host="{host}"/>'.encode()
-    assert extract_domains_from_apk(apk) == []
+    assert extract_domains_from_apk(_real_apk(host)) == []
 
 
 class TestExtractSdkDomains(unittest.TestCase):
