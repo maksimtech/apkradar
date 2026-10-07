@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import socket
 import ssl
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -163,25 +164,80 @@ def test_a_proxy_that_refuses_the_tunnel_is_an_error_not_a_bad_certificate(monke
     assert expiry is None
 
 
-def test_connect_request_cannot_be_injected_through_the_domain(monkeypatch):
+class _RecordingProxy:
+    """A real HTTP proxy endpoint on 127.0.0.1, in a thread, that keeps the bytes it receives.
+
+    It grants every tunnel, as a permissive proxy would: what a client wrote
+    before the blank line is all there is to look at, and an injected header is
+    only ever visible from this side of the socket.
+    """
+
+    def __init__(self) -> None:
+        self.listener = socket.create_server(("127.0.0.1", 0))
+        self.listener.settimeout(0.1)
+        self.address = self.listener.getsockname()[:2]
+        self.received = bytearray()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._serve, daemon=True)
+        self._thread.start()
+
+    def _serve(self) -> None:
+        while not self._stop.is_set():
+            try:
+                conn, _ = self.listener.accept()
+            except TimeoutError:
+                continue
+            except OSError:
+                return
+            with conn:
+                conn.settimeout(5)
+                with contextlib.suppress(OSError):
+                    while b"\r\n\r\n" not in self.received:
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        self.received += chunk
+                    conn.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                    conn.recv(1)    # until the client hangs up
+
+    def close(self) -> None:
+        self._stop.set()
+        self._thread.join(5)
+        self.listener.close()
+
+
+@pytest.fixture
+def recording_proxy():
+    proxy = _RecordingProxy()
+    yield proxy
+    proxy.close()
+
+
+def test_the_recording_proxy_sees_a_well_formed_tunnel_request(recording_proxy):
+    """The witness below is only worth something if it records a real request."""
+    sock = cli._open_tunnel(recording_proxy.address, "example.com", 5)
+    sock.close()
+    recording_proxy.close()
+
+    assert bytes(recording_proxy.received) == (
+        b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n"
+    )
+
+
+def test_connect_request_cannot_be_injected_through_the_domain(recording_proxy):
     """The domain is written into the CONNECT request line, and it can come from
     a deep link in the APK's manifest. Written in unchecked, a CR/LF in it added
     headers of the APK's choosing to what the proxy received.
     """
-    sent = []
-
-    def fake_connect(address, timeout=None):
-        sock = MagicMock()
-        sock.sendall.side_effect = sent.append
-        sock.recv.return_value = b"HTTP/1.1 200 Connection established\r\n\r\n"
-        return sock
-
-    monkeypatch.setattr(socket, "create_connection", fake_connect)
+    tunnel = None
     with contextlib.suppress(ValueError, OSError):
-        cli._open_tunnel(
-            ("proxy.example.com", 3128),
+        tunnel = cli._open_tunnel(
+            recording_proxy.address,
             "evil.com:443 HTTP/1.1\r\nX-Injected: yes\r\nFoo: bar",
             5,
         )
+    if tunnel is not None:
+        tunnel.close()
+    recording_proxy.close()
 
-    assert not any(b"X-Injected" in chunk for chunk in sent)
+    assert b"X-Injected" not in recording_proxy.received
