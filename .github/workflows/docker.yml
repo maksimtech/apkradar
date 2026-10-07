@@ -34,17 +34,26 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # The dispatch input arrives through env:, never pasted into the script.
+      # `${{ }}` is substituted before bash reads it, so a quote typed into the
+      # form was code, in a job that holds the Docker Hub token. NORMALIZED is
+      # gone with it: nothing read it, and it pasted the same value into Python.
       - name: Extract version
         id: version
+        env:
+          REQUESTED: ${{ inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW="${{ github.event.inputs.version }}"
+            RAW="$REQUESTED"
           else
             RAW="${GITHUB_REF#refs/tags/}"
           fi
-          echo "VERSION=${RAW}" >> $GITHUB_OUTPUT
-          NORMALIZED=$(python3 -c "parts='${RAW#v}'.split('.'); print('.'.join(str(int(p)) for p in parts))")
-          echo "NORMALIZED=${NORMALIZED}" >> $GITHUB_OUTPUT
+          # It becomes an image tag and a step output: a release tag, or nothing.
+          if [[ ! "$RAW" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
+            echo "::error::not a release tag: $RAW"
+            exit 1
+          fi
+          echo "VERSION=${RAW}" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v7
         with:

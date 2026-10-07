@@ -25,6 +25,7 @@ Ported from cookieradar, which has polled since 2026-09-24.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -313,3 +314,19 @@ def test_nothing_in_the_docker_workflow_waits_by_sleeping():
     """
     for step in _docker_steps():
         assert "sleep" not in step.get("run", ""), step.get("name")
+
+
+def test_no_workflow_pastes_a_dispatch_input_into_a_script():
+    """`${{ }}` inside `run:` is substituted into the script text before bash
+    reads it, so a value with a quote in it becomes code. docker.yml did that
+    with the version typed into the dispatch form, in a job that holds the
+    Docker Hub token. An input reaches a script through `env:`, as
+    docker-build-check.yml has always done, where it stays a string.
+    """
+    pasted = re.compile(r"\$\{\{[^}]*\b(?:github\.event\.|inputs\.|github\.head_ref)")
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for job_id, job in (_workflow(path.name).get("jobs") or {}).items():
+            for step in job.get("steps", []):
+                assert not pasted.search(step.get("run", "")), (
+                    f"{path.name}: {job_id}: {step.get('name')}"
+                )
