@@ -486,50 +486,79 @@ class TestBatchExcelCommand(unittest.TestCase):
 
     def test_batch_excel_does_not_call_a_failed_scan_good(self):
         """The chain of ifs in batch_excel fell through to "🟢 GOOD" for any
-        label it did not expect: a failed scan, labelled N/A, came out GOOD."""
-        from apkradar.scanner import ScanResult
-        bad = ScanResult(apk_path="broken.apk", package_name="broken", error="bad zip")
-        result, _, _ = self._run_batch_excel([bad])
+        label it did not expect: a failed scan, labelled N/A, came out GOOD.
+
+        A real spreadsheet naming a real `.apk` that is not a ZIP: the scan
+        fails in androguard, as it does on a truncated download.
+        """
+        import openpyxl
+
+        from apkradar.cli import app
+
+        with tempfile.TemporaryDirectory() as root:
+            broken = os.path.join(root, "broken.apk")
+            with open(broken, "wb") as f:
+                f.write(b"this is not a zip archive")
+            wb = openpyxl.Workbook()
+            wb.active.append(["APK Path"])
+            wb.active.append([broken])
+            src = os.path.join(root, "apps.xlsx")
+            wb.save(src)
+
+            result = self.runner.invoke(
+                app, ["batch-excel", src, "--output", os.path.join(root, "out.xlsx")]
+            )
+
+        self.assertEqual(result.exit_code, 1, result.output)   # the scan did fail
+        self.assertIn("N/A", result.output)
         self.assertNotIn("GOOD", result.output)
 
     def test_batch_excel_augment_writes_each_result_on_its_own_row(self):
         """read_apk_list() skips blank rows and keeps their row_number, while
         write_results() wrote the results by position from row 2: with a blank
         row in between, an app's score landed on the wrong row — in the file
-        being overwritten."""
-        from pathlib import Path
-        from unittest.mock import patch
+        being overwritten.
 
+        Two real APKs (tests/android_files.py), scanned for real: alpha declares
+        nothing, beta declares activities in five tracker SDKs' packages, so the
+        two rows cannot hold the same score.
+        """
         import openpyxl
 
         from apkradar.cli import app
-        from apkradar.scanner import ScanResult, TrackerFound
+        from apkradar.scanner import scan
+        from tests.android_files import manifest, write_apk
 
-        def fake_scan(path, *args, **kwargs):
-            result = ScanResult(apk_path=path, package_name=Path(path).stem)
-            if "beta" in path:
-                result.trackers = [TrackerFound(package=f"com.t{i}", name=f"T{i}") for i in range(5)]
-            return result
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.append(["App Name", "APK Path"])
-        ws.append(["Alpha", "alpha.apk"])   # row 2
-        ws.append([None, None])             # row 3, blank
-        ws.append(["Beta", "beta.apk"])     # row 4
+        sdks = ("com.appsflyer", "com.adjust.sdk", "com.amplitude.api",
+                "io.branch.referral", "com.mixpanel.android")
         with tempfile.TemporaryDirectory() as root:
+            alpha = write_apk(os.path.join(root, "alpha.apk"), manifest("com.example.alpha"))
+            beta = write_apk(
+                os.path.join(root, "beta.apk"),
+                manifest("com.example.beta", activities=tuple(f"{p}.SdkActivity" for p in sdks)),
+            )
+            beta_score = scan(beta).score
+            self.assertEqual(scan(alpha).score, 100)
+            self.assertIsNotNone(beta_score)
+            self.assertLess(beta_score, 100)
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.append(["App Name", "APK Path"])
+            ws.append(["Alpha", alpha])     # row 2
+            ws.append([None, None])         # row 3, blank
+            ws.append(["Beta", beta])       # row 4
             src = os.path.join(root, "apps.xlsx")
             wb.save(src)
-            with patch("apkradar.scanner.scan", side_effect=fake_scan):
-                result = self.runner.invoke(app, ["batch-excel", src, "--augment"])
+
+            result = self.runner.invoke(app, ["batch-excel", src, "--augment"])
             self.assertEqual(result.exit_code, 0, result.output)
 
             ws = openpyxl.load_workbook(src).active
             score_col = 3  # after App Name and APK Path
             self.assertEqual(ws.cell(row=2, column=score_col).value, 100)
             self.assertIn(ws.cell(row=3, column=score_col).value, (None, ""))
-            self.assertEqual(ws.cell(row=4, column=score_col).value, 50)
-
+            self.assertEqual(ws.cell(row=4, column=score_col).value, beta_score)
 
 class TestDefaultOutputPath(unittest.TestCase):
     """Without --output, the report goes next to the input as <stem>_report.xlsx."""

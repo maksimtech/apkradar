@@ -121,20 +121,34 @@ def test_a_failed_scan_writes_no_report(tmp_path):
     assert len(written) == 1, written
 
 
-def test_batch_report_does_not_contain_the_previous_failed_scan(tmp_path):
+def test_batch_report_does_not_contain_the_previous_failed_scan(tmp_path, monkeypatch):
     """After a failed scan `console.record` went False, but Rich's recording
     buffer was not emptied: the next file's report opened with the output of
-    the APK that had failed."""
-    reports = tmp_path / "reports"
-    bad = ScanResult(apk_path="first_broken.apk", error="cannot parse")
-    with patch("apkradar.scanner.scan", side_effect=[bad, ok("second_ok.apk")]):
-        runner.invoke(
-            app,
-            ["batch", listing(tmp_path, "first_broken.apk", "second_ok.apk"), "-o", str(reports)],
-        )
+    the APK that had failed.
 
+    Two real files and two real scans: a `.apk` that is not a ZIP, which
+    androguard refuses, then an APK it reads (see tests/android_files.py).
+    Listed by relative name from their own directory, so no long temporary path
+    gets folded by Rich across a line, and a leaked name in the middle of it.
+    """
+    from tests.android_files import manifest, write_apk
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "first_broken.apk").write_bytes(b"this is not a zip archive")
+    write_apk(tmp_path / "second_ok.apk", manifest("com.example.second"))
+    reports = tmp_path / "reports"
+
+    result = runner.invoke(
+        app, ["batch", listing(tmp_path, "first_broken.apk", "second_ok.apk"), "-o", str(reports)]
+    )
+
+    assert "first_broken" in result.output, "the first scan did not run"
+    assert sorted(p.name for p in reports.iterdir()) == ["second_ok.txt"], result.output
     report = (reports / "second_ok.txt").read_text(encoding="utf-8")
+    assert report.lstrip().startswith("Auditing second_ok.apk"), report
+    assert "100/100" in report   # what the real scan of second_ok.apk measured
     assert "first_broken" not in report
+    assert "N/A" not in report
 
 
 def test_without_output_nothing_is_written(tmp_path):
