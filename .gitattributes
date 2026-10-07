@@ -1,0 +1,4 @@
+# bash reads a CR as part of the line: `set -o pipefail` checked out with CRLF
+# is `pipefail\r`, an invalid option. Shell scripts stay LF on every clone,
+# whatever core.autocrlf says. See tests/test_text_encoding_contract.py.
+*.sh text eol=lf

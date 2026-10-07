@@ -145,6 +145,17 @@ no version in this file has ever matched — 40 is not a month, and
   takes `httpbin.org` for a URL. `python -m apkradar.cli batch-excel` exists: the
   `__main__` block ran before that command was defined.
 
+- **docker.yml no longer pastes the dispatch input into a script.** The version typed
+  into the form was substituted into bash, and from there into Python, in the job that
+  holds the Docker Hub token. It arrives through `env:` now and has to look like a
+  release tag; the unused `NORMALIZED` output went with it. A case reads every workflow
+  for the pattern.
+
+- **Shell scripts are LF on every clone.** With Git for Windows' `core.autocrlf=true`,
+  `release.sh` came out as `set -euo pipefail\r` and bash refused it, which a bash on
+  Linux reading that checkout reports as 23 failing release cases. `.gitattributes`
+  now says `*.sh text eol=lf`, and a case asks git that it does.
+
 ### Changed
 
 - **The race with PyPI is closed rather than narrowed, and two stale defaults went with

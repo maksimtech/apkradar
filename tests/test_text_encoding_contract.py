@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import shutil
+import subprocess
 
 import pytest
 
@@ -124,3 +126,27 @@ def test_the_rule_accepts_the_correct_forms(tmp_path):
         encoding="utf-8",
     )
     assert _offenders(good) == []
+
+
+def test_shell_scripts_are_checked_out_with_lf_everywhere():
+    """The same failure as the rest of this file, with line endings for encodings.
+
+    A Windows clone with `core.autocrlf=true` — Git for Windows' default — wrote
+    release.sh and wait_for_pypi.sh with CRLF, and bash then stops at
+    `set: pipefail\r: invalid option name`: 23 cases of test_release_script red on
+    Windows and green on Linux, saying nothing about line endings. Only an
+    attribute in the repository decides it for every clone.
+    """
+    git = shutil.which("git")
+    if git is None or not (ROOT / ".git").exists():
+        pytest.skip("needs a git checkout")
+
+    def run(*args: str) -> str:
+        return subprocess.run(
+            [git, *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True
+        ).stdout
+
+    scripts = run("ls-files", "--", "*.sh").split()
+    assert scripts, "no shell scripts found: the pathspec no longer matches anything"
+    attributes = run("check-attr", "eol", "--", *scripts).splitlines()
+    assert all(line.endswith(": eol: lf") for line in attributes), attributes
