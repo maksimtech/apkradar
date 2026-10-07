@@ -4,9 +4,7 @@ import os
 import tempfile
 import unittest
 import zipfile
-from unittest.mock import patch
 
-from apkradar import extractor
 from apkradar.extractor import cleanup_temp, detect_format, extract_main_apk
 
 
@@ -232,21 +230,32 @@ class TestExtractMainApkEdgeCases(unittest.TestCase):
     def test_extract_main_apk_removes_its_temp_dir_when_extraction_fails(self):
         """mkdtemp() runs before extract(). When extract raises — here a bad CRC,
         elsewhere a full disk — the caller gets (None, None) and no directory to
-        clean up, so the directory and the half-written APK stayed on disk."""
-        created = []
-        real_mkdtemp = tempfile.mkdtemp
-        with tempfile.TemporaryDirectory() as root:
-            def tracking_mkdtemp(*args, **kwargs):
-                kwargs["dir"] = root
-                path = real_mkdtemp(*args, **kwargs)
-                created.append(path)
-                return path
+        clean up, so the directory and the half-written APK stayed on disk.
 
+        Watched in the real temporary directory, where mkdtemp() puts its
+        `apkradar_` directories: what is there after the call and was not there
+        before is what the call left behind.
+        """
+        def ours() -> set[str]:
+            return {n for n in os.listdir(tempfile.gettempdir()) if n.startswith("apkradar_")}
+
+        with tempfile.TemporaryDirectory() as root:
             bundle = os.path.join(root, "app.xapk")
             _make_zip(bundle, {
                 "manifest.json": json.dumps({"xapk_version": 2, "package_name": "com.example"}),
                 "com.example.apk": b"A" * 64,
             })
+
+            # The same bundle intact is extracted into one of those directories,
+            # so the failure below does go through mkdtemp().
+            apk_path, tmp_dir = extract_main_apk(bundle)
+            try:
+                self.assertIsNotNone(tmp_dir)
+                self.assertTrue(os.path.basename(tmp_dir).startswith("apkradar_"))
+                self.assertEqual(os.path.dirname(tmp_dir), tempfile.gettempdir())
+            finally:
+                cleanup_temp(tmp_dir)
+
             # One byte of the stored APK changed: its CRC no longer matches.
             with open(bundle, "rb") as f:
                 data = bytearray(f.read())
@@ -254,11 +263,9 @@ class TestExtractMainApkEdgeCases(unittest.TestCase):
             with open(bundle, "wb") as f:
                 f.write(bytes(data))
 
-            with patch.object(extractor.tempfile, "mkdtemp", tracking_mkdtemp):
-                self.assertEqual(extract_main_apk(bundle), (None, None))
-            self.assertTrue(created, "the test assumes mkdtemp was called")
-            self.assertFalse(any(os.path.exists(d) for d in created))
-
+            before = ours()
+            self.assertEqual(extract_main_apk(bundle), (None, None))
+            self.assertEqual(ours() - before, set())
 
 class TestExtractHostileNames(unittest.TestCase):
     """The path returned must be the file that was actually written.
