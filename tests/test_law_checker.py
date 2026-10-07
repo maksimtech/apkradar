@@ -182,8 +182,22 @@ def test_only_the_health_permissions_of_the_table_can_cite_art_9():
 
     assert special == {
         "android.permission.BODY_SENSORS",
+        "android.permission.BODY_SENSORS_BACKGROUND",
         "android.permission.ACTIVITY_RECOGNITION",
     }
+
+
+def test_every_special_category_permission_can_actually_be_found():
+    """law_checker cites art. 9 for BODY_SENSORS_BACKGROUND, but the scanner did
+    not count it as sensitive: an app requesting it produced neither the
+    'sensitive' finding nor the 'special_category' one, and the reason was dead
+    code."""
+    from apkradar.law_checker import _SPECIAL_CATEGORY_PERMISSIONS
+    from apkradar.scanner import SENSITIVE_PERMISSIONS
+
+    missing = set(_SPECIAL_CATEGORY_PERMISSIONS) - set(SENSITIVE_PERMISSIONS)
+
+    assert missing == set()
 
 
 def test_findings_of_all_in_report_order():

@@ -101,6 +101,22 @@ class TestReadApkList(unittest.TestCase):
         finally:
             os.unlink(tmp)
 
+    def test_read_apk_list_reads_the_first_sheet_as_documented(self):
+        """The README says "reads the first sheet" and the code read wb.active:
+        a file last saved on another sheet was read from the wrong one."""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        wb.active.append(["APK Path"])
+        wb.active.append(["first.apk"])
+        other = wb.create_sheet("Notes")
+        other.append(["APK Path"])
+        other.append(["other.apk"])
+        wb.active = 1
+        with tempfile.TemporaryDirectory() as root:
+            src = os.path.join(root, "apps.xlsx")
+            wb.save(src)
+            self.assertEqual([r.apk_path for r in read_apk_list(src)], ["first.apk"])
+
 
 class TestWriteResults(unittest.TestCase):
 
@@ -153,6 +169,25 @@ class TestWriteResults(unittest.TestCase):
             os.unlink(input_tmp)
             if os.path.exists(output_tmp):
                 os.unlink(output_tmp)
+
+    def test_write_results_augments_the_sheet_it_read(self):
+        """With --augment the results go on the sheet read_apk_list read the
+        rows from, the first one, and not on the active sheet, which can be
+        another."""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        wb.active.append(["APK Path"])
+        wb.active.append(["first.apk"])
+        wb.create_sheet("Notes").append(["note"])
+        wb.active = 1
+        result = ScanResult(apk_path="first.apk", package_name="first")
+        with tempfile.TemporaryDirectory() as root:
+            src = os.path.join(root, "apps.xlsx")
+            wb.save(src)
+            write_results([result], src, input_path=src, rows=[2])
+            first = openpyxl.load_workbook(src).worksheets[0]
+            self.assertEqual(first.cell(row=1, column=2).value, "Score")
+            self.assertEqual(first.cell(row=2, column=2).value, 100)
 
 
 class TestSkippedRows(unittest.TestCase):

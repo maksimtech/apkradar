@@ -1,5 +1,7 @@
 """Tests for APKRadar CLI."""
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -31,6 +33,16 @@ class TestCLI(unittest.TestCase):
     def test_send_help(self):
         result = self.runner.invoke(app, ["send", "--help"])
         self.assertEqual(result.exit_code, 0)
+
+    def test_python_m_apkradar_cli_knows_batch_excel(self):
+        """`if __name__ == "__main__": app()` stood BEFORE batch_excel was
+        defined: running the module directly, that command did not exist."""
+        proc = subprocess.run(
+            [sys.executable, "-m", "apkradar.cli", "batch-excel", "--help"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr[-500:])
 
     def test_audit_missing_apk(self):
         """Exit 1, and a label that is neither a pass nor a number.

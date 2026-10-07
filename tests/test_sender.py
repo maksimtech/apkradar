@@ -1,5 +1,8 @@
 """Tests for APKRadar sender module."""
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
@@ -208,6 +211,31 @@ class TestRenderLetter(unittest.TestCase):
         )
         self.assertIn("Test User", letter)
 
+    @unittest.skipIf(os.name != "nt", "the lexical normalisation of '..' is Win32's")
+    def test_lang_cannot_select_a_template_outside_the_package(self):
+        """`lang` was joined into the template's path unchecked. On Windows
+        'dpo_letter_/../..' is normalised lexically, so --lang could load any
+        .txt file as a Jinja template, which is not sandboxed."""
+        import apkradar.sender as sender
+
+        templates = Path(sender.__file__).parent / "templates"
+        with tempfile.TemporaryDirectory() as root:
+            evil = Path(root) / "evil.txt"
+            evil.write_text("PWNED {{ 7 * 7 }}", encoding="utf-8")
+            rel = os.path.relpath(str(evil.with_suffix("")), str(templates))
+            lang = "/../" + rel.replace("\\", "/")
+
+            letter = render_letter(
+                result=_make_result(),
+                publisher="WONE SAGL",
+                publisher_domain="wonet.com",
+                sender_name="Test User",
+                sender_org="",
+                sender_email="test@example.com",
+                lang=lang,
+            )
+        self.assertNotIn("PWNED", letter)
+
 
 class TestLetterSectionTwoCitations(unittest.TestCase):
     """Section 2 of the letter cited art. 9 for every permission it listed.
@@ -224,7 +252,7 @@ class TestLetterSectionTwoCitations(unittest.TestCase):
     what a manifest does not state.
     """
 
-    def _letter(self, permissions):
+    def _letter(self, permissions, lang="it"):
         result = _make_result()
         result.sensitive_permissions = permissions
         return render_letter(
@@ -234,6 +262,7 @@ class TestLetterSectionTwoCitations(unittest.TestCase):
             sender_name="Test User",
             sender_org="Test Org",
             sender_email="test@example.com",
+            lang=lang,
         )
 
     def test_location_and_imei_do_not_cite_art_9(self):
@@ -257,6 +286,20 @@ class TestLetterSectionTwoCitations(unittest.TestCase):
         self.assertIn("art. 9(2)", letter)          # which condition is invoked
         self.assertIn("Non si afferma", letter)     # no allegation is made
         self.assertIn("dati relativi alla salute", letter)   # in the letter's own language
+
+    def test_letter_with_lang_en_is_not_a_mixed_language_document(self):
+        """Only the Italian template exists, and --lang en falls back to it, as
+        documented. The art. 9 reasons were still generated in English and put
+        inside the Italian sentence: what law_checker says it sets out to avoid."""
+        letter = self._letter([
+            PermissionFound(
+                permission="android.permission.BODY_SENSORS",
+                description="vital signs (heart rate)",
+            ),
+        ], lang="en")
+
+        self.assertIn("Spettabile", letter)   # the Italian template is the one used
+        self.assertNotIn("which are data concerning health", letter)
 
     def test_a_fingerprint_unlock_raises_nothing(self):
         """Android authenticates and hands the app a boolean; no biometric data

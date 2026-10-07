@@ -92,12 +92,17 @@ def package_to_domain(package_name: str) -> str | None:
         company = parts[2].replace("_", "-").lower()
         return f"{company}.{tld}".lower()
 
-    return f"{sld}.{tld}".lower()
+    # `_` is legal in a package name and not in a hostname: com.my_company.app
+    # gave my_company.com here while the branch above already said my-company.
+    return f"{sld.replace('_', '-')}.{tld}".lower()
 
 
 def domain_to_url(domain: str) -> str:
-    """Convert domain to HTTPS URL."""
-    if domain.startswith("http"):
+    """Convert domain to HTTPS URL.
+
+    The scheme is matched whole: `httpbin.org` starts with "http" and is a host.
+    """
+    if domain.startswith(("http://", "https://")):
         return domain
     return f"https://{domain}"
 

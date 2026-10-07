@@ -136,6 +136,12 @@ def test_an_already_marked_subject_is_not_marked_twice():
     assert tlp.subject(once, Label.RED) == once
 
 
+def test_tlp_subject_does_not_treat_amber_strict_as_amber():
+    """subject() used startswith with no token boundary: a subject marked
+    `TLP:AMBER+STRICT` was taken as already marked `TLP:AMBER`."""
+    assert tlp.subject("TLP:AMBER+STRICT Report", Label.AMBER).startswith("TLP:AMBER ")
+
+
 def test_the_banner_names_the_standard_the_label_and_the_permission():
     banner = tlp.banner(Label.AMBER_STRICT)
 

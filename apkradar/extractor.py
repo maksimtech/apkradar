@@ -111,7 +111,13 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
             # — and APKRadar would then open whatever happened to be there,
             # reporting on a file the archive's author chose.
             tmp_dir = tempfile.mkdtemp(prefix="apkradar_")
-            apk_path = z.extract(main_apk, tmp_dir)
+            try:
+                apk_path = z.extract(main_apk, tmp_dir)
+            except Exception:
+                # A bad CRC or a full disk: the caller gets no tmp_dir to clean
+                # up, so the directory and the half-written APK go here.
+                cleanup_temp(tmp_dir)
+                raise
             return apk_path, tmp_dir
 
     except Exception:

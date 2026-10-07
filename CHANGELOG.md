@@ -110,6 +110,8 @@ no version in this file has ever matched — 40 is not a month, and
 - **`batch-excel --augment` writes each result on the row it came from.** Blank rows
   were skipped when reading and not when writing, so one blank line moved every later
   score, grade and tracker list onto the app above — in the file being overwritten.
+  Both sides now use the first sheet, as the README says, rather than whichever sheet
+  the file was last saved on.
 
 - **`batch-excel` no longer calls a failed scan GOOD.** Its own chain of ifs fell
   through to "🟢 GOOD — N/A — 0 trackers" for a file that was never opened; it prints
@@ -125,6 +127,23 @@ no version in this file has ever matched — 40 is not a month, and
   case could never corroborate: Play's `https://www.example.com` is normalised to
   `example.com`, and the same `www.` host in the APK was refused for the dot before it.
   `www.` is the one prefix taken as the same host.
+
+- **The letter is in one language.** Only the Italian template exists, and with
+  `--lang en` the art. 9 reasons and the TLP block were still written in English inside
+  it. The language is now the template's. `--lang` is also matched against the
+  templates that exist before it reaches a path: on Windows `/../..` used to load any
+  `.txt` as a Jinja template.
+
+- **Smaller ones.** `BODY_SENSORS_BACKGROUND` is a sensitive permission, so its art. 9
+  reason, which law_checker always had, can be reached. A DEX with exactly 500 hosts
+  is no longer reported as stopped at 500. `NO_PROXY=*` means no proxy, as it does to
+  curl, requests and httpx. `tlp.subject` does not take `TLP:AMBER+STRICT` for
+  `TLP:AMBER`. Report names in `batch` are compared casefolded, so `App.apk` and
+  `app.apk` no longer overwrite each other on Windows and macOS. A failed extraction
+  from an XAPK or APKM removes its temporary directory. `com.my_company.app` maps to
+  `my-company.com`, not to a name with an underscore, and `domain_to_url` no longer
+  takes `httpbin.org` for a URL. `python -m apkradar.cli batch-excel` exists: the
+  `__main__` block ran before that command was defined.
 
 ### Changed
 

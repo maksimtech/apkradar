@@ -479,7 +479,7 @@ Each SDK is listed once, with the package that identified it.
 
 ### Sensitive permissions
 
-APKRadar flags 23 Android permissions that give access to personal data. Each
+APKRadar flags 24 Android permissions that give access to personal data. Each
 one is shown with a short description in the "GDPR Concern" column:
 
 | Area | Permissions |
@@ -488,7 +488,7 @@ one is shown with a short description in the "GDPR Concern" column:
 | Communications | `READ_CONTACTS`, `WRITE_CONTACTS`, `READ_CALL_LOG`, `WRITE_CALL_LOG`, `READ_SMS`, `RECEIVE_SMS`, `PROCESS_OUTGOING_CALLS` |
 | Device identity | `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `GET_ACCOUNTS` |
 | Camera and microphone | `CAMERA`, `RECORD_AUDIO` |
-| Body and biometrics | `BODY_SENSORS`, `ACTIVITY_RECOGNITION`, `USE_BIOMETRIC`, `USE_FINGERPRINT` |
+| Body and biometrics | `BODY_SENSORS`, `BODY_SENSORS_BACKGROUND`, `ACTIVITY_RECOGNITION`, `USE_BIOMETRIC`, `USE_FINGERPRINT` |
 | Storage and calendar | `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `READ_CALENDAR`, `WRITE_CALENDAR` |
 
 These are permissions the app **declares**. Whether a permission is justified

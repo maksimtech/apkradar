@@ -255,6 +255,19 @@ class BoundsTestCase(unittest.TestCase):
         self.assertFalse(truncated)
         self.assertEqual(found, ["one.example.com"])
 
+    def test_exactly_max_hosts_is_not_reported_as_truncated(self):
+        """`len(found) >= MAX_HOSTS` marked a complete list of exactly MAX_HOSTS
+        hosts as cut short, and the report said "stopped at 500" when nothing
+        had been left out."""
+        urls = [f"https://h{n:04d}.example.com/" for n in range(MAX_HOSTS)]
+        path = _make_apk({"classes.dex": _dex_blob(urls)})
+        try:
+            found, truncated = hosts_in_dex(path)
+        finally:
+            Path(path).unlink(missing_ok=True)
+        self.assertEqual(len(found), MAX_HOSTS)
+        self.assertFalse(truncated)
+
 
 class UnreadableTestCase(unittest.TestCase):
     """A host list is an addition to a report; no scan fails over it."""

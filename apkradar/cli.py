@@ -327,6 +327,9 @@ def _proxy_for_https(domain: str | None = None) -> tuple[str, int] | None:
     if domain:
         exempt = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
         for entry in (e.strip().lstrip(".").lower() for e in exempt.split(",")):
+            # `*` is "no proxy for any host" to curl, requests and httpx alike.
+            if entry == "*":
+                return None
             if entry and (domain.lower() == entry or domain.lower().endswith("." + entry)):
                 return None
 
@@ -767,14 +770,17 @@ def _report_name(apk_path: str, used: set[str]) -> str:
     `one/app.apk` and `two/app.apk` are two results. Writing both to `app.txt`
     would lose one of them without saying so — the same collision cookieradar's
     batch already guards against.
+
+    Compared casefolded: `App.txt` and `app.txt` are one file on Windows and
+    macOS, so `one/App.apk` and `two/app.apk` collided there all the same.
     """
     stem = pathlib.Path(apk_path).stem or "report"
     name = f"{stem}.txt"
     n = 2
-    while name in used:
+    while name.casefold() in used:
         name = f"{stem}-{n}.txt"
         n += 1
-    used.add(name)
+    used.add(name.casefold())
     return name
 
 
@@ -975,7 +981,10 @@ def send(
     smtp_user: str = typer.Option(..., "--smtp-user", help="SMTP username"),
     name: str = typer.Option(..., "--name", help="Sender full name"),
     org: str = typer.Option("", "--org", help="Sender organization"),
-    lang: str = typer.Option("it", "--lang", help="Letter language (it/en)"),
+    lang: str = typer.Option(
+        "it", "--lang",
+        help="Letter language. Only Italian (it) exists so far; any other value falls back to it.",
+    ),
     tlp: str = typer.Option(
         None, "--tlp",
         help="Mark the letter with a FIRST TLP 2.0 label: clear, green, amber, "
@@ -1124,10 +1133,6 @@ def send(
         raise typer.Exit(1) from None
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command(name="batch-excel")
 def batch_excel(
     file: str = typer.Argument(..., help="Excel file with APK paths or package names (.xlsx)"),
@@ -1220,3 +1225,10 @@ def batch_excel(
     if failed:
         console.print(f"[red]❌ {failed}/{len(results)} apps could not be audited[/red]")
         raise typer.Exit(1)
+
+
+# Last, after every command is registered: placed before batch-excel, it ran
+# the app with that command not yet defined, so `python -m apkradar.cli
+# batch-excel` answered "No such command".
+if __name__ == "__main__":
+    app()
