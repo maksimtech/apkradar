@@ -41,10 +41,24 @@ REPEATED_IS_DELIBERATE = 3
 # NUL or whitespace in a binary is not part of it.
 _URL_TAIL = r"[^\s\x00\"'<>`\\]*"
 
-# A domain ends where the label ends. Without this, `gameitech.in` matches inside
-# `gameitech.info` and corroborates a host nobody named.
-_NOT_A_LABEL_CHAR = r"(?![a-z0-9\-])"
+# A domain ends where the host ends. Without this, `gameitech.in` matches inside
+# `gameitech.info` and corroborates a host nobody named — and a dot followed by
+# another label is not the end either: `example.com.br` is somebody else's
+# domain, and `example.com.attacker.net/privacy` somebody else's policy. A dot
+# with no label after it is the end of a sentence, and still counts.
+_NOT_A_LABEL_CHAR = r"(?![a-z0-9\-]|\.[a-z0-9])"
 _NOT_A_LABEL_CHAR_BEFORE = r"(?<![a-z0-9\-.])"
+
+# Inside a URL the host is followed by a port, a path, a query, a fragment, or
+# by nothing. Not by `@`: in `https://example.com@attacker.net/` the host is
+# attacker.net, and example.com is only a user name.
+_URL_HOST_END = r"(?=[:/?#\s\x00\"'<>`\\]|$)"
+
+# The one prefix taken as the same host. `publisher.normalise_site` drops it
+# from the site Play declares, so `https://www.example.com/privacy` in the APK
+# is the very host the listing named — and was refused for the dot before it.
+# Any other subdomain is still a different host.
+_WWW = r"(?:www\.)?"
 
 
 @dataclass(frozen=True)
@@ -84,11 +98,11 @@ def mentions_of(domain: str, apk_path: str | Path) -> Mention:
     host = re.escape(domain.strip().lower())
     text = data.decode("latin-1").lower()
 
-    occurrences = re.findall(f"{_NOT_A_LABEL_CHAR_BEFORE}{host}{_NOT_A_LABEL_CHAR}", text)
+    occurrences = re.findall(f"{_NOT_A_LABEL_CHAR_BEFORE}{_WWW}{host}{_NOT_A_LABEL_CHAR}", text)
 
     policy = None
     for match in re.finditer(
-        f"https?://{host}{_NOT_A_LABEL_CHAR}{_URL_TAIL}", text
+        f"https?://{_WWW}{host}{_URL_HOST_END}{_URL_TAIL}", text
     ):
         url = match.group()
         if any(part in url for part in POLICY_PATHS):

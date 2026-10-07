@@ -840,6 +840,10 @@ def batch(
     for path in paths:
         if reports is not None:
             console.record = True
+            # Each report starts empty. A failed scan saves nothing, and turning
+            # recording off does not clear Rich's buffer: what it printed used
+            # to open the next APK's report.
+            console.export_text(clear=True)
         console.print(f"[cyan]Auditing {escape(path)}...[/cyan]")
         result = scan(path)
         _batch_line(result)
@@ -1179,11 +1183,10 @@ def batch_excel(
         if result.skipped:
             console.print("  [dim]⏭️  SKIPPED — no APK path[/dim]")
         else:
-            status = "🔴 CRITICAL" if result.score_label == "CRITICAL" else \
-                     "🟠 POOR" if result.score_label == "POOR" else \
-                     "🟡 MODERATE" if result.score_label == "MODERATE" else "🟢 GOOD"
-            score_text = "N/A" if result.score is None else f"{result.score}/100"
-            console.print(f"  {status} — {score_text} — {result.tracker_count} trackers")
+            # The same line as `batch`. The chain of ifs built here fell through
+            # to "🟢 GOOD" for any other label, N/A included: a file that was
+            # never opened came out GOOD, with 0 trackers.
+            _batch_line(result)
         if result.error:
             console.print(f"  [red]❌ {escape(result.error)}[/red]")
 

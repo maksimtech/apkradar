@@ -449,6 +449,14 @@ class TestBatchExcelCommand(unittest.TestCase):
         mock_write.assert_called_once()
         self.assertEqual(result.exit_code, 0)
 
+    def test_batch_excel_does_not_call_a_failed_scan_good(self):
+        """The chain of ifs in batch_excel fell through to "🟢 GOOD" for any
+        label it did not expect: a failed scan, labelled N/A, came out GOOD."""
+        from apkradar.scanner import ScanResult
+        bad = ScanResult(apk_path="broken.apk", package_name="broken", error="bad zip")
+        result, _, _ = self._run_batch_excel([bad])
+        self.assertNotIn("GOOD", result.output)
+
     def test_batch_excel_augment_writes_each_result_on_its_own_row(self):
         """read_apk_list() skips blank rows and keeps their row_number, while
         write_results() wrote the results by position from row 2: with a blank

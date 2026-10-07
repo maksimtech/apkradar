@@ -96,12 +96,33 @@ def test_the_match_does_not_run_past_the_name(apk):
     assert found.count == 0
 
 
+def test_mentions_of_another_tld_do_not_count(apk):
+    """`example.com.br`, three times over, was counted as a deliberate mention of
+    `example.com`: a dot followed by another label is not where the host ends."""
+    found = mentions_of("example.com", apk(b"example.com.br x example.com.br y example.com.br"))
+
+    assert found.count == 0
+    assert found.deliberate is False
+
+
 def test_a_subdomain_is_not_the_domain(apk):
     """`areu.lombardia.it` is not `where.areu.lombardia.it`: the question is
     about one host, asked one host at a time."""
     found = mentions_of("areu.lombardia.it", apk())
 
     assert found.count == 0
+
+
+def test_a_www_site_is_corroborated_by_the_same_www_urls_in_the_apk(apk):
+    """normalise_site() drops `www.` from the site Play declares, and
+    mentions_of() refused a host with a dot before it: Play saying
+    https://www.example.com and the APK holding https://www.example.com/privacy
+    — the very same host — could never corroborate. `www.` is the one prefix
+    taken as the same host; any other subdomain still is not, as above."""
+    host = publisher.normalise_site("https://www.example.com")
+    found = mentions_of(host, apk(b"https://www.example.com/privacy\x00"))
+
+    assert found.deliberate is True
 
 
 def test_case_does_not_matter(apk):
@@ -117,6 +138,26 @@ def test_the_pages_that_count_as_deliberate(apk, path):
 
     assert found.deliberate is True
     assert found.policy_url
+
+
+def test_a_policy_url_on_a_different_domain_does_not_corroborate(apk):
+    """The lookahead after the host refused only [a-z0-9-], so a `.` was let
+    through: https://example.com.attacker.net/privacy counted as example.com's
+    privacy page and made the domain verified for the letter (art. 32)."""
+    found = mentions_of("example.com", apk(b"https://example.com.attacker.net/privacy\x00"))
+
+    assert found.policy_url is None
+    assert found.count == 0
+
+
+def test_a_policy_url_with_the_domain_as_userinfo_does_not_corroborate(apk):
+    """In https://example.com@attacker.net/ the host is attacker.net, and
+    example.com is only a user name. A lookahead that stops at another label
+    still lets it through: inside a URL the host is followed by a port, a path,
+    a query, a fragment, or by nothing."""
+    found = mentions_of("example.com", apk(b"https://example.com@attacker.net/privacy\x00"))
+
+    assert found.policy_url is None
 
 
 def test_one_bare_mention_is_not_deliberate(apk):

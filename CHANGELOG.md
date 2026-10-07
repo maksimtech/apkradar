@@ -111,6 +111,21 @@ no version in this file has ever matched — 40 is not a month, and
   were skipped when reading and not when writing, so one blank line moved every later
   score, grade and tracker list onto the app above — in the file being overwritten.
 
+- **`batch-excel` no longer calls a failed scan GOOD.** Its own chain of ifs fell
+  through to "🟢 GOOD — N/A — 0 trackers" for a file that was never opened; it prints
+  `batch`'s line now, sensitive permissions included.
+
+- **`batch --output` reports start empty.** A failed scan saves no report, but stopping
+  the recording did not clear Rich's buffer, and its output opened the next APK's file.
+
+- **Corroboration by the APK checks the whole host.** `example.com.br` counted as a
+  mention of `example.com`, and `https://example.com.attacker.net/privacy` or
+  `https://example.com@attacker.net/privacy` as its policy page — enough to make the
+  domain verified and the letter state an art. 32 finding against it. And the commonest
+  case could never corroborate: Play's `https://www.example.com` is normalised to
+  `example.com`, and the same `www.` host in the APK was refused for the dot before it.
+  `www.` is the one prefix taken as the same host.
+
 ### Changed
 
 - **The race with PyPI is closed rather than narrowed, and two stale defaults went with

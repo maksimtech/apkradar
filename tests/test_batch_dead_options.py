@@ -109,6 +109,22 @@ def test_a_failed_scan_writes_no_report(tmp_path):
     assert len(written) == 1, written
 
 
+def test_batch_report_does_not_contain_the_previous_failed_scan(tmp_path):
+    """After a failed scan `console.record` went False, but Rich's recording
+    buffer was not emptied: the next file's report opened with the output of
+    the APK that had failed."""
+    reports = tmp_path / "reports"
+    bad = ScanResult(apk_path="first_broken.apk", error="cannot parse")
+    with patch("apkradar.scanner.scan", side_effect=[bad, ok("second_ok.apk")]):
+        runner.invoke(
+            app,
+            ["batch", listing(tmp_path, "first_broken.apk", "second_ok.apk"), "-o", str(reports)],
+        )
+
+    report = (reports / "second_ok.txt").read_text(encoding="utf-8")
+    assert "first_broken" not in report
+
+
 def test_without_output_nothing_is_written(tmp_path):
     with patch("apkradar.scanner.scan", side_effect=[ok("a.apk")]):
         runner.invoke(app, ["batch", listing(tmp_path, "a.apk")])
