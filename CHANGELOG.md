@@ -91,6 +91,26 @@ no version in this file has ever matched — 40 is not a month, and
   while the log still claims it, the log removed while the wait still happens, and the
   guard removed so zero waits anyway.
 
+- **Deep links from the manifest are read on real APKs.** androguard 4 returns the
+  manifest as bytes, the search for `android:host` was a str pattern, and the TypeError
+  went into an `except Exception: pass` — so `manifest_domains` was empty on every APK,
+  and a host like `where.areu.lombardia.it` never reached `audit --full` or
+  `batch --full`. The suite did not notice because its mocks returned a str, which is
+  what they return no longer.
+
+- **A deep-link host has to be a hostname, and so does what is sent to a proxy.** Only
+  `localhost`, `127.0.0.1` and `192.*` were refused: `10.0.2.2` (the emulator's host),
+  other private addresses, values with spaces and values with a CR/LF went on to
+  MailRadar, the certificate check and the `CONNECT` line, which wrote the domain in
+  unchecked — a header of the APK's choosing, sent to the proxy. Latent while the deep
+  links were never read, which is why the two were fixed together. The DEX scan's
+  hostname rules now apply to the manifest too, and `_open_tunnel` refuses anything
+  outside `[A-Za-z0-9.-]` before connecting.
+
+- **`batch-excel --augment` writes each result on the row it came from.** Blank rows
+  were skipped when reading and not when writing, so one blank line moved every later
+  score, grade and tracker list onto the app above — in the file being overwritten.
+
 ### Changed
 
 - **The race with PyPI is closed rather than narrowed, and two stale defaults went with

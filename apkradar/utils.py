@@ -116,18 +116,25 @@ def extract_domains_from_apk(apk) -> list[str]:
     try:
         # Parse XML manifest for deep link hosts
         xml = apk.get_android_manifest_axml().get_xml()
+        # androguard 4 serialises to bytes. A str pattern on bytes raises
+        # TypeError, which the `except` below swallowed: on every real APK this
+        # returned nothing, and only the tests' str mocks ever saw a deep link.
+        if isinstance(xml, bytes):
+            xml = xml.decode("utf-8", "replace")
         import re
+
+        from apkradar.hosts import _valid_host
         # Find android:host attributes with real domains
         hosts = re.findall(r'android:host="([^"]+)"', xml)
         for host in hosts:
-            host = host.strip()
-            if not host or host.startswith(".") or "{" in host:
-                continue
-            # Skip localhost and IP addresses
-            if host in ("localhost", "127.0.0.1") or host.startswith("192."):
-                continue
-            # Must look like a domain
-            if "." in host and not host.startswith("*"):
+            host = host.strip().lower()
+            # A deep-link host goes on to MailRadar, the certificate check and
+            # the CONNECT line sent to a proxy, so it has to be a hostname. The
+            # DEX scan's rules: they also refuse every IP literal — 10.0.2.2 is
+            # the emulator's host, not the publisher's — wildcards, `{}`
+            # placeholders, and anything with a space or a CR/LF in it. Only
+            # 127.0.0.1 and 192.* used to be refused.
+            if _valid_host(host):
                 domains.append(host)
     except Exception:
         pass

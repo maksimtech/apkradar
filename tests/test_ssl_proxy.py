@@ -11,6 +11,7 @@ from the environment by default. Only this one check did not.
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import ssl
 from unittest.mock import MagicMock, patch
@@ -149,3 +150,27 @@ def test_a_proxy_that_refuses_the_tunnel_is_an_error_not_a_bad_certificate(monke
 
     assert status == "error"
     assert expiry is None
+
+
+def test_connect_request_cannot_be_injected_through_the_domain(monkeypatch):
+    """The domain is written into the CONNECT request line, and it can come from
+    a deep link in the APK's manifest. Written in unchecked, a CR/LF in it added
+    headers of the APK's choosing to what the proxy received.
+    """
+    sent = []
+
+    def fake_connect(address, timeout=None):
+        sock = MagicMock()
+        sock.sendall.side_effect = sent.append
+        sock.recv.return_value = b"HTTP/1.1 200 Connection established\r\n\r\n"
+        return sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_connect)
+    with contextlib.suppress(ValueError, OSError):
+        cli._open_tunnel(
+            ("proxy.example.com", 3128),
+            "evil.com:443 HTTP/1.1\r\nX-Injected: yes\r\nFoo: bar",
+            5,
+        )
+
+    assert not any(b"X-Injected" in chunk for chunk in sent)
