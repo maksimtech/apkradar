@@ -82,6 +82,18 @@ def test_two_apks_with_the_same_basename_do_not_overwrite_each_other(tmp_path):
     assert len(list(reports.iterdir())) == 2, sorted(p.name for p in reports.iterdir())
 
 
+def test_report_names_differ_on_case_insensitive_filesystems():
+    """`one/App.apk` and `two/app.apk` gave `App.txt` and `app.txt`: one file on
+    Windows and macOS, so the second report overwrote the first."""
+    from apkradar.cli import _report_name
+
+    used: set[str] = set()
+    first = _report_name("one/App.apk", used)
+    second = _report_name("two/app.apk", used)
+
+    assert first.lower() != second.lower()
+
+
 def test_a_file_where_the_directory_should_be_is_refused(tmp_path):
     """Not a traceback, and not a silent no-op."""
     blocker = tmp_path / "reports"

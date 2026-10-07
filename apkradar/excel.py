@@ -53,7 +53,9 @@ def read_apk_list(path: str) -> list[ExcelRow]:
     import openpyxl
 
     wb = openpyxl.load_workbook(path)
-    ws = wb.active
+    # The first sheet, as the README says — not the active one, which is
+    # whichever sheet the file was last saved on.
+    ws = wb.worksheets[0]
 
     # Find header row
     headers = {}
@@ -119,7 +121,7 @@ def write_results(
 
     if input_path and Path(input_path).exists():
         wb = openpyxl.load_workbook(input_path)
-        ws = wb.active
+        ws = wb.worksheets[0]   # the sheet read_apk_list read the rows from
         # Find last column
         last_col = ws.max_column + 1
     else:

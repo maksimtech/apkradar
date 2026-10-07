@@ -139,6 +139,9 @@ SENSITIVE_PERMISSIONS = {
     # permission in this table — biometric data under art. 9 means a template
     # processed to identify somebody, which this is not.
     "android.permission.BODY_SENSORS": "vital signs (heart rate)",
+    # The same data read with the app in the background. law_checker had its
+    # art. 9 reason all along; missing from here, no app could ever reach it.
+    "android.permission.BODY_SENSORS_BACKGROUND": "vital signs (heart rate) in background",
     "android.permission.ACTIVITY_RECOGNITION": "physical activity",
     "android.permission.READ_CALENDAR": "calendar",
     "android.permission.WRITE_CALENDAR": "calendar write",

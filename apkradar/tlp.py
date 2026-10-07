@@ -152,9 +152,13 @@ def subject(line: str, label: Label) -> str:
     FIRST's guidance for email is the label in the subject as well as in the
     body, so that it is visible before the message is opened. Marking an already
     marked subject again would produce "TLP:RED TLP:RED …".
+
+    Already marked means the first word is the tag, not that the line starts
+    with it: "TLP:AMBER+STRICT …" starts with "TLP:AMBER" and is not marked
+    AMBER.
     """
     tag = label.value
-    if line.startswith(tag):
+    if line.split(maxsplit=1)[:1] == [tag]:
         return line
     return f"{tag} {line}"
 

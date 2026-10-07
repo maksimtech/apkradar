@@ -58,6 +58,12 @@ class TestPackageToDomain(unittest.TestCase):
         result = package_to_domain("com.game.my_app")
         self.assertEqual(result, "my-app.com")
 
+    def test_package_to_domain_never_returns_an_underscore_hostname(self):
+        """The generic branch turned `_` into `-` and the main one did not:
+        com.my_company.app gave my_company.com, which is not a hostname and
+        still went on to MailRadar, the certificate check and CookieRadar."""
+        self.assertEqual(package_to_domain("com.my_company.app"), "my-company.com")
+
 
 class TestDomainToUrl(unittest.TestCase):
 
@@ -69,6 +75,10 @@ class TestDomainToUrl(unittest.TestCase):
 
     def test_already_http(self):
         self.assertEqual(domain_to_url("http://scopely.com"), "http://scopely.com")
+
+    def test_domain_to_url_adds_the_scheme_to_hosts_starting_with_http(self):
+        """`startswith("http")` took a domain such as httpbin.org for a URL."""
+        self.assertEqual(domain_to_url("httpbin.org"), "https://httpbin.org")
 
 
 class TestGenericSegments(unittest.TestCase):

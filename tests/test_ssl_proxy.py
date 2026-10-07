@@ -75,6 +75,17 @@ def test_no_proxy_exempts_the_domain(monkeypatch):
     assert cli._proxy_for_https("other.example.com") == ("proxy.example.com", 3128)
 
 
+def test_no_proxy_wildcard_disables_the_proxy(monkeypatch):
+    """`NO_PROXY=*` is "no proxy for any host" to curl, requests and httpx alike.
+
+    It was not read that way here, and the certificate check went through the
+    proxy all the same.
+    """
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+    monkeypatch.setenv("NO_PROXY", "*")
+    assert cli._proxy_for_https("example.com") is None
+
+
 # --------------------------------------------------------------------------
 # using it
 # --------------------------------------------------------------------------

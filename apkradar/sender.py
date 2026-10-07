@@ -97,7 +97,8 @@ def render_letter(
             third party's domain, even as unverified, is not this letter's place.
         noyb_id: NOYB supporter ID e.g. '7645' (optional)
         noyb: Include NOYB reference without membership ID
-        lang: Language (it/en)
+        lang: Language of the letter. Only a language a template exists
+            for is used — today Italian, which any other falls back to.
         tlp_label: a `tlp.Label`, or None for a document with no marking. None
             is not CLEAR: a sender who said nothing has not granted unlimited
             redistribution, so the letter then carries no distribution block at
@@ -108,9 +109,16 @@ def render_letter(
     """
     from jinja2 import Template
 
-    template_path = Path(__file__).parent / "templates" / f"dpo_letter_{lang}.txt"
-    if not template_path.exists():
-        template_path = Path(__file__).parent / "templates" / "dpo_letter_it.txt"
+    # The letter's language is the template's, not the option's: with `--lang
+    # en` the Italian template was used and the art. 9 reasons and the TLP block
+    # were still written in English, inside Italian sentences. And `lang` is
+    # matched against the templates there are before it reaches a path — joined
+    # unchecked, "/../../x" loaded any .txt as a Jinja template on Windows.
+    templates = Path(__file__).parent / "templates"
+    available = {path.stem.removeprefix("dpo_letter_") for path in templates.glob("dpo_letter_*.txt")}
+    if lang not in available:
+        lang = "it"
+    template_path = templates / f"dpo_letter_{lang}.txt"
 
     template = Template(template_path.read_text(encoding="utf-8"))
 

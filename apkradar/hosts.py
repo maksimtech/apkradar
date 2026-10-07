@@ -218,7 +218,10 @@ def hosts_in_dex(apk_path: str) -> tuple[list[str], bool]:
                             break
                         buf = tail + chunk
                         found |= _hosts_in_buffer(buf, final=False)
-                        if len(found) >= MAX_HOSTS:
+                        # More than the limit, not the limit itself: a DEX
+                        # carrying exactly MAX_HOSTS hosts was read in full,
+                        # and used to be reported as stopped at 500.
+                        if len(found) > MAX_HOSTS:
                             truncated = True
                             break
                         tail = buf[-_OVERLAP:]
