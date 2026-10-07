@@ -91,7 +91,12 @@ def read_apk_list(path: str) -> list[ExcelRow]:
     return rows
 
 
-def write_results(results: list, output_path: str, input_path: str | None = None) -> None:
+def write_results(
+    results: list,
+    output_path: str,
+    input_path: str | None = None,
+    rows: list[int] | None = None,
+) -> None:
     """
     Write audit results to Excel file.
 
@@ -102,6 +107,11 @@ def write_results(results: list, output_path: str, input_path: str | None = None
         results: List of ScanResult objects
         output_path: Path to output Excel file
         input_path: Optional path to input Excel file to augment
+        rows: The row each result belongs to in `input_path` — the
+            `row_number` read_apk_list kept. Without it the results go on
+            consecutive rows from 2, which is right only for a list with no
+            blank row in it: one blank line used to shift every score after it
+            onto the app above.
     """
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill
@@ -146,7 +156,8 @@ def write_results(results: list, output_path: str, input_path: str | None = None
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill(fill_type="solid", fgColor="1F4E79")
 
-        for row_idx, result in enumerate(results, 2):
+        row_numbers = rows if rows is not None else range(2, len(results) + 2)
+        for row_idx, result in zip(row_numbers, results, strict=True):
             tracker_names = ", ".join(t.name for t in result.trackers)
             values = [
                 # Blank, not 0: a zero in this column gets averaged,

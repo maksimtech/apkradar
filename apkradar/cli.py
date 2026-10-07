@@ -7,6 +7,7 @@ Requires: mailradar + cookieradar
 import asyncio
 import contextlib
 import pathlib
+import re
 import socket
 import ssl
 import sys
@@ -305,6 +306,9 @@ _SSL_STATUS_TEXT = {
 
 _DEFAULT_PROXY_PORT = 3128
 
+# What may stand where CONNECT expects a host: no spaces, no CR/LF, no colon.
+_TUNNEL_HOST = re.compile(r"[A-Za-z0-9.\-]+")
+
 
 def _proxy_for_https(domain: str | None = None) -> tuple[str, int] | None:
     """(host, port) of the proxy to use for `domain`, or None to go direct.
@@ -360,7 +364,13 @@ def _open_tunnel(proxy: tuple[str, int], domain: str, timeout: int):
     The certificate has to be inspected end to end, so the proxy is asked for
     a tunnel rather than for the page: what comes back through it is the
     server's own TLS handshake, which is the thing being checked.
+
+    `domain` is written into the request line, and it can come from an APK's
+    manifest: anything but a hostname is refused before the proxy is reached,
+    or a CR/LF in it would add headers of the APK's choosing.
     """
+    if not _TUNNEL_HOST.fullmatch(domain):
+        raise ValueError(f"not a hostname: {domain!r}")
     sock = socket.create_connection(proxy, timeout=timeout)
     try:
         request = (
@@ -1192,6 +1202,7 @@ def batch_excel(
             results=results,
             output_path=out_path,
             input_path=file if augment else None,
+            rows=[row.row_number for row in rows],
         )
         console.print(f"[green]✅ Report saved to {escape(out_path)}[/green]")
     except Exception as e:

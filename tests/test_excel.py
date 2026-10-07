@@ -449,6 +449,44 @@ class TestBatchExcelCommand(unittest.TestCase):
         mock_write.assert_called_once()
         self.assertEqual(result.exit_code, 0)
 
+    def test_batch_excel_augment_writes_each_result_on_its_own_row(self):
+        """read_apk_list() skips blank rows and keeps their row_number, while
+        write_results() wrote the results by position from row 2: with a blank
+        row in between, an app's score landed on the wrong row — in the file
+        being overwritten."""
+        from pathlib import Path
+        from unittest.mock import patch
+
+        import openpyxl
+
+        from apkradar.cli import app
+        from apkradar.scanner import ScanResult, TrackerFound
+
+        def fake_scan(path, *args, **kwargs):
+            result = ScanResult(apk_path=path, package_name=Path(path).stem)
+            if "beta" in path:
+                result.trackers = [TrackerFound(package=f"com.t{i}", name=f"T{i}") for i in range(5)]
+            return result
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["App Name", "APK Path"])
+        ws.append(["Alpha", "alpha.apk"])   # row 2
+        ws.append([None, None])             # row 3, blank
+        ws.append(["Beta", "beta.apk"])     # row 4
+        with tempfile.TemporaryDirectory() as root:
+            src = os.path.join(root, "apps.xlsx")
+            wb.save(src)
+            with patch("apkradar.scanner.scan", side_effect=fake_scan):
+                result = self.runner.invoke(app, ["batch-excel", src, "--augment"])
+            self.assertEqual(result.exit_code, 0, result.output)
+
+            ws = openpyxl.load_workbook(src).active
+            score_col = 3  # after App Name and APK Path
+            self.assertEqual(ws.cell(row=2, column=score_col).value, 100)
+            self.assertIn(ws.cell(row=3, column=score_col).value, (None, ""))
+            self.assertEqual(ws.cell(row=4, column=score_col).value, 50)
+
 
 class TestDefaultOutputPath(unittest.TestCase):
     """Without --output, the report goes next to the input as <stem>_report.xlsx."""
