@@ -22,6 +22,33 @@ no version in this file has ever matched — 40 is not a month, and
   after the classifier is added; mailradar and patchradar have had the row since
   3.14-dev.
 
+### Security
+
+- **The image no longer installs `gnupg` and `default-jre-headless`, which nothing in it
+  ran.** Both stood in the Dockerfile from the first commit (2026-09-12; the JRE as
+  `openjdk-17-jre-headless` until trixie stopped shipping it). No code in apkradar
+  executes a system binary: the APK is read by androguard, which is pure Python; the DPO
+  letter goes out over SMTP from this package's own sender; `mailradar.checker`, the one
+  mailradar entry point apkradar calls, looks GPG keys up over HTTP through
+  `mailradar.gpg`, and `cookieradar.scanner` runs no Java. The `gpg` binary is run by
+  `mailradar.sender`, which apkradar never imports.
+
+  What `gnupg` did bring in was dirmngr → libldap2 → libsasl2-2, and Docker Scout
+  reported CVE-2026-107161 (high) in cyrus-sasl2 against it — "not fixed" in trixie, open
+  in every Debian suite according to `patchradar debian`, so no rebuild would ever have
+  closed it. `libsasl2-2` is not in `python:3.12-slim-trixie` itself, measured with
+  `apt-get install -s gnupg` in the base image: it arrives only with `gnupg`, and leaves
+  with it. The apt step is now `update && upgrade`, as in exeradar and patchradar.
+
+  Measured on the two images: 913 MB → 612 MB (`docker images`, 301 MB less), 117 → 87
+  Debian packages, and `docker scout cves --only-package cyrus-sasl2` goes from one high
+  to no package at all. `tests/test_docker_contract.py` now parses the apt step and
+  fails on any package it names, and `tests/docker/inspect.sh`, run against the built
+  image in CI, fails if `libsasl2-2`, `gnupg` or `default-jre-headless` is installed or
+  `gpg` or `java` is on PATH — the one judgement in a script that otherwise only reports.
+  The smoke test, `--help`, `--version` and an `audit` of a real APK were run inside the
+  new image before this was written down.
+
 ## [2026.44] - 2026-10-08
 
 ### Added

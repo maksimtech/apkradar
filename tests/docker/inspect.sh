@@ -29,8 +29,11 @@
 # nothing:
 #     docker run --rm -i --entrypoint sh apkradar:build-check - < inspect.sh
 #
-# It reports and does not judge: a red step here would be a broken diagnostic, and
-# what matters is whether the numbers and the record agree.
+# It reports and does not judge — a red step here would be a broken diagnostic, and
+# what matters is whether the numbers and the record agree — with one exception, at
+# the end: the Dockerfile installs no system package, and that is checked in the
+# image rather than only in the file, because the one time it did install something
+# the cost was a Security Posture nobody could close.
 set -eu
 
 echo "── perl packages installed ──"
@@ -84,3 +87,40 @@ dpkg-query -W -f '  ${Package} ${Version} priority=${Priority}\n' \
 echo
 echo "── size of the installed set ──"
 printf '  %s packages\n' "$(dpkg-query -f '.\n' -W | wc -l)"
+
+echo
+echo "── nothing installed beyond the base image ──"
+# tests/test_docker_contract.py reads the Dockerfile; this reads the image, which is
+# what Docker Scout reads. `gnupg` and `default-jre-headless` were installed here from
+# the first commit and nothing in apkradar ran either: androguard is pure Python, the
+# DPO letter goes out over SMTP, `mailradar.checker` looks GPG keys up over HTTP and
+# `cookieradar.scanner` runs no Java. The `gpg` binary is run by `mailradar.sender`,
+# which apkradar never imports. What `gnupg` did bring was dirmngr → libldap2 →
+# libsasl2-2, and CVE-2026-107161 in cyrus-sasl2 has no fix in trixie — an alert that
+# could only be closed by not installing what carried it. libsasl2-2 is listed first
+# because it is the package Scout named, and the two after it are the ones that were
+# asked for.
+#
+# `dpkg -s` has to fail, and the two binaries have to be absent from PATH: the
+# question is not "is the package record gone" but "can anything here run it".
+failed=0
+for pkg in libsasl2-2 gnupg default-jre-headless; do
+    if dpkg -s "$pkg" >/dev/null 2>&1; then
+        echo "  FAIL: $pkg is installed ($(dpkg-query -W -f '${Version}' "$pkg"))"
+        failed=1
+    else
+        echo "  ok: $pkg is not installed"
+    fi
+done
+for bin in gpg java; do
+    if found=$(command -v "$bin" 2>/dev/null); then
+        echo "  FAIL: $bin is on PATH at $found"
+        failed=1
+    else
+        echo "  ok: no $bin on PATH"
+    fi
+done
+if [ "$failed" -ne 0 ]; then
+    echo "  the image installs something the Dockerfile says it does not" >&2
+    exit 1
+fi

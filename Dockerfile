@@ -8,13 +8,18 @@ LABEL org.opencontainers.image.source="https://github.com/maksimtech/apkradar"
 # is read by nothing.
 LABEL org.opencontainers.image.licenses="MIT"
 
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-        gnupg \
-        default-jre-headless \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Upgrade what the base image ships with, and install nothing: no code in this image
+# runs a system binary. The APK is read by androguard, which is pure Python; the DPO
+# letter goes out over SMTP from this package's own sender; `mailradar.checker` looks
+# GPG keys up over HTTP, and `cookieradar.scanner` runs no Java. The `gpg` binary is
+# run by `mailradar.sender`, which apkradar never imports.
+#
+# `gnupg` and `default-jre-headless` stood here from the first commit, used by nothing,
+# and `gnupg` brought dirmngr → libldap2 → libsasl2-2 along — CVE-2026-107161 in
+# cyrus-sasl2, with no fix in trixie, could only be closed by not installing it.
+# tests/test_docker_contract.py keeps this list empty, tests/docker/inspect.sh checks
+# the image agrees.
+RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
