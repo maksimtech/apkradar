@@ -13,8 +13,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Keep in sync with the classifiers in pyproject.toml
+        # The same list as the classifiers in pyproject.toml, which
+        # tests/test_ci_dependencies.py checks.
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        experimental: [false]
+        include:
+          # The next Python, from its development branch, allowed to fail:
+          # 3.15 goes final on 2026-10-09 (PEP 790), and a dependency without a
+          # wheel for it should show up here first, not after the classifier.
+          - python-version: "3.15-dev"
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
