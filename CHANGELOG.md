@@ -11,6 +11,9 @@ no version in this file has ever matched — 40 is not a month, and
 `tests/test_version_contract.py` has been enforcing the real form all along.
 
 ## [Unreleased]
+
+## [2026.44] - 2026-10-08
+
 ### Added
 
 - **The files the build is told to include are checked to be there.** apkradar lost its
@@ -75,7 +78,8 @@ no version in this file has ever matched — 40 is not a month, and
   during the build at all — which is what exeradar's Dockerfile already does, with
   `pip install /app/src`, and why exeradar has no wait script and did not hit this.
   cookieradar and patchradar are one word from that (`_SOURCE=local`); apkradar and
-  mailradar would need the build argument added. That is the follow-up.
+  mailradar would need the build argument added. That follow-up is the first entry
+  under Changed, below.
 
   Three cases hold the margin, and they were needed twice over. The two cases that
   already drove this script pass the retry interval as zero so they stay fast, and the
@@ -1043,7 +1047,14 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.09.30...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.44...HEAD
+[2026.44]: https://github.com/maksimtech/apkradar/compare/v2026.43...v2026.44
+[2026.43]: https://github.com/maksimtech/apkradar/compare/v2026.42...v2026.43
+[2026.42]: https://github.com/maksimtech/apkradar/compare/v2026.41...v2026.42
+[2026.41]: https://github.com/maksimtech/apkradar/compare/v2026.40...v2026.41
+[2026.40]: https://github.com/maksimtech/apkradar/compare/v2026.09.32...v2026.40
+[2026.09.32]: https://github.com/maksimtech/apkradar/compare/v2026.09.31...v2026.09.32
+[2026.09.31]: https://github.com/maksimtech/apkradar/compare/v2026.09.30...v2026.09.31
 [2026.09.30]: https://github.com/maksimtech/apkradar/compare/v2026.09.29...v2026.09.30
 [2026.09.29]: https://github.com/maksimtech/apkradar/compare/v2026.09.28...v2026.09.29
 [2026.09.28]: https://github.com/maksimtech/apkradar/compare/v2026.09.27...v2026.09.28
