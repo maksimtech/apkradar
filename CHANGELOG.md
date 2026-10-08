@@ -162,6 +162,7 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **mailradar 2026.43 and cookieradar 2026.43 are now the floor.** The audit leans on their checks — SPF, DMARC and DKIM on the publisher's domain, the cookie sessions on its site — and both shipped the fixes from the same review today: a bare `all` read as `+all`, `redirect=` followed, the ten-lookup limit, TLS verified before the password is sent; `batch` surviving a 403, the accept selector no longer clicking "disagree". `pip install -U apkradar` brings them along.
 - **The race with PyPI is closed rather than narrowed, and two stale defaults went with
   it.** This is the repository where the race was measured: on 2026-10-03 the Docker build
   failed with `No matching distribution found` at 16:31:36, **fifteen seconds after** the
