@@ -12,6 +12,16 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Changed
+
+- **The suite also runs on Python 3.15-dev, as a row that may fail.** 3.15 goes final
+  on 2026-10-09 (PEP 790). The classifiers and the stable matrix stay at 3.11-3.14 and
+  `tests/test_ci_dependencies.py` now checks that they are the same list, with the
+  experimental row being the version after the last one. A dependency without a wheel
+  for 3.15 shows up as a yellow row before the release rather than as a red matrix
+  after the classifier is added; mailradar and patchradar have had the row since
+  3.14-dev.
+
 ## [2026.44] - 2026-10-08
 
 ### Added

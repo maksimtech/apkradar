@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import tomllib
 
 import pytest
 import yaml
@@ -111,3 +112,69 @@ def test_the_detector_tells_a_name_from_a_flag_or_a_target():
 def test_the_rule_looks_at_something():
     """A check that matched no workflow would pass for the wrong reason."""
     assert _workflows_running_pytest(), "no workflow runs pytest?"
+
+
+# ─── the Python versions the suite runs on ──────────────────────────────────
+#
+# tests.yml carried "Keep in sync with the classifiers in pyproject.toml" over
+# its matrix, and a comment is not what keeps two lists in step. The classifiers
+# are the versions the package says it supports; the matrix is where that is
+# checked, so the two lists are the same list.
+#
+# One more row runs the version *after* the last stable one, from its
+# development branch, and is allowed to fail. Python 3.15 goes final on
+# 2026-10-09 (PEP 790): a dependency without a wheel for it should turn up as a
+# yellow row before the release, not as a red matrix after the classifier is
+# added. mailradar and patchradar have had the row since 3.14-dev.
+
+TESTS_WORKFLOW = WORKFLOWS / "tests.yml"
+PYPROJECT = ROOT / "pyproject.toml"
+CLASSIFIED = re.compile(r"^Programming Language :: Python :: (3\.\d+)$")
+
+
+def _classified_versions() -> list[str]:
+    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    found = [m.group(1) for c in data["project"]["classifiers"] if (m := CLASSIFIED.match(c))]
+    assert found, "pyproject.toml names no Python version"
+    return found
+
+
+def _test_job() -> dict:
+    workflow = yaml.safe_load(TESTS_WORKFLOW.read_text(encoding="utf-8"))
+    return workflow["jobs"]["test"]
+
+
+def _next_minor(version: str) -> str:
+    major, minor = version.split(".")
+    return f"{major}.{int(minor) + 1}"
+
+
+def test_the_suite_runs_on_every_version_the_classifiers_claim_and_no_other():
+    matrix = _test_job()["strategy"]["matrix"]
+    # str(): an unquoted 3.10 reaches here as the float 3.1, and is then the
+    # version the classifier does not name, which is the right outcome.
+    assert [str(v) for v in matrix["python-version"]] == _classified_versions()
+    assert matrix.get("experimental") == [False], "the stable rows have to say they are not experimental"
+
+
+def test_the_next_python_runs_as_a_row_that_may_fail():
+    job = _test_job()
+    stable = _classified_versions()
+    rows = [row for row in job["strategy"]["matrix"].get("include", []) if row.get("experimental") is True]
+
+    assert rows == [{"python-version": f"{_next_minor(stable[-1])}-dev", "experimental": True}], (
+        f"the experimental row is the version after {stable[-1]}, from its development branch"
+    )
+    assert job.get("continue-on-error") == "${{ matrix.experimental }}", (
+        "the experimental row has to be allowed to fail, and the stable rows must not be"
+    )
+
+
+def test_coverage_is_uploaded_from_a_stable_row():
+    """A row that may fail may also produce no report; the upload belongs to one that
+    has to pass. 3.12 is the version the Docker image runs."""
+    upload = next(s for s in _test_job()["steps"] if "codecov" in s.get("uses", ""))
+    guard = re.fullmatch(r"matrix\.python-version == '([\d.]+)'", upload["if"])
+
+    assert guard, upload["if"]
+    assert guard.group(1) in _classified_versions()
