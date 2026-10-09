@@ -70,13 +70,11 @@ def test_the_hosts_stay_in_the_result_as_data(osmand):
 
 def test_none_of_them_is_a_domain_to_audit(osmand):
     assert deep_link_domains(osmand.manifest_domains) == []
-    # osmand.net is also what the package name reverses to, and that is the one
-    # candidate that is still audited — see the next test.
-    assert set(get_all_domains(osmand)) & set(OSMAND_HOSTS) <= {"osmand.net"}
 
 
-def test_the_publisher_candidate_is_still_audited(osmand):
-    assert "osmand.net" in get_all_domains(osmand)   # from the package name, not the deep links
+def test_only_the_publisher_candidate_is_still_audited(osmand):
+    """osmand.net — from the package name, not from the 24 deep links that also name it."""
+    assert get_all_domains(osmand) == ["osmand.net"]
 
 
 def test_the_set_aside_hosts_are_counted(osmand):
