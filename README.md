@@ -607,7 +607,11 @@ collects these domains:
   `doubleclick.net` for Google Ads
 - the **deep-link hosts declared in the manifest**, which are often the
   publisher's own site. Links to a platform — the Play store page, a social
-  profile — are skipped: nearly every app declares one.
+  profile — are skipped: nearly every app declares one. So is the whole list
+  when it is longer than ten: an intent filter says which links the app
+  *opens*, and OsmAnd declares 427 hosts (Google Maps in 200 countries, Baidu,
+  Yandex, Apple Maps) because it opens other maps' links, not because it
+  publishes them. The report then says how many hosts were set aside.
 
 For each domain it runs three checks:
 
