@@ -64,6 +64,15 @@ no version in this file has ever matched — 40 is not a month, and
   format and the counts now are too, in both the report and `--augment` mode, and the
   SKIPPED row (package name, no file) loses its zeros the same way.
   `tests/test_excel_not_measured.py` runs the command on a real registry.
+- **`audit --output` refuses a target it cannot write before the scan, without a
+  traceback.** Measured on 2026-10-09 in the published image, `docker run … -v
+  apk:/data:ro … audit /data/fennec.apk --output /data/x.html` ran the whole audit, printed
+  it, and ended in a Rich traceback through `console.save_html` — `OSError: [Errno 30]
+  Read-only file system`. The target was checked for its extension and for its parent
+  directory existing, and a read-only directory exists. So does a directory that happens
+  to carry the report's name. Both are now refused up front with exit code 2 and one line,
+  which is the point of checking the target before the APK is opened.
+  `tests/test_report_target_writable.py`.
 
 ## [2026.44.1] - 2026-10-09
 
