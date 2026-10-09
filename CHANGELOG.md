@@ -52,6 +52,18 @@ no version in this file has ever matched — 40 is not a month, and
   belong to nobody. All of them stay in the list, under "references", as the block has
   always done with a specification URI. `tests/test_hosts_identifiers.py` holds the
   literals as they appear in those DEX files.
+- **A `batch-excel` row that was not analysed keeps its name and shows no counts.**
+  Measured on 2026-10-09 with a registry of eleven F-Droid APKs and one row naming an app
+  whose file was not there: the report wrote that row as `None | None | APK | … | N/A | 0 |
+  0 | 0`. The name and package the registry gave it were gone — a scan that could not open
+  the file knows neither, and the row was built from the result rather than from the
+  registry — so the one line a reader most needs to identify was the one that could not
+  be. "APK" was the dataclass default, not a reading of the file, and three zeros in the
+  columns that get summed and charted said the file had been found to hold nothing, when
+  it had not been found. The score cell was already blank for exactly that reason; the
+  format and the counts now are too, in both the report and `--augment` mode, and the
+  SKIPPED row (package name, no file) loses its zeros the same way.
+  `tests/test_excel_not_measured.py` runs the command on a real registry.
 
 ## [2026.44.1] - 2026-10-09
 

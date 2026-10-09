@@ -93,6 +93,20 @@ def read_apk_list(path: str) -> list[ExcelRow]:
     return rows
 
 
+def _counts(result) -> tuple:
+    """Trackers, sensitive permissions, transfers — or three blanks.
+
+    Blank for a row with no score, the same way the score cell is: a file that
+    was not found, or a row with no file, was not measured to hold zero trackers,
+    and a 0 in these columns is summed and charted alongside real counts.
+    Measured on 2026-10-09: a registry row whose APK was missing came out as
+    `N/A | 0 | 0 | 0`, indistinguishable in the count columns from a clean app.
+    """
+    if result.score is None:
+        return "", "", ""
+    return result.tracker_count, result.sensitive_permission_count, len(result.extra_eu_transfers)
+
+
 def write_results(
     results: list,
     output_path: str,
@@ -166,9 +180,9 @@ def write_results(
                 # sorted and charted alongside real scores.
                 "" if result.score is None else result.score,
                 result.score_label,
-                result.tracker_count,
-                result.sensitive_permission_count,
-                len(result.extra_eu_transfers),
+                # The counts too — see _counts: a file that was never opened has
+                # not been found to hold zero trackers.
+                *_counts(result),
                 tracker_names,
             ]
             for col_idx, value in enumerate(values, last_col):
@@ -183,15 +197,15 @@ def write_results(
             values = [
                 result.app_name or result.package_name,
                 result.package_name,
-                result.apk_format.upper(),
+                # No format for a file that was never opened: "APK" there was
+                # the dataclass default, not a reading of the file.
+                result.apk_format.upper() if result.score is not None else "",
                 result.version_name,
                 # Blank, not 0: a zero in this column gets averaged,
                 # sorted and charted alongside real scores.
                 "" if result.score is None else result.score,
                 result.score_label,
-                result.tracker_count,
-                result.sensitive_permission_count,
-                len(result.extra_eu_transfers),
+                *_counts(result),
                 tracker_names,
                 result.sha256 or "",   # intera: vedi _print_result in cli.py
             ]
