@@ -186,6 +186,26 @@ def extract_sdk_domains(trackers: list) -> list[str]:
     return list(set(domains))
 
 
+# Above this many deep-link hosts, the manifest is not pointing at the publisher's
+# site: it is listing the sites whose links the app opens. OsmAnd~ 5.4.9 declares
+# 427 — maps.google.com and some 200 Google country domains, map.baidu.com,
+# maps.yandex.ru, here.com, maps.apple.com — because it opens links to other
+# maps; NewPipe declares 56 for youtube.com, soundcloud.com, bandcamp.com and a
+# list of PeerTube instances. `audit --full` took each as a domain to analyse,
+# which on OsmAnd meant MailRadar, a TLS handshake and a headless browser against
+# 427 hosts: about three and a half hours, at the ~30 s per domain measured on
+# 2026-10-09, of traffic to Google, Baidu and Yandex about an app that talks to
+# none of them. Ten is well above anything a publisher declares for itself (the
+# most seen is F-Droid's four) and well below any app's list of other people's.
+MAX_DEEP_LINK_DOMAINS = 10
+
+
+def _own_deep_links(hosts) -> list[str]:
+    from apkradar.publisher import is_platform_host
+
+    return [host for host in dict.fromkeys(hosts) if not is_platform_host(host)]
+
+
 def deep_link_domains(hosts) -> list[str]:
     """Deep-link hosts worth auditing: the publisher's own, not the platforms'.
 
@@ -194,12 +214,21 @@ def deep_link_domains(hosts) -> list[str]:
     which nearly all of them do — auditing the mail records and cookies of
     Google's store page once per APK measures nothing about the app.
 
+    And an app declaring dozens is pointing at everybody else's: none of those is
+    audited, see MAX_DEEP_LINK_DOMAINS. `deep_links_set_aside` says which, so the
+    report can give the count without printing the list.
+
     Only deep links are filtered this way. SDK domains come from trackers found
     in the file, where facebook.com is the domain the finding is about.
     """
-    from apkradar.publisher import is_platform_host
+    own = _own_deep_links(hosts)
+    return [] if len(own) > MAX_DEEP_LINK_DOMAINS else own
 
-    return [host for host in dict.fromkeys(hosts) if not is_platform_host(host)]
+
+def deep_links_set_aside(hosts) -> list[str]:
+    """The deep-link hosts not audited because there were too many of them."""
+    own = _own_deep_links(hosts)
+    return own if len(own) > MAX_DEEP_LINK_DOMAINS else []
 
 
 def publisher_domains(result) -> list[str]:

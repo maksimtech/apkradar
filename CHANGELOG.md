@@ -25,7 +25,18 @@ no version in this file has ever matched — 40 is not a month, and
   the whole descriptor) before they count; an APK with no readable code is still read on
   the manifest's word, since "nothing to check against" is not "confirmed absent".
   `tests/test_declared_without_code.py` holds the manifest excerpt as a real APK.
-
+- **`--full` no longer audits every deep-link host of an app that opens other sites'
+  links.** OsmAnd~ 5.4.9 (`net.osmand.plus` 540903) declares 427 deep-link hosts —
+  maps.google.com and some 200 Google country domains, map.baidu.com, maps.yandex.ru,
+  here.com, maps.apple.com — because it opens links to other maps; NewPipe 0.29.1 declares
+  56 for YouTube, SoundCloud, Bandcamp and PeerTube instances. Each was taken as "SDK or
+  deep-link domain found in the APK" and queued for MailRadar, a TLS handshake and a
+  headless browser: on OsmAnd about three and a half hours, at the ~30 s per domain
+  measured on Mastodon the same day, of traffic to Google, Baidu and Yandex about an app
+  that talks to none of them. Above `MAX_DEEP_LINK_DOMAINS` (10; the most a publisher was
+  seen declaring for itself is F-Droid's four) no deep-link host is audited, the report
+  says how many were set aside and why, and the hosts stay in `ScanResult.manifest_domains`
+  as data. `tests/test_deep_links_cap.py` holds 24 of OsmAnd's hosts as a real APK.
 
 ## [2026.44.1] - 2026-10-09
 

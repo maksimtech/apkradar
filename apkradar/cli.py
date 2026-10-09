@@ -471,6 +471,26 @@ def _domains_to_analyse(result):
     return pub, candidates, others
 
 
+def _note_deep_links(result, out=None) -> None:
+    """Say how many deep-link hosts were not analysed, when there were too many.
+
+    A count and the reason, not the list: the hosts are other people's domains —
+    OsmAnd's 427 are Google's, Baidu's, Yandex's and Apple's — and printing them
+    under a heading about this app is what the cap exists to avoid. They are in
+    `result.manifest_domains` for a reader who asks.
+    """
+    from apkradar.utils import deep_links_set_aside
+
+    set_aside = deep_links_set_aside(result.manifest_domains)
+    if not set_aside:
+        return
+    (out or console).print(
+        f"[dim]{len(set_aside)} deep-link hosts declared in the manifest — not "
+        "analysed: an app that opens links from this many sites is a client of "
+        "them, not their publisher.[/dim]"
+    )
+
+
 def _full_stack_domain(domain: str, verbose: bool = False, note: str = "") -> bool:
     """
     Run full stack analysis on a single domain.
@@ -683,6 +703,7 @@ def audit(
                 f"[dim]Not analysed: {escape(str(rejected))} — a helpdesk, "
                 "site builder or social page, not the publisher's own domain.[/dim]"
             )
+        _note_deep_links(result)
         console.print()
 
         # The candidates are analysed once, below. An identical loop also sat
@@ -861,6 +882,7 @@ def batch(
             # Through the same helper as `audit`: batch used to take every domain
             # get_all_domains returned, which included the ones set aside.
             pub, candidates, others = _domains_to_analyse(result)
+            _note_deep_links(result)
             for domain, source in candidates:
                 if domain not in analysed_domains:
                     analysed_domains.add(domain)
