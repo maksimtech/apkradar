@@ -1197,6 +1197,13 @@ def batch_excel(
 
         if row.apk_path:
             result = scan(row.apk_path)
+            if result.error:
+                # A file that could not be opened yields a result that knows
+                # neither name nor package, and the report row built from it
+                # came out as `None | None | … | N/A`: the one line a reader most
+                # needs to identify, unidentifiable. The registry knows both.
+                result.app_name = result.app_name or row.app_name
+                result.package_name = result.package_name or row.package_name
         else:
             # No APK path — create minimal result
             from apkradar.scanner import ScanResult
