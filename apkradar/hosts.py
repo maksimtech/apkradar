@@ -77,7 +77,27 @@ REFERENCE_HOSTS = frozenset({
     "iana.org",
     "unicode.org",
     "oasis-open.org",
+    # Measured on F-Droid builds on 2026-10-09. ExoPlayer's PlayReady code holds
+    # `http://schemas.microsoft.com/DRM/2007/03/protocols/AcquireLicense`, the
+    # SOAPAction of a licence request, and the vendor table below named it as
+    # *Microsoft Corporation (USA)* on Nextcloud, AntennaPod, NewPipe and Fennec
+    # alike — none of which talks to Microsoft. `http://ns.adobe.com/xap/1.0/` is
+    # the XMP namespace of a photo's metadata; `http://xml.org/sax/features/…`
+    # and `http://javax.xml.XMLConstants/feature/…` are parser feature names;
+    # `https://spdx.org/licenses/` is where licence identifiers are defined.
+    "schemas.microsoft.com",
+    "ns.adobe.com",
+    "xml.org",
+    "javax.xml.xmlconstants",
+    "spdx.org",
 })
+
+# Names RFC 2606 reserves for documentation and tests. They resolve to nothing
+# and belong to nobody, so `https://mirror.example.com/fdroid/repo` in F-Droid's
+# code — a sample repository address — is not an endpoint the code can reach.
+# Kept and labelled like the hosts above, for the same reason.
+RESERVED_NAMES = frozenset({"example.com", "example.net", "example.org"})
+RESERVED_TLDS = frozenset({"example", "test", "invalid", "localhost"})
 
 # Hosts belonging to the vendors `scanner.EXTRA_EU_TRANSFERS` already names, so
 # the two findings agree when both see the same company. Keyed on the
@@ -149,10 +169,12 @@ def _valid_host(host: str) -> bool:
 
 
 def is_reference(host: str) -> bool:
-    """Whether `host` is a specification, schema or licence rather than a server."""
+    """Whether `host` is a specification, schema, licence or reserved name rather than a server."""
+    if host.rsplit(".", 1)[-1] in RESERVED_TLDS:
+        return True
     return any(
         host == ref or host.endswith("." + ref)
-        for ref in REFERENCE_HOSTS
+        for ref in REFERENCE_HOSTS | RESERVED_NAMES
     )
 
 

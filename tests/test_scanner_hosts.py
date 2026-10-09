@@ -307,7 +307,7 @@ class ClassificationTestCase(unittest.TestCase):
     def test_a_lookalike_domain_is_not_a_reference(self):
         """Suffix matching has to be segment-aware, or `notw3.org` passes."""
         self.assertFalse(is_reference("notw3.org"))
-        self.assertFalse(is_reference("w3.org.example.com"))
+        self.assertFalse(is_reference("w3.org.acme-weather.net"))
 
     def test_a_known_vendor_is_named(self):
         self.assertEqual(vendor_of("weatherapi.intl.xiaomi.com"), "Xiaomi Corporation (China)")
