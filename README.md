@@ -460,7 +460,7 @@ it is worth reading before comparing two scores.
 
 ### Trackers
 
-APKRadar recognises 43 SDKs, including Google Analytics, Firebase Analytics,
+APKRadar recognises 44 SDKs, including Google Analytics, Firebase Analytics,
 Google Ads, Facebook App Events, Facebook Audience Network, AppsFlyer, Adjust,
 Amplitude, Branch, Mixpanel, Segment, OneSignal, AppLovin, Unity Ads,
 IronSource, TikTok SDK, Yandex Metrica, Crashlytics, Sentry and Huawei
@@ -479,8 +479,10 @@ Each SDK is listed once, with the package that identified it.
 
 ### Sensitive permissions
 
-APKRadar flags 24 Android permissions that give access to personal data. Each
-one is shown with a short description in the "GDPR Concern" column:
+APKRadar flags 28 Android permissions that give access to personal data. Each
+one is shown with a short description in the "GDPR Concern" column
+(`tests/test_readme_counts.py` keeps this table and these numbers equal to the
+code's):
 
 | Area | Permissions |
 |---|---|
@@ -490,6 +492,7 @@ one is shown with a short description in the "GDPR Concern" column:
 | Camera and microphone | `CAMERA`, `RECORD_AUDIO` |
 | Body and biometrics | `BODY_SENSORS`, `BODY_SENSORS_BACKGROUND`, `ACTIVITY_RECOGNITION`, `USE_BIOMETRIC`, `USE_FINGERPRINT` |
 | Storage and calendar | `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `READ_CALENDAR`, `WRITE_CALENDAR` |
+| Advertising identifiers | `AD_ID` (Play services), `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_TOPICS`, `ACCESS_ADSERVICES_ATTRIBUTION` |
 
 These are permissions the app **declares**. Whether a permission is justified
 depends on what the app does. A password manager needs `CAMERA` to scan QR
@@ -741,8 +744,10 @@ part of asking Google.
   operated is not something a static scan can do, and a table guessing at it would
   put legal conclusions about a hundred national weather services into a letter to
   a DPO. The list stops at 500 hosts and says when it did.
-- **Fixed signature lists.** Only the 43 trackers, 23 permissions and 13
-  vendors listed in the code are recognised.
+- **Fixed signature lists.** Only the 44 trackers, 28 permissions and 13
+  vendors listed in the code are recognised. For comparison, the εxodus list
+  held 432 trackers on 2026-10-09: Fennec's Glean telemetry and the ACRA crash
+  reporter in F-Droid and NewPipe are on it and not here.
 - **The publisher domain is still a guess, unless two sources agree.** Both
   the package name and the Play listing can be wrong, and when they disagree
   APKRadar cannot tell you which is right — it shows both, labelled. Check the

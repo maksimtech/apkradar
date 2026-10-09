@@ -81,6 +81,15 @@ no version in this file has ever matched — 40 is not a month, and
   the package column is the finding, and a report file does not know how wide the terminal
   was. The package, permission, prefix and host columns now fold onto the next line.
   `tests/test_report_identifiers_whole.py` renders at 80 and 56 columns.
+- **The README's counts are the code's.** It said "43 SDKs", "24 Android permissions" and,
+  in Known limitations, "43 trackers, 23 permissions": the code recognises 44 SDK names
+  over 46 signatures and 28 permissions, and the permissions table left out the four
+  advertising identifiers (`AD_ID` and the three Privacy Sandbox permissions) added on
+  2026-09-25. `tests/test_readme_counts.py` now reads the numbers and the table from the
+  README and compares them with `scanner.py`, so the next addition fails a test instead of
+  ageing the document. The limitation also names what the list does not have, measured
+  against εxodus (432 trackers on 2026-10-09): Glean and ACRA are the two found in the
+  F-Droid apps audited that day.
 
 ## [2026.44.1] - 2026-10-09
 
