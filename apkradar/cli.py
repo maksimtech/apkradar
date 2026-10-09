@@ -207,10 +207,15 @@ def _print_result(result) -> None:
     # and whoever was analysing did not.
     console.print(f"[dim]SHA256:  {result.sha256}[/dim]\n")
 
+    # Identifiers fold onto the next line rather than end in an ellipsis. Rich's
+    # default for a cell that does not fit is `…`, and at the 80 columns it
+    # settles on through a pipe — which is how a report is saved from a script —
+    # the saved HTML of Fennec's audit held `com.google.android.gms.ads.identifi…`
+    # and nowhere the string `ads.identifier`. The package is the finding.
     if result.trackers:
         t = Table(title=f"🔴 Trackers ({result.tracker_count})", box=box.ROUNDED)
         t.add_column("Tracker", style="red")
-        t.add_column("Package", style="dim")
+        t.add_column("Package", style="dim", overflow="fold")
         for tracker in result.trackers:
             t.add_row(tracker.name, tracker.package)
         console.print(t)
@@ -219,7 +224,7 @@ def _print_result(result) -> None:
 
     if result.sensitive_permissions:
         t = Table(title=f"⚠️  Sensitive Permissions ({result.sensitive_permission_count})", box=box.ROUNDED)
-        t.add_column("Permission", style="yellow")
+        t.add_column("Permission", style="yellow", overflow="fold")
         t.add_column("GDPR Concern", style="dim")
         for perm in result.sensitive_permissions:
             t.add_row(perm.permission.split(".")[-1], perm.description)
@@ -230,7 +235,7 @@ def _print_result(result) -> None:
     if result.extra_eu_transfers:
         t = Table(title=f"🌍 Extra-EU Transfers ({len(result.extra_eu_transfers)})", box=box.ROUNDED)
         t.add_column("Entity", style="magenta")
-        t.add_column("Package Prefix", style="dim")
+        t.add_column("Package Prefix", style="dim", overflow="fold")
         for transfer in result.extra_eu_transfers:
             t.add_row(transfer.entity, transfer.package_prefix)
         console.print(t)
@@ -277,7 +282,7 @@ def _print_hosts(result) -> None:
             title=f"🌍 Of those, under a vendor this tool reports on ({len(vendors)})",
             box=box.ROUNDED,
         )
-        t.add_column("Host", style="magenta")
+        t.add_column("Host", style="magenta", overflow="fold")   # see _print_result: never `…`
         t.add_column("Entity", style="dim")
         for found in vendors:
             t.add_row(Text(found.host), Text(found.entity))
