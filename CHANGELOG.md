@@ -12,6 +12,9 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+
+## [2026.44.1] - 2026-10-09
+
 ### Changed
 
 - **The suite also runs on Python 3.15-dev, as a row that may fail.** 3.15 goes final
@@ -1085,7 +1088,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.44...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...HEAD
+[2026.44.1]: https://github.com/maksimtech/apkradar/compare/v2026.44...v2026.44.1
 [2026.44]: https://github.com/maksimtech/apkradar/compare/v2026.43...v2026.44
 [2026.43]: https://github.com/maksimtech/apkradar/compare/v2026.42...v2026.43
 [2026.42]: https://github.com/maksimtech/apkradar/compare/v2026.41...v2026.42
