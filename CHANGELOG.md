@@ -73,6 +73,14 @@ no version in this file has ever matched — 40 is not a month, and
   to carry the report's name. Both are now refused up front with exit code 2 and one line,
   which is the point of checking the target before the APK is opened.
   `tests/test_report_target_writable.py`.
+- **Report tables fold long identifiers instead of cutting them.** Measured on 2026-10-09:
+  `audit fennec.apk --output report.html` through a pipe — how a report is saved from a
+  script, and where Rich settles on 80 columns — wrote the tracker row as
+  `com.google.android.gms.ads.identifi…`, and the saved HTML held `identifi…` and nowhere
+  the string `ads.identifier`. Rich's default for a cell that does not fit is an ellipsis;
+  the package column is the finding, and a report file does not know how wide the terminal
+  was. The package, permission, prefix and host columns now fold onto the next line.
+  `tests/test_report_identifiers_whole.py` renders at 80 and 56 columns.
 
 ## [2026.44.1] - 2026-10-09
 
