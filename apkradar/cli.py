@@ -6,6 +6,7 @@ Requires: mailradar + cookieradar
 """
 import asyncio
 import contextlib
+import os
 import pathlib
 import re
 import socket
@@ -129,9 +130,18 @@ def _check_report_target(output: str) -> str:
     is not there — are both knowable up front.
     """
     chosen = _report_format(output)
-    parent = Path(output).expanduser().resolve().parent
+    target = Path(output).expanduser().resolve()
+    # Both seen on 2026-10-09: `--output /data/x.html` on a read-only mount in
+    # the published image ran the whole audit and then ended in a traceback from
+    # console.save_html — the directory existed, which was all that was checked.
+    # A directory carrying the report's name fails the same way.
+    if target.is_dir():
+        raise ValueError(f"'{target.name}' is a directory, not a file to write the report to")
+    parent = target.parent
     if not parent.is_dir():
         raise ValueError(f"no directory to write into: {parent}")
+    if not os.access(parent, os.W_OK):
+        raise ValueError(f"cannot write into {parent}: read-only, or no permission")
     return chosen
 
 
