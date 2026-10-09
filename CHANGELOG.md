@@ -37,6 +37,21 @@ no version in this file has ever matched — 40 is not a month, and
   seen declaring for itself is F-Droid's four) no deep-link host is audited, the report
   says how many were set aside and why, and the hosts stay in `ScanResult.manifest_domains`
   as data. `tests/test_deep_links_cap.py` holds 24 of OsmAnd's hosts as a real APK.
+- **Namespace URIs and RFC 2606 names are references, not endpoints — and not vendors.**
+  Measured on 2026-10-09: ExoPlayer's PlayReady code carries
+  `http://schemas.microsoft.com/DRM/2007/03/protocols/AcquireLicense`, the SOAPAction of a
+  licence request, and the hosts block listed it under "a vendor this tool reports on" as
+  *Microsoft Corporation (USA)* on Nextcloud 35.0.1, AntennaPod 3.12.2, NewPipe 0.29.1 and
+  Fennec 157.0.0 alike — none of which talks to Microsoft, and a reader takes that table
+  for a transfer. `ns.adobe.com` (the XMP namespace), `xml.org` and
+  `javax.xml.XMLConstants` (parser feature names) and `spdx.org` (licence identifiers)
+  join the reference list for the same reason. So do the names RFC 2606 reserves for
+  documentation: F-Droid 2.0.1 carries `https://mirror.example.com/fdroid/repo` as a
+  sample address, and example.com, example.net, example.org, three `mirror.example.*` and
+  `dummy.example` were listed as endpoints the code can reach. They resolve to nothing and
+  belong to nobody. All of them stay in the list, under "references", as the block has
+  always done with a specification URI. `tests/test_hosts_identifiers.py` holds the
+  literals as they appear in those DEX files.
 
 ## [2026.44.1] - 2026-10-09
 

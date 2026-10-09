@@ -51,7 +51,7 @@ def test_nothing_carried_prints_no_block(printed):
 
 
 def test_the_count_and_the_refusal_travel_together(printed):
-    text = printed(dex_hosts=["api.example.com", "cdn.example.net"])
+    text = printed(dex_hosts=["api.acme-weather.net", "cdn.acme-weather.org"])
 
     assert "2 endpoints" in text
     assert "not observed in traffic" in text
@@ -60,12 +60,12 @@ def test_the_count_and_the_refusal_travel_together(printed):
 def test_one_endpoint_is_not_called_endpoints(printed):
     # The closing bracket is part of the assertion: without it "1 endpoint" also
     # matches "1 endpoints", which is the thing being ruled out.
-    assert "(1 endpoint)" in printed(dex_hosts=["api.example.com"])
+    assert "(1 endpoint)" in printed(dex_hosts=["api.acme-weather.net"])
 
 
 def test_a_specification_uri_is_counted_apart_from_the_endpoints(printed):
     """`w3.org` arrives as an XML namespace, not as a server the code calls."""
-    text = printed(dex_hosts=["api.example.com", "w3.org"])
+    text = printed(dex_hosts=["api.acme-weather.net", "w3.org"])
 
     assert "1 endpoint" in text
     assert "1 reference" in text
@@ -75,14 +75,14 @@ def test_a_specification_uri_is_counted_apart_from_the_endpoints(printed):
 def test_a_vendor_behind_a_host_is_named(printed):
     """The overlap with the transfer check, and the reason the extraction exists:
     an app can carry Google endpoints while shipping none of Google's SDKs."""
-    text = printed(dex_hosts=["googleapis.com", "api.example.com"])
+    text = printed(dex_hosts=["googleapis.com", "api.acme-weather.net"])
 
     assert "Google LLC (USA)" in text
     assert "under a vendor this tool reports on (1)" in text
 
 
 def test_no_vendor_table_when_no_host_has_one(printed):
-    text = printed(dex_hosts=["api.example.com"])
+    text = printed(dex_hosts=["api.acme-weather.net"])
 
     assert "under a vendor" not in text
 
@@ -90,7 +90,7 @@ def test_no_vendor_table_when_no_host_has_one(printed):
 def test_a_truncated_list_says_where_it_stopped(printed):
     """Silence here would be the worst case in the block: a reader would take a
     capped list for the whole of it."""
-    text = printed(dex_hosts=["api.example.com"], dex_hosts_truncated=True)
+    text = printed(dex_hosts=["api.acme-weather.net"], dex_hosts_truncated=True)
 
     assert "stopped at 1" in text
 
@@ -98,7 +98,7 @@ def test_a_truncated_list_says_where_it_stopped(printed):
 def test_beyond_the_display_limit_the_rest_are_counted_not_listed(printed):
     """The count stays true even though the list is cut — the alternative is a
     dump that has stopped being evidence."""
-    many = [f"h{n:03d}.example.com" for n in range(cli.HOSTS_SHOWN + 5)]
+    many = [f"h{n:03d}.acme-weather.net" for n in range(cli.HOSTS_SHOWN + 5)]
 
     text = printed(dex_hosts=many)
 
@@ -109,7 +109,7 @@ def test_beyond_the_display_limit_the_rest_are_counted_not_listed(printed):
 
 
 def test_a_list_that_fits_is_shown_whole_with_nothing_added(printed):
-    many = [f"h{n:03d}.example.com" for n in range(cli.HOSTS_SHOWN)]
+    many = [f"h{n:03d}.acme-weather.net" for n in range(cli.HOSTS_SHOWN)]
 
     text = printed(dex_hosts=many)
 
