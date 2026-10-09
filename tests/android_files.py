@@ -137,8 +137,18 @@ def binary_xml(source: str) -> bytes:
     return struct.pack("<HHI", _RES_XML_TYPE, 8, 8 + len(body)) + bytes(body)
 
 
-def manifest(package: str, *, activities: tuple[str, ...] = (), hosts: tuple[str, ...] = ()) -> str:
+def manifest(
+    package: str,
+    *,
+    activities: tuple[str, ...] = (),
+    hosts: tuple[str, ...] = (),
+    receivers: tuple[str, ...] = (),
+) -> str:
     """The plain XML of a manifest: one activity per name, one deep link per host.
+
+    A receiver per name too: that is how an SDK's install-referrer receiver is
+    declared, and a declaration left behind by a build that removed the SDK's
+    code is a case the scanner has to tell apart from the SDK itself.
 
     A host is written as a character reference where XML would otherwise
     normalise it, so a CR/LF in one reaches the binary manifest as a CR/LF.
@@ -152,6 +162,8 @@ def manifest(package: str, *, activities: tuple[str, ...] = (), hosts: tuple[str
     components = "".join(
         f'<activity android:name="{name}">{filters if i == 0 else ""}</activity>'
         for i, name in enumerate(activities or (f"{package}.MainActivity",))
+    ) + "".join(
+        f'<receiver android:name="{name}" android:exported="true"/>' for name in receivers
     )
     return (
         f'<manifest {a} package="{package}" android:versionCode="1" android:versionName="1.0">'
@@ -161,8 +173,28 @@ def manifest(package: str, *, activities: tuple[str, ...] = (), hosts: tuple[str
     )
 
 
-def write_apk(path: str | Path, manifest_xml: str) -> str:
-    """An APK at `path` whose AndroidManifest.xml is `manifest_xml`, compiled."""
+def dex_blob(classes=(), urls=()) -> bytes:
+    """Bytes shaped like a classes.dex for the two things the scanner reads from one.
+
+    Derived data, not a DEX a compiler would accept: the header magic, then class
+    descriptors as the DEX string table stores them (`Lcom/example/Main;`, NUL
+    terminated) and string literals for the URLs. The scanner searches the bytes
+    for exactly these forms and parses nothing else, so what is left out is what
+    it never reads. The same shape as `_dex_blob` in tests/test_scanner_dex.py.
+    """
+    body = b"".join(b"L" + c.replace(".", "/").encode() + b";\x00" for c in classes)
+    body += b"".join(b"\x00" + u.encode() + b"\x00" for u in urls)
+    return b"dex\n035\x00" + body
+
+
+def write_apk(path: str | Path, manifest_xml: str, dex: bytes | None = None) -> str:
+    """An APK at `path` whose AndroidManifest.xml is `manifest_xml`, compiled.
+
+    With `dex`, the bytes go in as classes.dex — see `dex_blob`. Without it the
+    APK has no code at all, which is also a case the scanner has to handle.
+    """
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("AndroidManifest.xml", binary_xml(manifest_xml))
+        if dex is not None:
+            z.writestr("classes.dex", dex)
     return str(path)
