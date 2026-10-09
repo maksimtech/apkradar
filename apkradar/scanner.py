@@ -469,6 +469,64 @@ def _packages_in_dex(apk_path: str, packages: set[str]) -> set[str]:
     return found
 
 
+def _classes_in_dex(apk_path: str, classes: set[str]) -> set[str]:
+    """Which of `classes` the APK's DEX files define, as `Lcom/example/Main;`.
+
+    A manifest can declare a component whose class is not in the file. Fennec
+    157.0.0 as F-Droid builds it declares
+    `com.adjust.sdk.AdjustPreinstallReferrerReceiver` and ships no class under
+    `com.adjust` at all: the build is made without the Adjust SDK and the manifest
+    keeps the receiver. Read on the manifest alone, that was "Adjust" in the
+    tracker table and "Adjust GmbH (Germany) → USA" in the transfers — in a letter
+    to Mozilla, about code that is not in the file.
+
+    The whole descriptor, terminated by `;`: `Lcom/adjust/sdk/Adjust;` is not
+    `Lcom/adjust/sdk/AdjustPreinstallReferrerReceiver;`, and the question is
+    whether this component exists, not whether something under its package does.
+
+    Same reading as `_packages_in_dex`: chunked, never raising, returning what
+    was found so far on an APK it cannot read.
+    """
+    patterns = {c: b"L" + c.replace(".", "/").encode() + b";" for c in classes}
+    if not patterns:
+        return set()
+    overlap = max(len(p) for p in patterns.values()) - 1
+    found: set[str] = set()
+    try:
+        with zipfile.ZipFile(apk_path) as z:
+            for name in [n for n in z.namelist() if n.endswith(".dex")]:
+                if not patterns:
+                    break
+                with z.open(name) as fh:
+                    tail = b""
+                    while patterns:
+                        chunk = fh.read(DEX_CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        buf = tail + chunk
+                        for cls in [c for c, pat in patterns.items() if pat in buf]:
+                            found.add(cls)
+                            del patterns[cls]
+                        tail = buf[-overlap:] if overlap else b""
+    except Exception:
+        pass
+    return found
+
+
+def _components_with_code(apk_path: str, declared: set[str]) -> set[str]:
+    """The declared components the code defines — or all of them, if nothing is.
+
+    An APK with no readable DEX cannot confirm anything, and "no code to check
+    against" is not "confirmed absent": the manifest is then taken at its word,
+    which is what every scan did before this check existed. An APK whose code
+    defines none of its own components is read the same way, because that is
+    what an unreadable DEX looks like from here, not what an app looks like.
+    """
+    if not declared:
+        return declared
+    return _classes_in_dex(apk_path, declared) or declared
+
+
 def _fill_publisher(result: ScanResult, apk_path: str | None = None) -> None:
     """Add what Google Play says about the publisher, if it will say anything.
 
@@ -585,8 +643,10 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
                     )
                 )
 
-        # Scan declared components for trackers
-        components = {
+        # Scan declared components for trackers — the ones the code defines. A
+        # declaration the DEX does not back is a leftover of a build that removed
+        # the SDK, not the SDK: see _classes_in_dex.
+        declared = {
             item
             for item in (
                 apk.get_providers()
@@ -596,6 +656,7 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
             )
             if item
         }
+        components = _components_with_code(str(path), declared)
 
         # Match against tracker signatures, in the manifest first. A component
         # under an excepted sub-package does not count as the signature above it,

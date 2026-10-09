@@ -12,6 +12,20 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Fixed
+
+- **A manifest component whose class is not in the DEX is no longer a tracker, nor a
+  transfer.** Fennec 157.0.0 as F-Droid builds it (`org.mozilla.fennec_fdroid` 1570020,
+  SHA-256 `04a5f4d3…47a9`) declares `com.adjust.sdk.AdjustPreinstallReferrerReceiver`
+  and holds no class under `com.adjust` in any of its three DEX files: the build is made
+  without the Adjust SDK and the manifest keeps the receiver. The audit reported "Adjust"
+  and a transfer to "Adjust GmbH (Germany) → USA", and the DPO letter would have put both
+  in front of Mozilla — an allegation about code that is not in the file. Declared
+  components are now confirmed against the DEX (`Lcom/adjust/sdk/Adjust…Receiver;`,
+  the whole descriptor) before they count; an APK with no readable code is still read on
+  the manifest's word, since "nothing to check against" is not "confirmed absent".
+  `tests/test_declared_without_code.py` holds the manifest excerpt as a real APK.
+
 
 ## [2026.44.1] - 2026-10-09
 
