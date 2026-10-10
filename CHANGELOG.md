@@ -12,6 +12,9 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+
+## [2026.45] - 2026-10-10
+
 ### Fixed
 
 - **A manifest component whose class is not in the DEX is no longer a tracker, nor a
@@ -90,6 +93,10 @@ no version in this file has ever matched — 40 is not a month, and
   ageing the document. The limitation also names what the list does not have, measured
   against εxodus (432 trackers on 2026-10-09): Glean and ACRA are the two found in the
   F-Droid apps audited that day.
+
+### Changed
+
+- **mailradar 2026.44 and cookieradar 2026.44 are now the floor.** Both carry the fixes their own real-world runs found — GPG credited only when the keyserver verifies the address, all 33 DKIM selectors asked; TrustArc and Usercentrics refusals clicked, an error page in any session reported as NOT MEASURED — and apkradar's audit leans on those checks. `pip install -U apkradar` brings them along.
 
 ## [2026.44.1] - 2026-10-09
 
@@ -1166,7 +1173,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.45...HEAD
+[2026.45]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...v2026.45
 [2026.44.1]: https://github.com/maksimtech/apkradar/compare/v2026.44...v2026.44.1
 [2026.44]: https://github.com/maksimtech/apkradar/compare/v2026.43...v2026.44
 [2026.43]: https://github.com/maksimtech/apkradar/compare/v2026.42...v2026.43

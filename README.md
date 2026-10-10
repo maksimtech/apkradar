@@ -92,7 +92,7 @@ Check the installation:
 
 ```
 $ apkradar --version
-APKRadar 2026.44.1
+APKRadar 2026.45
 ```
 
 ## Commands
@@ -111,7 +111,7 @@ Run `apkradar <command> --help` for the full list of options.
 
 ## Usage
 
-The examples below are real output from APKRadar 2026.44.1, with public
+The examples below are real output from APKRadar 2026.45, with public
 builds of Bitwarden (GitHub release `v2026.9.0-bwpm`, SHA-256
 `954967bb3c9b940c16edb981242461b03c34f0e60671f42793c07a46190d64b3`),
 Wikipedia and Nextcloud (F-Droid). Colours are not shown.
