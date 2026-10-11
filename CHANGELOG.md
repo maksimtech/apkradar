@@ -28,6 +28,13 @@ no version in this file has ever matched — 40 is not a month, and
   which serves the same document byte for byte; if that fails, the fallback to EUR-Lex applies.
   Checked live: the GDPR came back whole over two HTTPS requests. The test replays Cellar's
   recorded 303.
+- **Importing google-play-scraper switched certificate checks off for the whole process.** Its
+  request module (1.2.7) sets `ssl._create_default_https_context` to the unverified context on
+  import, so every urllib request, the Play Store lookups included, accepted any certificate.
+  ApkRadar's other requests use httpx and were not affected. `search_cmd` now puts the default
+  back as soon as the import returns. Tested against a real TLS server on 127.0.0.1 with an
+  untrusted certificate: refused by default, accepted after importing the library alone,
+  refused again after importing it through ApkRadar. A live lookup of com.whatsapp still works.
 
 
 ## [2026.45] - 2026-10-10
