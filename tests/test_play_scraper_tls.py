@@ -83,7 +83,9 @@ SERVER = textwrap.dedent(
 
 def _fetch_after(statements: str) -> str:
     code = SERVER + "\n" + textwrap.dedent(statements) + "\nprint(fetch())\n"
-    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+    done = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8", timeout=120
+    )
     assert done.returncode == 0, done.stderr
     return done.stdout.strip().splitlines()[-1]
 
