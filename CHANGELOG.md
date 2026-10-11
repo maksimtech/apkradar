@@ -42,6 +42,49 @@ no version in this file has ever matched — 40 is not a month, and
   untrusted certificate: refused by default, accepted after importing the library alone,
   refused again after importing it through ApkRadar. A live lookup of com.whatsapp still works.
 
+### Added
+
+- **`docs/nis2-compliance.md`: the answers to the seven questions a customer subject to NIS2
+  asks a software supplier, with only what the repository can back.** Written in Italian, for
+  customers under d.lgs. 138/2024. Where the answer is "no" it says no: there is no penetration
+  test, no second reviewer and no access control, because a CLI has no users. It says what
+  leaves the machine and which command sends it: the package name to Google Play and, when
+  Play has no listing, to DuckDuckGo; the act cited to the Publications Office or EUR-Lex,
+  and act and article to Normattiva, from every `audit` that has something to cite,
+  `--offline` included; with `--full`, the publisher's domain and the known domains of every SDK found —
+  all 38 of them listed — to MailRadar's DNS and keyserver lookups, a TLS handshake and
+  CookieRadar's browser; and with `send`, the letter, whose contents are listed, to the SMTP
+  server and the address given. `batch` without `--full` and `batch-excel` contact nothing.
+  It also says that google-play-scraper turns off certificate verification for `urllib` when
+  it is imported, so the Play lookup is not verified. `tests/test_nis2_evidence.py` compares
+  the host tables with the hosts named in apkradar's network modules and in the modules of
+  mailradar, cookieradar and google-play-scraper that apkradar's calls run, and holds the
+  command table, the SDK list, the letter, the image user, the cache path, the release files
+  and the scanners to what the document says. It refuses "NIS2-ready", "no data sent to third
+  parties" and similar claims in the document, in `SECURITY.md` and in the README.
+- **Every release carries SBOMs and dated scans** (`.github/workflows/sbom.yml`): CycloneDX 1.5
+  of the image, Debian packages included (Syft), and of the Python environment
+  (cyclonedx-py), plus Trivy reports of the image and of the repository at the tag, and a
+  note saying which commit and image digest they describe and that a CVE scan is not a
+  penetration test. It runs after the image of the tag has been pushed, and on demand for a
+  release that is already out.
+- **`SECURITY.md` says how vulnerabilities are found, how fast they are answered, how
+  customers are told and how to roll back.** A fix ships with the next release; for CVSS 9.0
+  or more, customers who gave a security contact hear within 48 hours. The table of supported
+  versions named `2026.09.x`, a series that ended in September, and the paragraph on "Known
+  Open CVEs", last reviewed on 2026-09-12, are gone: `SECURITY-EXCEPTIONS.toml` is where the
+  accepted ones are, each with a review date.
+- **`uv.lock`**, written with uv 0.12.18, and a Quality step that fails when it falls behind
+  `pyproject.toml`.
+
+### Fixed
+
+- **The licence gate had never refused anything.** `pip-licenses --fail-on="GPL;AGPL;LGPL"`
+  compares whole licence strings, and no package declares just "GPL": they declare "GNU
+  Lesser General Public License v2 or later (LGPLv2+)" and the like — measured in mailradar
+  on 2026-10-11, exit 0 without `--partial-match` and exit 1 with it, with chardet 5.2.0
+  installed. The flag is there now; APKRadar's runtime dependencies, installed in a clean
+  environment the same day, pass it.
 
 ## [2026.45] - 2026-10-10
 
