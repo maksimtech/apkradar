@@ -334,11 +334,20 @@ def test_the_user_agent_claim_is_the_code_s(doc):
 
 def test_the_play_library_s_unverified_tls_is_declared(doc):
     """google-play-scraper turns certificate verification off for urllib when it
-    is imported. If a release of it stops doing so, the paragraph goes."""
+    is imported. Since 2026-10-11 ApkRadar imports it through
+    _import_play_scraper, which puts the default back (tests/test_play_scraper_tls.py
+    proves it on a real TLS server); the paragraph says both. If a release of the
+    library stops doing so, the paragraph goes."""
     line = "ssl._create_default_https_context = ssl._create_unverified_context"
     request = (_package_dir("google_play_scraper") / "utils" / "request.py").read_text(encoding="utf-8")
     assert line in request
     assert f"`{line}`" in doc and "`google_play_scraper/utils/request.py`" in doc
+    search = (PACKAGE / "search_cmd.py").read_text(encoding="utf-8")
+    assert "ssl._create_default_https_context = default" in search
+    text = prose(doc)
+    assert "`_import_play_scraper`" in text
+    assert "anche la richiesta a play.google.com verifica il certificato" in text
+    assert "La richiesta a play.google.com non verifica quindi il certificato" not in text
 
 
 def test_the_cache_declared_is_the_one_written(doc, monkeypatch, tmp_path):

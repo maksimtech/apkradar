@@ -107,10 +107,12 @@ normative), non vengono raggiunti da APKRadar.
 La libreria google-play-scraper, quando viene importata, disattiva la verifica dei
 certificati per le richieste HTTPS fatte con `urllib`
 (`ssl._create_default_https_context = ssl._create_unverified_context`, in
-`google_play_scraper/utils/request.py`). La richiesta a play.google.com non verifica
-quindi il certificato del server: chi controlla la rete può leggere il nome del
-pacchetto e alterare la risposta, compreso il sito dello sviluppatore che APKRadar
-usa come candidato per il dominio del publisher. Le altre connessioni HTTPS di
+`google_play_scraper/utils/request.py`). APKRadar la importa attraverso
+`_import_play_scraper`, che rimette la verifica predefinita appena l'import è finito:
+dal 2026-10-11 anche la richiesta a play.google.com verifica il certificato del
+server. Fino a quel giorno non lo verificava, e chi controllava la rete poteva leggere
+il nome del pacchetto e alterare la risposta, compreso il sito dello sviluppatore che
+APKRadar usa come candidato per il dominio del publisher. Le altre connessioni HTTPS di
 APKRadar non usano `urllib` e verificano il certificato; la verifica "in vendita",
 descritta più sotto, ripiega su `http://` in chiaro quando HTTPS fallisce.
 
