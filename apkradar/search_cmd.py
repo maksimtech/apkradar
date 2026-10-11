@@ -22,7 +22,9 @@ ever fetched when the store did say no.
 """
 from __future__ import annotations
 
+import ssl
 from dataclasses import dataclass
+from typing import Any
 
 # What google_play_scraper asks for unless told otherwise. Kept as the default so
 # that no result changes silently, and recorded in every AppInfo so that a report
@@ -78,6 +80,26 @@ class AppInfo:
         return self.status == UNKNOWN
 
 
+def _import_play_scraper() -> tuple[Any, type[Exception]]:
+    """Import google-play-scraper without letting it switch TLS verification off.
+
+    Its request module (1.2.7) runs `ssl._create_default_https_context =
+    ssl._create_unverified_context` on import, which turns certificate checks off
+    for every urllib request in the process — the Play Store lookups themselves
+    included, so the developer website taken as the publisher's domain could be
+    rewritten by anyone on the path. The default is put back as soon as the import
+    returns; the module is imported once per process, so nothing runs it again.
+    tests/test_play_scraper_tls.py checks it against a real TLS server.
+    """
+    default = ssl._create_default_https_context
+    try:
+        from google_play_scraper import app
+        from google_play_scraper.exceptions import NotFoundError
+    finally:
+        ssl._create_default_https_context = default
+    return app, NotFoundError
+
+
 def lookup(
     package_name: str,
     *,
@@ -121,8 +143,7 @@ def lookup(
         )
 
     try:
-        from google_play_scraper import app
-        from google_play_scraper.exceptions import NotFoundError
+        app, NotFoundError = _import_play_scraper()  # noqa: N806 - the library's class
     except ImportError as exc:                       # nobody asked the store
         return no_listing(UNKNOWN, f"google-play-scraper unavailable: {exc}")
 
