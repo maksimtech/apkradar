@@ -23,6 +23,7 @@ apkradar audit app.apk
 - [Supported formats](#supported-formats)
 - [Full stack analysis with MailRadar and CookieRadar](#full-stack-analysis-with-mailradar-and-cookieradar)
 - [Known limitations](#known-limitations)
+- [Security](#security)
 - [Development](#development)
 - [License](#license)
 
@@ -760,6 +761,22 @@ part of asking Google.
 - **DPO letter in Italian only** (see [Send a GDPR letter](#send-a-gdpr-letter-to-the-dpo)).
 - **Options not yet implemented.** Two options are accepted and have no
   effect: `audit --lang` (reports are in English) and `search --audit`.
+
+## Security
+
+Report a vulnerability as described in [SECURITY.md](SECURITY.md), which also gives
+the response times, how customers are told and how to roll back.
+
+Every GitHub release carries CycloneDX SBOMs of the Docker image and of the Python
+environment, and dated Trivy reports of the image and of the repository at the tag.
+They are an automated scan for known vulnerabilities, not a penetration test.
+
+For customers subject to NIS2, [docs/nis2-compliance.md](docs/nis2-compliance.md)
+(in Italian) answers the seven questions a supplier of software gets asked: what the
+software is made of, which hosts it contacts and with what data — Google Play,
+DuckDuckGo, the law sources and, with `--full`, the domains of the publisher and of
+the SDKs found —, what `send` mails and to whom, how it is checked before release,
+and what it does not have.
 
 ## Development
 
