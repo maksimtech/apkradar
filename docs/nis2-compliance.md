@@ -254,12 +254,14 @@ con copertura inviata a Codecov), ruff e mypy nel workflow Quality. Sul reposito
 sono attivi anche il secret scanning di GitHub e la push protection (impostazioni
 lette il 2026-10-11).
 
-Le regole del ramo `main`, lette dalle impostazioni del repository il 2026-10-11,
+Le regole del ramo `main`, lette dalle impostazioni del repository il 2026-10-12,
 vietano la cancellazione e la riscrittura della storia, richiedono una storia lineare,
 una pull request con zero approvazioni richieste e unione solo per rebase, e due
 controlli superati: Tests e Quality. CodeQL e Security Posture girano su ogni pull
-request ma non sono tra i controlli obbligatori. L'account del manutentore
-(`maksimtech`) è configurato per poter scavalcare queste regole.
+request ma non sono tra i controlli obbligatori. Non prevedono eccezioni, nemmeno per
+l'account del manutentore: anche il commit che aggiorna il numero di versione arriva
+su `main` attraverso una pull request. Fino a quel giorno l'account del manutentore
+(`maksimtech`) era configurato per poterle scavalcare.
 
 APKRadar ha un manutentore unico. Non c'è nessuna revisione obbligatoria da parte di
 una seconda persona: le pull request vengono unite dal manutentore stesso. È un
