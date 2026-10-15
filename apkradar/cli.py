@@ -904,6 +904,71 @@ def observe(
         console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
 
 
+@app.command(name="observe-device")
+def observe_device(
+    package: str = typer.Argument(..., help="Package name of the app, installed on the device"),
+    out: str = typer.Option(..., "--out", help="Directory for the app's APKs, the capture and the screenshot"),
+    seconds: int = typer.Option(60, "--seconds", help="How long the app runs while it is captured"),
+    clear_data: bool = typer.Option(
+        False, "--clear-data",
+        help="Clear the app's data on the device first (pm clear), so the run is a first launch",
+    ),
+    serial: str = typer.Option(None, "--serial", help="adb serial of the device, when more than one is connected"),
+    wait: int = typer.Option(60, "--wait", help="Seconds to wait for the capture to be allowed on the phone"),
+    adb: str = typer.Option("adb", "--adb", help="The adb program"),
+    output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
+):
+    """
+    Run an app on a device over adb while PCAPdroid captures it, then report as observe does.
+    Needs adb and, on the device, PCAPdroid; nothing on the phone is tapped for you.
+    """
+    from apkradar import device
+    from apkradar import observe as runtime
+    from apkradar.scanner import scan, set_library_logging
+
+    set_library_logging(False)
+    target = Path(out).expanduser()
+    if target.exists() and not target.is_dir():
+        console.print(f"[red]{escape(out)} is a file, not a directory to write into[/red]")
+        raise typer.Exit(2)
+    chosen = None
+    if output:
+        # The report may go beside the capture, into the directory the run makes.
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            chosen = _check_report_target(output)
+        except ValueError as exc:
+            console.print(f"[red]{escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
+
+    try:
+        run = device.observe_app(
+            device.Device([adb], serial=serial), package, target, seconds=seconds, clear_data=clear_data,
+            confirm_timeout=wait, say=lambda line: console.print(f"[cyan]{escape(line)}[/cyan]"),
+        )
+        captured = runtime.read_capture(run.capture)
+    except (device.DeviceError, runtime.CaptureError, OSError) as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    brought = ", ".join(escape(str(p)) for p in (*run.apks, run.capture, run.screenshot))
+    console.print(f"[dim]Brought back: {brought}[/dim]")
+    if output:
+        console.record = True
+
+    audited, against = escape(str(run.apks[0])), escape(str(run.capture))
+    console.print(f"\n[dim]Auditing [bold]{audited}[/bold] against {against}...[/dim]")
+    with _status("[cyan]Analyzing APK...[/cyan]"):
+        result = scan(str(run.apks[0]))
+    _print_result(result)
+    if result.error:
+        raise typer.Exit(1)
+    _print_runtime(result, captured)
+
+    if output and chosen:
+        _save_report(output, chosen)
+        console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
+
+
 _BATCH_STATUS = {
     "CRITICAL": "🔴 CRITICAL",
     "POOR": "🟠 POOR",

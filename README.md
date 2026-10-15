@@ -68,6 +68,7 @@ The findings are a good basis for questions to a controller, which is how
 testing (observing the app's network traffic). `apkradar observe` takes one step
 in that direction: given a capture recorded while the app ran, it lists the hosts
 the app contacted and which of them the code carries — names, not content.
+`apkradar observe-device` takes that capture itself, from a phone on adb.
 
 ## Installation
 
@@ -110,6 +111,7 @@ APKRadar 2026.45
 | `apkradar send <file> ...` | Audit an app and send a GDPR letter to the publisher's DPO |
 | `apkradar observe <file> --capture <capture.pcap>` | Audit the app, then list the hosts it contacted in a network capture against the hosts its code carries; contacts nothing |
 | `apkradar observe <file> --decrypted <flows.har>` | Audit the app, then read its Google Mobile Ads requests in decrypted traffic (child-directed tag, advertising ID, consent string); contacts nothing |
+| `apkradar observe-device <package> --out <dir>` | Run the app on a phone over adb while PCAPdroid captures it, bring back its APKs, the capture and a screenshot, then report as `observe --capture` does |
 | `apkradar --version` | Print the installed version |
 
 Run `apkradar <command> --help` for the full list of options.
@@ -455,6 +457,33 @@ maximum content rating. Requests marked `adtest=on` come from a device the SDK
 treats as a test device, such as an emulator, and `observe` says so: what a
 phone is served may differ.
 
+### Observe an app on a phone
+
+`observe-device` takes the capture instead of reading one. With the phone on
+[adb](https://developer.android.com/tools/adb) (USB debugging on) and PCAPdroid
+installed and run once, to grant its VPN permission:
+
+```
+apkradar observe-device com.example.app --out run1 --clear-data --seconds 60
+```
+
+It pulls the app's APKs, asks PCAPdroid to capture that app alone, launches it,
+lets it run, takes a screenshot, stops the capture and brings the files into
+`run1` — `base.apk` and any splits, `capture.pcap`, `screenshot.png` — removing
+them from the phone. Then it reports on `base.apk` and the capture as
+`observe --capture` does.
+
+PCAPdroid asks on the phone before it lets another app drive a capture.
+APKRadar does not tap it for you: tap **Allow** when it appears, within the
+`--wait` seconds (60 by default). If nobody does, PCAPdroid is closed, so the
+request cannot be allowed later. A capture already running is refused, since
+PCAPdroid would drop this run's request.
+
+`--clear-data` runs `pm clear` on the app first, which deletes its data on the
+phone, so the run is a first launch; without it the app keeps its data. Use
+`--serial` when more than one device is connected and `--adb` when adb is not
+on the PATH.
+
 ## Reading the results
 
 ### Score
@@ -771,9 +800,13 @@ part of asking Google.
   (`split_*`) or configuration splits (`config.*`) are not seen. Plain `.apk`
   files downloaded from a split install have the same limitation, because only
   that one file is analysed.
-- **Static analysis only.** APKRadar does not run the app or observe its
-  network traffic. It cannot tell whether an SDK is active, what it sends, or
-  whether consent is collected first.
+- **Static analysis, save for `observe` and `observe-device`.** `audit`, `batch`
+  and `send` do not run the app or observe its network traffic: they cannot tell
+  whether an SDK is active, what it sends, or whether consent is collected first.
+  `observe` reads hosts from a capture and, from decrypted traffic, the Google
+  Mobile Ads requests alone; `observe-device` takes the capture on a phone but
+  only launches the app — a run shows what the app does untouched, not what
+  happens once someone uses it.
 - **Declared permissions, not effective ones.** Permissions are counted as
   declared in the manifest. Restrictions such as `maxSdkVersion` are not taken
   into account. For example, the Wikipedia app declares `GET_ACCOUNTS` only up

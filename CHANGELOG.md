@@ -44,6 +44,19 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Added
 
+- **`apkradar observe-device <package> --out <dir>`: the capture, taken on a phone over adb.**
+  It pulls the app's APKs, has PCAPdroid capture that app alone through its CaptureCtrl requests,
+  launches it, lets it run for `--seconds`, takes a screenshot, stops the capture, brings the files
+  back, removes them from the phone and reports as `observe --capture` does. PCAPdroid asks the
+  operator to allow the capture and APKRadar never taps the phone: if nobody allows it within
+  `--wait` seconds, PCAPdroid is closed, so the request cannot be allowed later. A capture already
+  running is refused. That case was seen on 2026-10-15: the run's request was dropped, the file it
+  named never appeared, and the capture already running left a 0-byte file. The pull waits for the capture service to end, because three
+  seconds after the stop request the file was still growing (836,839 to 837,511 bytes).
+  `--clear-data` (`pm clear`) is opt-in, since it deletes the app's data on the phone. The package
+  name is checked before it reaches `adb shell`. The tests run adb as a program that replays output
+  recorded from a Motorola moto g17 with PCAPdroid 1.9.1.
+
 - **`apkradar observe --decrypted <flows.har>`: what the app's ad requests asked for.** A capture
   names hosts; decrypted traffic exported as HAR (mitmproxy's `hardump`, HTTP Toolkit, Charles, a
   browser) says what was sent. `observe` reads the Google Mobile Ads requests (`/mads/gma`) for the

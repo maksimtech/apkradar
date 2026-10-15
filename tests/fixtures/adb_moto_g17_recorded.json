@@ -1,0 +1,291 @@
+{
+ "_about": "Real adb output from a Motorola moto g17 (Android 15) with PCAPdroid 1.9.1, recorded on 2026-10-15 while observing com.gameitech.preschool.abc123.tracing.learning. Each entry is one adb call as run (pull entries keep only the remote path) and what it returned, unedited. capture_waiting_confirmation is the services dump two seconds after the start request, while PCAPdroid waited for the operator to allow the capture; capture_stopping is the dump three seconds after the stop request.",
+ "results": {
+  "package_paths": {
+   "args": [
+    "shell",
+    "pm",
+    "path",
+    "com.gameitech.preschool.abc123.tracing.learning"
+   ],
+   "returncode": 0,
+   "stdout": "package:/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/base.apk\npackage:/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/split_config.arm64_v8a.apk\n",
+   "stderr": ""
+  },
+  "package_not_installed": {
+   "args": [
+    "shell",
+    "pm",
+    "path",
+    "org.example.not.installed"
+   ],
+   "returncode": 1,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pcapdroid_listed": {
+   "args": [
+    "shell",
+    "pm",
+    "list",
+    "packages",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "package:com.emanuelef.remote_capture\n",
+   "stderr": ""
+  },
+  "nothing_listed": {
+   "args": [
+    "shell",
+    "pm",
+    "list",
+    "packages",
+    "org.example.not.installed"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "no_capture": {
+   "args": [
+    "shell",
+    "dumpsys",
+    "activity",
+    "services",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)\n",
+   "stderr": ""
+  },
+  "capture_waiting_confirmation": {
+   "args": [
+    "shell",
+    "dumpsys",
+    "activity",
+    "services",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)\n",
+   "stderr": ""
+  },
+  "capture_running": {
+   "args": [
+    "shell",
+    "dumpsys",
+    "activity",
+    "services",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  User 0 active services:\n  * ServiceRecord{e226a8c u0 com.emanuelef.remote_capture/.CaptureService c:com.emanuelef.remote_capture}\n    intent={cmp=com.emanuelef.remote_capture/.CaptureService}\n    packageName=com.emanuelef.remote_capture\n    processName=com.emanuelef.remote_capture\n    targetSdkVersion=37\n    permission=android.permission.BIND_VPN_SERVICE\n    baseDir=/data/app/~~P-BqWVp4R29fHXbjK511UQ==/com.emanuelef.remote_capture-K-yWMQmH9qcrimfQ6RTuRA==/base.apk\n    dataDir=/data/user/0/com.emanuelef.remote_capture\n    app=ProcessRecord{831688 6768:com.emanuelef.remote_capture/u0a264}\n    useNewWiuLogic_forCapabilities()=true\n    useNewWiuLogic_forStart()=true\n    useNewBfslLogic()=true\n    mAllowWiu_noBinding=PROC_STATE_TOP\n    mAllowWiu_inBindService=PROC_STATE_TOP\n    mAllowWiu_byBindings=DENIED\n    getFgsAllowWiu_legacy=PROC_STATE_TOP\n    getFgsAllowWiu_new=PROC_STATE_TOP\n    getFgsAllowWiu_forStart=PROC_STATE_TOP\n    getFgsAllowWiu_forCapabilities=PROC_STATE_TOP\n    allowUiJobScheduling=true\n    recentCallingPackage=android\n    recentCallingUid=10264\n    mAllowStart_noBinding=PROC_STATE_TOP\n    mAllowStart_inBindService=PROC_STATE_TOP\n    mAllowStart_byBindings=DENIED\n    getFgsAllowStart_legacy=PROC_STATE_TOP\n    getFgsAllowStart_new=PROC_STATE_TOP\n    getFgsAllowStart=PROC_STATE_TOP\n    startForegroundCount=1\n    infoAllowStartForeground=[callingPackage: android; callingUid: 10264; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=android.net.VpnService cmp=com.emanuelef.remote_capture/.CaptureService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:37; callerTargetSdkVersion:35; startForegroundCount:1; bindFromPackage:null: isBindService:true]\n    isForeground=true foregroundId=1 types=0x40000000 foregroundNoti=Notification(channel=VPNService shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|FOREGROUND_SERVICE color=0xff6c52ab category=status vis=PUBLIC)\n    createTime=-527ms startingBgTimeout=--\n    lastActivity=-427ms restartTime=-525ms createdFromFg=true\n    startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=1\n startCommandResult=1\n    Bindings:\n    * IntentBindRecord{f94efe4 CREATE}:\n      intent={act=android.net.VpnService cmp=com.emanuelef.remote_capture/.CaptureService}\n      binder=android.os.BinderProxy@1d9cc4d\n      requested=true received=true hasBound=true doRebind=false\n      * Client AppBindRecord{689a302 ProcessRecord{a7ec7f2 1545:system/1000}}\n        Per-process Connections:\n          ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n    All Connections:\n      ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n\n  Connection bindings to services:\n  * ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n    binding=AppBindRecord{689a302 com.emanuelef.remote_capture/.CaptureService:system}\n    conn=android.app.LoadedApk$ServiceDispatcher$InnerConnection@13eb99a flags=0x4000001\n",
+   "stderr": ""
+  },
+  "capture_stopping": {
+   "args": [
+    "shell",
+    "dumpsys",
+    "activity",
+    "services",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  User 0 active services:\n  * ServiceRecord{e226a8c u0 com.emanuelef.remote_capture/.CaptureService c:com.emanuelef.remote_capture}\n    intent={cmp=com.emanuelef.remote_capture/.CaptureService}\n    packageName=com.emanuelef.remote_capture\n    processName=com.emanuelef.remote_capture\n    targetSdkVersion=37\n    permission=android.permission.BIND_VPN_SERVICE\n    baseDir=/data/app/~~P-BqWVp4R29fHXbjK511UQ==/com.emanuelef.remote_capture-K-yWMQmH9qcrimfQ6RTuRA==/base.apk\n    dataDir=/data/user/0/com.emanuelef.remote_capture\n    app=ProcessRecord{831688 6768:com.emanuelef.remote_capture/u0a264}\n    useNewWiuLogic_forCapabilities()=true\n    useNewWiuLogic_forStart()=true\n    useNewBfslLogic()=true\n    mAllowWiu_noBinding=PROC_STATE_TOP\n    mAllowWiu_inBindService=PROC_STATE_TOP\n    mAllowWiu_byBindings=DENIED\n    getFgsAllowWiu_legacy=PROC_STATE_TOP\n    getFgsAllowWiu_new=PROC_STATE_TOP\n    getFgsAllowWiu_forStart=PROC_STATE_TOP\n    getFgsAllowWiu_forCapabilities=PROC_STATE_TOP\n    allowUiJobScheduling=true\n    recentCallingPackage=android\n    recentCallingUid=10264\n    mAllowStart_noBinding=PROC_STATE_TOP\n    mAllowStart_inBindService=PROC_STATE_TOP\n    mAllowStart_byBindings=DENIED\n    getFgsAllowStart_legacy=PROC_STATE_TOP\n    getFgsAllowStart_new=PROC_STATE_TOP\n    getFgsAllowStart=PROC_STATE_TOP\n    startForegroundCount=1\n    infoAllowStartForeground=[callingPackage: android; callingUid: 10264; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=android.net.VpnService cmp=com.emanuelef.remote_capture/.CaptureService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:37; callerTargetSdkVersion:35; startForegroundCount:1; bindFromPackage:null: isBindService:true]\n    isForeground=true foregroundId=1 types=0x40000000 foregroundNoti=Notification(channel=VPNService shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE color=0xff6c52ab category=status vis=PUBLIC)\n    createTime=-25s467ms startingBgTimeout=--\n    lastActivity=-25s367ms restartTime=-25s465ms createdFromFg=true\n    startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=1\n startCommandResult=1\n    Bindings:\n    * IntentBindRecord{f94efe4 CREATE}:\n      intent={act=android.net.VpnService cmp=com.emanuelef.remote_capture/.CaptureService}\n      binder=android.os.BinderProxy@1d9cc4d\n      requested=true received=true hasBound=true doRebind=false\n      * Client AppBindRecord{689a302 ProcessRecord{a7ec7f2 1545:system/1000}}\n        Per-process Connections:\n          ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n    All Connections:\n      ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n\n  Connection bindings to services:\n  * ConnectionRecord{b5e22cb u0 CR FGS com.emanuelef.remote_capture/.CaptureService:@13eb99a flags=0x4000001}\n    binding=AppBindRecord{689a302 com.emanuelef.remote_capture/.CaptureService:system}\n    conn=android.app.LoadedApk$ServiceDispatcher$InnerConnection@13eb99a flags=0x4000001\n",
+   "stderr": ""
+  },
+  "wake": {
+   "args": [
+    "shell",
+    "input",
+    "keyevent",
+    "KEYCODE_WAKEUP"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "app_stopped": {
+   "args": [
+    "shell",
+    "am",
+    "force-stop",
+    "com.gameitech.preschool.abc123.tracing.learning"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "app_data_cleared": {
+   "args": [
+    "shell",
+    "pm",
+    "clear",
+    "com.gameitech.preschool.abc123.tracing.learning"
+   ],
+   "returncode": 0,
+   "stdout": "Success\n",
+   "stderr": ""
+  },
+  "capture_start_sent": {
+   "args": [
+    "shell",
+    "am",
+    "start",
+    "-e",
+    "action",
+    "start",
+    "-e",
+    "pcap_dump_mode",
+    "pcap_file",
+    "-e",
+    "pcap_name",
+    "apkradar-observe.pcap",
+    "-e",
+    "app_filter",
+    "com.gameitech.preschool.abc123.tracing.learning",
+    "-n",
+    "com.emanuelef.remote_capture/.activities.CaptureCtrl"
+   ],
+   "returncode": 0,
+   "stdout": "Starting: Intent { cmp=com.emanuelef.remote_capture/.activities.CaptureCtrl (has extras) }\n",
+   "stderr": ""
+  },
+  "app_launched": {
+   "args": [
+    "shell",
+    "monkey",
+    "-p",
+    "com.gameitech.preschool.abc123.tracing.learning",
+    "-c",
+    "android.intent.category.LAUNCHER",
+    "1"
+   ],
+   "returncode": 0,
+   "stdout": "  bash arg: -p\n  bash arg: com.gameitech.preschool.abc123.tracing.learning\n  bash arg: -c\n  bash arg: android.intent.category.LAUNCHER\n  bash arg: 1\nEvents injected: 1\n## Network stats: elapsed time=59ms (0ms mobile, 0ms wifi, 59ms not connected)\n",
+   "stderr": "args: [-p, com.gameitech.preschool.abc123.tracing.learning, -c, android.intent.category.LAUNCHER, 1]\n arg: \"-p\"\n arg: \"com.gameitech.preschool.abc123.tracing.learning\"\n arg: \"-c\"\n arg: \"android.intent.category.LAUNCHER\"\n arg: \"1\"\ndata=\"com.gameitech.preschool.abc123.tracing.learning\"\ndata=\"android.intent.category.LAUNCHER\"\n"
+  },
+  "screenshot_taken": {
+   "args": [
+    "shell",
+    "screencap",
+    "-p",
+    "/sdcard/Download/apkradar-observe.png"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "capture_stop_sent": {
+   "args": [
+    "shell",
+    "am",
+    "start",
+    "-e",
+    "action",
+    "stop",
+    "-n",
+    "com.emanuelef.remote_capture/.activities.CaptureCtrl"
+   ],
+   "returncode": 0,
+   "stdout": "Starting: Intent { cmp=com.emanuelef.remote_capture/.activities.CaptureCtrl (has extras) }\n",
+   "stderr": ""
+  },
+  "apk_pulled": {
+   "args": [
+    "pull",
+    "/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/base.apk"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": "/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/base.apk: 1 file pulled, 0 skipped. 36.6 MB/s (26884453 bytes in 0.700s)\n"
+  },
+  "split_pulled": {
+   "args": [
+    "pull",
+    "/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/split_config.arm64_v8a.apk"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": "/data/app/~~uKHG5H9QDPWTv72Jd76DRQ==/com.gameitech.preschool.abc123.tracing.learning-clUjzSF-w5PPi74QaUNZwg==/split_config.arm64_v8a.apk: 1 file pulled, 0 skipped. 36.4 MB/s (20222514 bytes in 0.531s)\n"
+  },
+  "capture_pulled": {
+   "args": [
+    "pull",
+    "/sdcard/Download/PCAPdroid/apkradar-observe.pcap"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": "/sdcard/Download/PCAPdroid/apkradar-observe.pcap: 1 file pulled, 0 skipped. 32.5 MB/s (837511 bytes in 0.025s)\n"
+  },
+  "screenshot_pulled": {
+   "args": [
+    "pull",
+    "/sdcard/Download/apkradar-observe.png"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": "/sdcard/Download/apkradar-observe.png: 1 file pulled, 0 skipped. 33.9 MB/s (1029796 bytes in 0.029s)\n"
+  },
+  "pull_missing_file": {
+   "args": [
+    "pull",
+    "/sdcard/Download/PCAPdroid/not-there.pcap"
+   ],
+   "returncode": 1,
+   "stdout": "",
+   "stderr": "adb: error: failed to stat remote object '/sdcard/Download/PCAPdroid/not-there.pcap': No such file or directory\n"
+  },
+  "files_removed": {
+   "args": [
+    "shell",
+    "rm",
+    "-f",
+    "/sdcard/Download/PCAPdroid/apkradar-observe.pcap",
+    "/sdcard/Download/apkradar-observe.png"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pcapdroid_stopped": {
+   "args": [
+    "shell",
+    "am",
+    "force-stop",
+    "com.emanuelef.remote_capture"
+   ],
+   "returncode": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "unknown_serial": {
+   "args": [
+    "-s",
+    "ZZ00NOTADEVICE",
+    "shell",
+    "pm",
+    "path",
+    "com.gameitech.preschool.abc123.tracing.learning"
+   ],
+   "returncode": 1,
+   "stdout": "",
+   "stderr": "adb.exe: device 'ZZ00NOTADEVICE' not found\n"
+  },
+  "launch_without_activity": {
+   "args": [
+    "shell",
+    "monkey",
+    "-p",
+    "com.android.providers.settings",
+    "-c",
+    "android.intent.category.LAUNCHER",
+    "1"
+   ],
+   "returncode": 252,
+   "stdout": "  bash arg: -p\n  bash arg: com.android.providers.settings\n  bash arg: -c\n  bash arg: android.intent.category.LAUNCHER\n  bash arg: 1\n** No activities found to run, monkey aborted.\n",
+   "stderr": "args: [-p, com.android.providers.settings, -c, android.intent.category.LAUNCHER, 1]\n arg: \"-p\"\n arg: \"com.android.providers.settings\"\n arg: \"-c\"\n arg: \"android.intent.category.LAUNCHER\"\n arg: \"1\"\ndata=\"com.android.providers.settings\"\ndata=\"android.intent.category.LAUNCHER\"\n"
+  }
+ }
+}

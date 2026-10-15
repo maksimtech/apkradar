@@ -298,6 +298,27 @@ def test_the_capture_observe_reads_stays_on_the_machine(doc):
     assert "il traffico decifrato letto con `--decrypted`" in prose(doc)
 
 
+def test_observe_device_reaches_nothing_but_the_device():
+    """It drives the phone over adb and reads what it brings back, as observe does."""
+    body = _command("observe_device")
+    for call in _called(body):
+        assert _name(call) not in NETWORK_CALLS, _name(call)
+        if _name(call) == "scan":
+            assert not call.keywords, "observe-device asks Google Play"
+    imported = {
+        alias.name.split(".")[0]
+        for node in ast.walk(ast.parse((PACKAGE / "device.py").read_text(encoding="utf-8")))
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for alias in (node.names if isinstance(node, ast.Import) else [ast.alias(node.module or "")])
+    }
+    assert imported.isdisjoint({"socket", "ssl", "http", "urllib", "requests", "httpx", "aiohttp"}), imported
+
+
+def test_what_observe_device_brings_back_stays_on_the_machine(doc):
+    assert "`apkradar observe-device` comanda via adb il dispositivo collegato" in prose(doc)
+    assert "con `--clear-data` cancella i dati dell'app sul dispositivo" in prose(doc)
+
+
 def test_batch_reaches_out_only_under_full():
     body = _command("batch")
     under_full = {
