@@ -20,10 +20,13 @@ is contacted: the capture is a file already on disk.
 """
 from __future__ import annotations
 
+import datetime
+import json
 import socket
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
 # The consent platforms whose endpoints are known, by registrable domain or exact
 # host, matched on a whole label. Not a list of every CMP: one that is not here is
@@ -293,6 +296,89 @@ def read_capture(path: str | Path) -> Capture:
         key=lambda h: (h.first_seen, h.host),
     ))
     return Capture(hosts=hosts, dns_names=tuple(asked), duration=last - start, packets=packets)
+
+
+# --- decrypted traffic --------------------------------------------------------------
+#
+# A capture names hosts; it cannot say what an ad request asked for. Decrypted traffic
+# can, and HAR 1.2 is what mitmproxy, HTTP Toolkit, Charles and the browsers export:
+# JSON, read without a library. Only the requests of the Google Mobile Ads SDK are
+# read, and only for parameters Google documents; the many it does not (`adid_p`,
+# `idtypel`, `pvidl`, ...) are left alone rather than guessed at.
+
+_AD_HOST = "googleads.g.doubleclick.net"
+_AD_PATH = "/mads/gma"
+
+
+@dataclass(frozen=True)
+class HttpRequest:
+    at: float                       # seconds from the first entry
+    method: str
+    host: str
+    path: str
+    params: dict[str, str] = field(repr=False)   # query and form body; may hold identifiers
+
+
+@dataclass(frozen=True)
+class AdRequest:
+    at: float
+    path: str
+    app: str | None                 # msid
+    format: str | None
+    child_directed: str | None      # tfcd
+    under_age: str | None           # tfua
+    non_personalized: str | None    # npa
+    advertising_id: bool            # rdid present and not empty; the value is never kept
+    gdpr: str | None
+    consent_string: bool            # gdpr_consent present and not empty
+    max_content_rating: str | None  # max_ad_content_rating
+    test_request: bool              # adtest=on: an emulator or a registered test device
+
+
+def read_har(path: str | Path) -> tuple[HttpRequest, ...]:
+    """Every request of a HAR file, with its query and form parameters, by time."""
+    name = Path(path).name
+    try:
+        data = json.loads(Path(path).read_bytes().decode("utf-8"))
+        entries = data["log"]["entries"]
+    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise CaptureError(f"{name} is not a HAR file; export the decrypted traffic as HAR 1.2") from exc
+    requests: list[tuple[float, HttpRequest]] = []
+    for item in entries:
+        req = item.get("request") or {}
+        url = urlsplit(req.get("url", ""))
+        params = dict(parse_qsl(url.query, keep_blank_values=True))
+        post = req.get("postData") or {}
+        if "x-www-form-urlencoded" in post.get("mimeType", "") and post.get("text"):
+            params.update(parse_qsl(post["text"], keep_blank_values=True))
+        try:
+            started = datetime.datetime.fromisoformat(item["startedDateTime"]).timestamp()
+        except (KeyError, ValueError):
+            started = 0.0
+        host = (url.hostname or "").lower()
+        requests.append((started, HttpRequest(0.0, req.get("method", ""), host, url.path, params)))
+    if not requests:
+        return ()
+    first = min(t for t, _ in requests)
+    return tuple(sorted(
+        (HttpRequest(t - first, r.method, r.host, r.path, r.params) for t, r in requests), key=lambda r: r.at
+    ))
+
+
+def ad_requests(requests: tuple[HttpRequest, ...] | list[HttpRequest]) -> list[AdRequest]:
+    """The ad requests of the Google Mobile Ads SDK, with the documented parameters that matter here."""
+    found = []
+    for r in requests:
+        if r.host != _AD_HOST or r.path != _AD_PATH:
+            continue
+        p = r.params
+        found.append(AdRequest(
+            at=r.at, path=r.path, app=p.get("msid"), format=p.get("format"),
+            child_directed=p.get("tfcd"), under_age=p.get("tfua"), non_personalized=p.get("npa"),
+            advertising_id=bool(p.get("rdid")), gdpr=p.get("gdpr"), consent_string=bool(p.get("gdpr_consent")),
+            max_content_rating=p.get("max_ad_content_rating"), test_request=p.get("adtest") == "on",
+        ))
+    return found
 
 
 def compare(code_hosts: list[str] | tuple[str, ...], capture: Capture) -> Comparison:

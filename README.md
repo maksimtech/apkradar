@@ -109,6 +109,7 @@ APKRadar 2026.45
 | `apkradar search <package>` | Look up an app on Google Play by package name |
 | `apkradar send <file> ...` | Audit an app and send a GDPR letter to the publisher's DPO |
 | `apkradar observe <file> --capture <capture.pcap>` | Audit the app, then list the hosts it contacted in a network capture against the hosts its code carries; contacts nothing |
+| `apkradar observe <file> --decrypted <flows.har>` | Audit the app, then read its Google Mobile Ads requests in decrypted traffic (child-directed tag, advertising ID, consent string); contacts nothing |
 | `apkradar --version` | Print the installed version |
 
 Run `apkradar <command> --help` for the full list of options.
@@ -434,6 +435,25 @@ header or the DNS answer: nothing is decrypted, and nothing is contacted.
 
 A first launch after clearing the app's data, with nobody touching the screen,
 shows what the app does before anyone could consent to anything.
+
+A capture names hosts; it cannot say what was asked. With decrypted traffic of the
+same run, exported as HAR, `observe` also reads the ad requests of the Google
+Mobile Ads SDK:
+
+```
+apkradar observe app.apk --capture first-launch.pcap --decrypted first-launch.har
+```
+
+mitmproxy writes HAR with `--set hardump=flows.har`, and converts flows it already
+saved with `mitmdump -nr flows.mitm --set hardump=flows.har`; HTTP Toolkit,
+Charles and the browsers export it too. For each request `observe` shows the ad
+format and the parameters Google documents: whether it is tagged for
+child-directed treatment (`tfcd`) or for users under the age of consent (`tfua`),
+whether non-personalised ads were asked for (`npa`), whether the advertising ID
+was sent — never the ID itself — whether a consent string was attached, and the
+maximum content rating. Requests marked `adtest=on` come from a device the SDK
+treats as a test device, such as an emulator, and `observe` says so: what a
+phone is served may differ.
 
 ## Reading the results
 
