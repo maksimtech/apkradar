@@ -44,6 +44,19 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Added
 
+- **`apkradar observe <file> --capture <capture.pcap>`: the hosts an app contacted at runtime, against
+  the hosts its code carries.** `audit` lists what the DEX can reach and says it is not traffic; this
+  reads what the app did reach, from a classic pcap recorded while it ran (PCAPdroid on a phone,
+  tcpdump on an emulator). Each host comes with its first contact, the bytes exchanged and whether the
+  DEX carries it, and the consent platforms it knows are named on either side: contacted, or carried
+  and never contacted. Connections are named by the TLS server name, the HTTP Host header or the DNS
+  answer — nothing is decrypted and nothing is contacted; pcapng and unknown link types are refused by
+  name. Measured on 2026-10-15 on a children's app at first launch with nobody touching the screen: an
+  ad request to googleads.g.doubleclick.net within the first second, five of eight hosts carried
+  nowhere in the DEX, and the consent platform of the SDK in the DEX never contacted. The recorded
+  fixture keeps the DNS and ClientHello packets of that capture byte for byte;
+  `docs/nis2-compliance.md` names the command among those that contact nothing.
+
 - **`docs/nis2-compliance.md`: the answers to the seven questions a customer subject to NIS2
   asks a software supplier, with only what the repository can back.** Written in Italian, for
   customers under d.lgs. 138/2024. Where the answer is "no" it says no: there is no penetration
