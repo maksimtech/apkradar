@@ -283,6 +283,20 @@ def test_batch_excel_reaches_nothing():
             assert not call.keywords, "batch-excel asks Google Play"
 
 
+def test_observe_reaches_nothing():
+    """It reads a capture already on disk and the APK; the law check, which asks the
+    law sources, is left to `audit`."""
+    body = _command("observe")
+    for call in _called(body):
+        assert _name(call) not in NETWORK_CALLS, _name(call)
+        if _name(call) == "scan":
+            assert not call.keywords, "observe asks Google Play"
+
+
+def test_the_capture_observe_reads_stays_on_the_machine(doc):
+    assert "La cattura letta da `apkradar observe` resta sulla macchina" in prose(doc)
+
+
 def test_batch_reaches_out_only_under_full():
     body = _command("batch")
     under_full = {

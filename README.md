@@ -65,7 +65,9 @@ is actually processed or transferred.
 
 The findings are a good basis for questions to a controller, which is how
 `apkradar send` uses them. They do not replace legal assessment or dynamic
-testing (observing the app's network traffic).
+testing (observing the app's network traffic). `apkradar observe` takes one step
+in that direction: given a capture recorded while the app ran, it lists the hosts
+the app contacted and which of them the code carries — names, not content.
 
 ## Installation
 
@@ -106,6 +108,7 @@ APKRadar 2026.45
 | `apkradar batch-excel <file.xlsx>` | Audit the apps listed in an Excel sheet and write the results to Excel |
 | `apkradar search <package>` | Look up an app on Google Play by package name |
 | `apkradar send <file> ...` | Audit an app and send a GDPR letter to the publisher's DPO |
+| `apkradar observe <file> --capture <capture.pcap>` | Audit the app, then list the hosts it contacted in a network capture against the hosts its code carries; contacts nothing |
 | `apkradar --version` | Print the installed version |
 
 Run `apkradar <command> --help` for the full list of options.
@@ -408,6 +411,29 @@ before logging in. No letter is sent if the scan fails.
 
 The letter is currently available in **Italian only**. `--lang` is accepted,
 but no other template exists yet, so the Italian letter is always used.
+
+### Observe an app at runtime
+
+`audit` reports the hosts the code *can* reach. `observe` adds the hosts the app
+*did* reach, from a capture recorded while it ran:
+
+```
+apkradar observe app.apk --capture first-launch.pcap
+```
+
+The capture is a classic pcap file. On a phone, without root,
+[PCAPdroid](https://github.com/emanuele-f/PCAPdroid) can record one filtered on a
+single app; `tcpdump -w` on an emulator or a router works too. A pcapng file is
+refused with the command that converts it.
+
+After the usual report, `observe` prints every host contacted in the capture with
+its first contact, the bytes exchanged and whether the code carries it, and
+names the consent platforms it knows on either side: one contacted, or one in the
+code and never contacted. Hosts are named by the TLS server name, the HTTP Host
+header or the DNS answer: nothing is decrypted, and nothing is contacted.
+
+A first launch after clearing the app's data, with nobody touching the screen,
+shows what the app does before anyone could consent to anything.
 
 ## Reading the results
 

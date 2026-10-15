@@ -22,7 +22,7 @@ host in a string literal is a host the code can reach, which is not traffic: an
 application offering fifty weather providers contains fifty endpoints and
 contacts the one that is configured. So nothing here deducts a point, and the
 report says "carried in the code" rather than "contacted". Establishing the
-second needs a runtime observation, which is a different tool.
+second needs a runtime observation: `apkradar.observe` reads one from a capture.
 """
 from __future__ import annotations
 

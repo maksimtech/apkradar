@@ -758,6 +758,105 @@ def audit(
         console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
 
 
+def _print_runtime(result, captured) -> None:
+    """What the app contacted while it ran, set against what its code carries.
+
+    The other half of `_print_hosts`: that list is reachable, this one is observed.
+    Names only — the capture is not decrypted — and nothing here contacts anything.
+    """
+    from apkradar import observe as runtime
+    from apkradar.hosts import vendor_of
+
+    comparison = runtime.compare(result.dex_hosts, captured)
+    in_code = set(comparison.in_code)
+    console.print(
+        f"\n[bold]🛰️  Hosts contacted at runtime ({len(captured.hosts)}, "
+        f"capture of {captured.duration:.0f} s)[/bold]"
+    )
+    console.print(
+        "[dim]Named by the TLS server name, the HTTP Host header or the DNS answer — "
+        "observed in the capture, not decrypted.[/dim]"
+    )
+    if not captured.hosts:
+        console.print("[dim]No connection in the capture.[/dim]")
+    else:
+        t = Table(box=box.ROUNDED)
+        t.add_column("Host", style="magenta", overflow="fold")   # see _print_result: never `…`
+        t.add_column("First contact", justify="right")
+        t.add_column("Bytes", justify="right")
+        t.add_column("In the code")
+        t.add_column("Entity", style="dim", overflow="fold")
+        for host in captured.hosts:
+            notes = [n for n in (vendor_of(host.host), runtime.consent_platform(host.host)) if n]
+            if host.cleartext:
+                notes.append("plain HTTP")
+            t.add_row(
+                Text(host.host), f"{host.first_seen:.1f} s", f"{host.bytes:,}",
+                "yes" if host.host in in_code else "no — at runtime only",
+                Text(", ".join(notes)),
+            )
+        console.print(t)
+    if result.dex_hosts_truncated:
+        console.print(
+            f"[dim]The code's host list stopped at {len(result.dex_hosts)}: "
+            "\"no\" above may be a host past that limit.[/dim]"
+        )
+    first = {h.host: h.first_seen for h in captured.hosts}
+    for host, platform in comparison.consent_contacted:
+        console.print(f"[green]Consent platform contacted: {platform} ({escape(host)}) at {first[host]:.1f} s[/green]")
+    for host, platform in comparison.consent_not_contacted:
+        console.print(
+            f"[yellow]⚠️  {platform} ({escape(host)}) is in the code and was never contacted "
+            "during the capture.[/yellow]"
+        )
+
+
+@app.command()
+def observe(
+    apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
+    capture: str = typer.Option(
+        ..., "--capture", "-c",
+        help="Network capture taken while the app ran: classic pcap, e.g. from PCAPdroid",
+    ),
+    output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
+):
+    """
+    Compare the hosts an app contacted at runtime with the hosts its code carries.
+    Reads a capture already on disk and contacts nothing.
+    """
+    from apkradar import observe as runtime
+    from apkradar.scanner import scan, set_library_logging
+
+    set_library_logging(False)
+    # Both read before the APK is opened, as `audit` checks its report target: a
+    # capture that cannot be read would otherwise throw the scan away.
+    try:
+        captured = runtime.read_capture(capture)
+    except (runtime.CaptureError, OSError) as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from exc
+    chosen = None
+    if output:
+        try:
+            chosen = _check_report_target(output)
+        except ValueError as exc:
+            console.print(f"[red]{escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
+        console.record = True
+
+    console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold] against {escape(capture)}...[/dim]")
+    with _status("[cyan]Analyzing APK...[/cyan]"):
+        result = scan(apk)
+    _print_result(result)
+    if result.error:
+        raise typer.Exit(1)
+    _print_runtime(result, captured)
+
+    if output and chosen:
+        _save_report(output, chosen)
+        console.print(f"[green]{chosen} report written to {escape(output)}[/green]")
+
+
 _BATCH_STATUS = {
     "CRITICAL": "🔴 CRITICAL",
     "POOR": "🟠 POOR",
