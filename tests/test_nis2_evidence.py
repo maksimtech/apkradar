@@ -295,6 +295,7 @@ def test_observe_reaches_nothing():
 
 def test_the_capture_observe_reads_stays_on_the_machine(doc):
     assert "La cattura letta da `apkradar observe` resta sulla macchina" in prose(doc)
+    assert "il traffico decifrato letto con `--decrypted`" in prose(doc)
 
 
 def test_batch_reaches_out_only_under_full():

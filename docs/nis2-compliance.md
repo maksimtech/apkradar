@@ -52,7 +52,9 @@ elencati in questa sezione appartiene al fornitore.
 Il file analizzato non lascia mai la macchina, e nemmeno il suo hash, salvo dentro la
 lettera di `apkradar send` (più sotto). La cattura letta da `apkradar observe` resta sulla
 macchina: il comando ne ricava i nomi degli host contattati senza decifrarla e non la invia
-a nessuno. Escono invece il nome del pacchetto, verso
+a nessuno. Lo stesso vale per il traffico decifrato letto con `--decrypted` (un file HAR):
+ne legge i parametri documentati delle richieste pubblicitarie, riporta l'ID pubblicitario
+solo come inviato o non inviato, e non lo invia a nessuno. Escono invece il nome del pacchetto, verso
 Google Play e DuckDuckGo, e i domini che il file indica, che vengono contattati con
 `--full` e, per il dominio del publisher, con `send`. Il cliente deve saperlo per
 valutarne l'uso.
@@ -65,7 +67,7 @@ valutarne l'uso.
 | `apkradar audit` | le fonti normative, quando ci sono rilievi da citare, anche con `--offline`; con `--full` anche Google Play (salvo `--offline`), DuckDuckGo se Google Play non ha la scheda dell'app, e i domini analizzati come descritto più sotto |
 | `apkradar batch` | nessuno; con `--full` i domini analizzati di ciascuna app, senza interpellare Google Play |
 | `apkradar batch-excel` | nessuno |
-| `apkradar observe` | nessuno: legge l'APK e una cattura di rete già salvata su disco |
+| `apkradar observe` | nessuno: legge l'APK e una cattura di rete e/o il traffico decifrato (HAR) già salvati su disco |
 | `apkradar search` | con un nome di pacchetto, Google Play e, se l'app non è elencata, DuckDuckGo; con un nome di app nessuno: stampa il link alla ricerca sullo store |
 | `apkradar send` | Google Play (salvo `--offline`) e DuckDuckGo se Google Play non ha la scheda; il dominio del publisher, con la verifica "in vendita", MailRadar e SSL; il server SMTP indicato, salvo `--dry-run` |
 <!-- commands:end -->

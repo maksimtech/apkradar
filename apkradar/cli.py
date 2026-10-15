@@ -811,27 +811,70 @@ def _print_runtime(result, captured) -> None:
         )
 
 
+def _print_ad_requests(requests) -> None:
+    """The ad requests of the Google Mobile Ads SDK in decrypted traffic, documented parameters only."""
+    console.print(f"\n[bold]📨 Ad requests in the decrypted traffic ({len(requests)})[/bold]")
+    console.print(
+        "[dim]Google Mobile Ads requests (googleads.g.doubleclick.net/mads/gma). Only parameters "
+        "Google documents are shown; the advertising ID is reported as sent or not, never printed.[/dim]"
+    )
+    if not requests:
+        console.print("[dim]No Google Mobile Ads request in the decrypted traffic.[/dim]")
+        return
+    t = Table(box=box.ROUNDED)
+    for name in ("At", "Format", "tfcd", "tfua", "npa", "Advertising ID", "Consent string", "Max rating"):
+        # The format is an identifier: kept whole, the way hosts are never cut to `…`.
+        t.add_column(name, no_wrap=(name == "Format"), overflow="fold")
+    for r in requests:
+        t.add_row(
+            f"{r.at:.1f} s", Text(r.format or "—"), r.child_directed or "—", r.under_age or "—",
+            r.non_personalized or "—", "sent" if r.advertising_id else "not sent",
+            "yes" if r.consent_string else "no", Text(r.max_content_rating or "—"),
+        )
+    console.print(t)
+    console.print(
+        "[dim]tfcd: tagged for child-directed treatment; tfua: users under the age of consent; "
+        "npa: non-personalised ads.[/dim]"
+    )
+    if any(r.test_request for r in requests):
+        console.print(
+            "[yellow]⚠️  adtest=on: these are test requests — the SDK treats an emulator or a registered "
+            "test device as such, and what a phone is served may differ.[/yellow]"
+        )
+
+
 @app.command()
 def observe(
     apk: str = typer.Argument(..., help="Path to APK/XAPK/APKM file"),
     capture: str = typer.Option(
-        ..., "--capture", "-c",
+        None, "--capture", "-c",
         help="Network capture taken while the app ran: classic pcap, e.g. from PCAPdroid",
+    ),
+    decrypted: str = typer.Option(
+        None, "--decrypted", "-d",
+        help="Decrypted traffic of the same run, exported as HAR (mitmproxy, HTTP Toolkit, a browser)",
     ),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
 ):
     """
-    Compare the hosts an app contacted at runtime with the hosts its code carries.
-    Reads a capture already on disk and contacts nothing.
+    Compare what an app did at runtime with what its code carries.
+    Reads a capture and/or decrypted traffic already on disk, and contacts nothing.
     """
     from apkradar import observe as runtime
     from apkradar.scanner import scan, set_library_logging
 
     set_library_logging(False)
-    # Both read before the APK is opened, as `audit` checks its report target: a
-    # capture that cannot be read would otherwise throw the scan away.
+    if not capture and not decrypted:
+        console.print("[red]Give --capture (a pcap), --decrypted (a HAR), or both.[/red]")
+        raise typer.Exit(2)
+    # Read before the APK is opened, as `audit` checks its report target: an input
+    # that cannot be read would otherwise throw the scan away.
+    captured = requests = None
     try:
-        captured = runtime.read_capture(capture)
+        if capture:
+            captured = runtime.read_capture(capture)
+        if decrypted:
+            requests = runtime.ad_requests(runtime.read_har(decrypted))
     except (runtime.CaptureError, OSError) as exc:
         console.print(f"[red]{escape(str(exc))}[/red]")
         raise typer.Exit(2) from exc
@@ -844,13 +887,17 @@ def observe(
             raise typer.Exit(2) from exc
         console.record = True
 
-    console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold] against {escape(capture)}...[/dim]")
+    sources = " and ".join(escape(s) for s in (capture, decrypted) if s)
+    console.print(f"\n[dim]Auditing [bold]{escape(apk)}[/bold] against {sources}...[/dim]")
     with _status("[cyan]Analyzing APK...[/cyan]"):
         result = scan(apk)
     _print_result(result)
     if result.error:
         raise typer.Exit(1)
-    _print_runtime(result, captured)
+    if captured is not None:
+        _print_runtime(result, captured)
+    if requests is not None:
+        _print_ad_requests(requests)
 
     if output and chosen:
         _save_report(output, chosen)
