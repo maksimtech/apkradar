@@ -280,7 +280,7 @@ def test_observe_device_reports_what_the_app_contacted(tmp_path):
     assert outcome.exit_code == 0, outcome.output
     text = " ".join(outcome.output.split())
     assert "Hosts contacted at runtime (7" in text
-    assert "googleads.g.doubleclick.net" in text
+    assert "googleads.g.doubleclick.net" in text.split()       # a table cell of its own, not part of a longer name
     assert "Brought back:" in text and (tmp_path / "out" / "capture.pcap").read_bytes() == CAPTURE.read_bytes()
 
 
