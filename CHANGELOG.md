@@ -44,6 +44,18 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Added
 
+- **`apkradar observe --decrypted <flows.har>`: what the app's ad requests asked for.** A capture
+  names hosts; decrypted traffic exported as HAR (mitmproxy's `hardump`, HTTP Toolkit, Charles, a
+  browser) says what was sent. `observe` reads the Google Mobile Ads requests (`/mads/gma`) for the
+  parameters Google documents — `tfcd`, `tfua`, `npa`, whether the advertising ID (`rdid`) was sent,
+  whether a consent string was attached, `max_ad_content_rating` — and flags `adtest=on`, which an
+  emulator always carries. The advertising ID is reported as sent or not and never kept. `--capture`
+  is now optional: either input, or both. Measured on 2026-10-15 on the same children's app on an
+  Android 16 emulator behind mitmproxy: two interstitial requests, tagged `tfcd=1`, no advertising
+  ID, no consent string, no content-rating cap, and both test requests. The recorded fixture holds
+  those requests verbatim; a HAR exported by mitmproxy itself from the 1,038 flows of that run is read
+  to the same two requests.
+
 - **`apkradar observe <file> --capture <capture.pcap>`: the hosts an app contacted at runtime, against
   the hosts its code carries.** `audit` lists what the DEX can reach and says it is not traffic; this
   reads what the app did reach, from a classic pcap recorded while it ran (PCAPdroid on a phone,
