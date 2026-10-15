@@ -54,7 +54,13 @@ lettera di `apkradar send` (più sotto). La cattura letta da `apkradar observe` 
 macchina: il comando ne ricava i nomi degli host contattati senza decifrarla e non la invia
 a nessuno. Lo stesso vale per il traffico decifrato letto con `--decrypted` (un file HAR):
 ne legge i parametri documentati delle richieste pubblicitarie, riporta l'ID pubblicitario
-solo come inviato o non inviato, e non lo invia a nessuno. Escono invece il nome del pacchetto, verso
+solo come inviato o non inviato, e non lo invia a nessuno. `apkradar observe-device` comanda via adb il dispositivo collegato
+(USB o rete locale) e ne copia sulla macchina gli APK dell'app, la cattura fatta da
+PCAPdroid e uno screenshot, poi li cancella dal dispositivo; da lì in avanti vale quanto
+detto per `observe`. APKRadar non contatta nulla, mentre l'app osservata, sul
+dispositivo, contatta ciò che vuole: è quello che si misura. Il comando non tocca lo
+schermo al posto dell'operatore (PCAPdroid gli chiede di consentire la cattura) e solo
+con `--clear-data` cancella i dati dell'app sul dispositivo. Escono invece il nome del pacchetto, verso
 Google Play e DuckDuckGo, e i domini che il file indica, che vengono contattati con
 `--full` e, per il dominio del publisher, con `send`. Il cliente deve saperlo per
 valutarne l'uso.
@@ -68,6 +74,7 @@ valutarne l'uso.
 | `apkradar batch` | nessuno; con `--full` i domini analizzati di ciascuna app, senza interpellare Google Play |
 | `apkradar batch-excel` | nessuno |
 | `apkradar observe` | nessuno: legge l'APK e una cattura di rete e/o il traffico decifrato (HAR) già salvati su disco |
+| `apkradar observe-device` | nessuno: comanda via adb il dispositivo collegato e ne legge APK e cattura come `observe`; in rete va l'app osservata, sul dispositivo |
 | `apkradar search` | con un nome di pacchetto, Google Play e, se l'app non è elencata, DuckDuckGo; con un nome di app nessuno: stampa il link alla ricerca sullo store |
 | `apkradar send` | Google Play (salvo `--offline`) e DuckDuckGo se Google Play non ha la scheda; il dominio del publisher, con la verifica "in vendita", MailRadar e SSL; il server SMTP indicato, salvo `--dry-run` |
 <!-- commands:end -->
