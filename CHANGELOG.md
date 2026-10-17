@@ -12,6 +12,8 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.46] - 2026-10-17
+
 ### Fixed
 
 - **"Firebase Analytics" was reported on every app with AdMob.** abc 123 Tracing 1.8 holds, under
@@ -52,6 +54,18 @@ no version in this file has ever matched — 40 is not a month, and
   back as soon as the import returns. Tested against a real TLS server on 127.0.0.1 with an
   untrusted certificate: refused by default, accepted after importing the library alone,
   refused again after importing it through ApkRadar. A live lookup of com.whatsapp still works.
+- **The release evidence describes what ships, and says when a scan saw nothing.** The
+  source SBOM listed the build venv's own pip, which the image removes, and, the version
+  being dynamic, named the package without a version: both are fixed, and a tag that
+  disagrees with the installed version is refused. An empty `trivy-fs` report, as at a tag
+  with no lockfile, is now called what it is in the note and in the document. CodSpeed is
+  listed among the checks of question 5.
+- **The licence gate had never refused anything.** `pip-licenses --fail-on="GPL;AGPL;LGPL"`
+  compares whole licence strings, and no package declares just "GPL": they declare "GNU
+  Lesser General Public License v2 or later (LGPLv2+)" and the like — measured in mailradar
+  on 2026-10-11, exit 0 without `--partial-match` and exit 1 with it, with chardet 5.2.0
+  installed. The flag is there now; APKRadar's runtime dependencies, installed in a clean
+  environment the same day, pass it.
 
 ### Added
 
@@ -126,21 +140,6 @@ no version in this file has ever matched — 40 is not a month, and
 - **`uv.lock`**, written with uv 0.12.18, and a Quality step that fails when it falls behind
   `pyproject.toml`.
 
-### Fixed
-
-- **The release evidence describes what ships, and says when a scan saw nothing.** The
-  source SBOM listed the build venv's own pip, which the image removes, and, the version
-  being dynamic, named the package without a version: both are fixed, and a tag that
-  disagrees with the installed version is refused. An empty `trivy-fs` report, as at a tag
-  with no lockfile, is now called what it is in the note and in the document. CodSpeed is
-  listed among the checks of question 5.
-- **The licence gate had never refused anything.** `pip-licenses --fail-on="GPL;AGPL;LGPL"`
-  compares whole licence strings, and no package declares just "GPL": they declare "GNU
-  Lesser General Public License v2 or later (LGPLv2+)" and the like — measured in mailradar
-  on 2026-10-11, exit 0 without `--partial-match` and exit 1 with it, with chardet 5.2.0
-  installed. The flag is there now; APKRadar's runtime dependencies, installed in a clean
-  environment the same day, pass it.
-
 ### Changed
 
 - **`SECURITY-EXCEPTIONS.toml`: the settled entries that stay now say why.** Docker Scout and Snyk
@@ -164,7 +163,6 @@ no version in this file has ever matched — 40 is not a month, and
   opens the pull request with auto-merge, waits for the merge and tags the merge commit.
   `./release.sh --tag X` is that last step alone. The guarantees stay: nothing is committed when
   the suite fails, and the tag is made before anything is pushed. Ported from mailradar.
-
 
 ## [2026.45] - 2026-10-10
 
@@ -1326,7 +1324,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.45...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.46...HEAD
+[2026.46]: https://github.com/maksimtech/apkradar/compare/v2026.45...v2026.46
 [2026.45]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...v2026.45
 [2026.44.1]: https://github.com/maksimtech/apkradar/compare/v2026.44...v2026.44.1
 [2026.44]: https://github.com/maksimtech/apkradar/compare/v2026.43...v2026.44
