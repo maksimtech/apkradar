@@ -16,6 +16,14 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **The README called "real output" examples the tool no longer printed.** `audit` has listed the
+  hosts in the code since 2026-10-02, and the example, rendered from findings without them, stopped
+  before that section; the batch and Excel examples still gave Bitwarden `GOOD — 80/100 — 0
+  trackers`, the score the audit example above them had corrected to 70 with Crashlytics. On
+  2026-10-17 the three apps were run again with the code of this release — Bitwarden by the hash the
+  README already gave, Wikipedia and Nextcloud from F-Droid, now named by version and hash too — and
+  every example shows what they printed. `tests/test_readme_example.py` renders the hosts from the
+  measured list and refuses Bitwarden's old batch line.
 - **"Firebase Analytics" was reported on every app with AdMob.** abc 123 Tracing 1.8 holds, under
   `com.google.android.gms.measurement`, exactly the 14 classes of play-services-measurement-sdk-api —
   the interface Google Ads would use to talk to Analytics — and no AppMeasurement, none of its

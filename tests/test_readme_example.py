@@ -83,6 +83,8 @@ def example_result(documented) -> ScanResult:
     result.extra_eu_transfers = [
         TransferFound(**t) for t in documented["extra_eu_transfers"]
     ]
+    result.dex_hosts = list(documented["dex_hosts"])
+    result.dex_hosts_truncated = documented["dex_hosts_truncated"]
     return result
 
 
@@ -160,6 +162,15 @@ def test_the_readme_example_keeps_the_order(rendered):
         at = readme.index(line, at + 1)
 
 
+def test_the_example_shows_the_hosts_in_the_code(rendered, documented):
+    """`audit` has printed the hosts its DEX carries since 2026-10-02, and the
+    example, rendered from findings without them, stopped before that section:
+    for three releases the README called "real output" a report the tool no
+    longer printed. The hosts were measured on the artifact on 2026-10-17."""
+    assert documented["dex_hosts"], "the fixture has no hosts: the section would not render"
+    assert "🌐 Hosts in the code (40 endpoints, 4 references)" in rendered
+
+
 def test_the_readme_mentions_the_citation_block(rendered):
     """`audit` prints the provisions it applied; the example used to stop short
     of it, so a third of the real output went undocumented."""
@@ -173,6 +184,9 @@ def test_the_readme_does_not_keep_the_old_numbers():
 
     assert "Score: 80/100 — GOOD" not in readme
     assert "100 − 3 permissions × 5 − 1 transfer × 5 = 80" not in readme
+    # The batch and Excel examples kept Bitwarden's old line after the audit
+    # example was corrected, until 2026-10-17: the same file, two scores.
+    assert "GOOD — 80/100 — 0 trackers, 3 sensitive permissions" not in readme
 
 
 def test_the_readme_names_the_artifact_by_hash(documented):

@@ -121,7 +121,11 @@ Run `apkradar <command> --help` for the full list of options.
 The examples below are real output from APKRadar 2026.45, with public
 builds of Bitwarden (GitHub release `v2026.9.0-bwpm`, SHA-256
 `954967bb3c9b940c16edb981242461b03c34f0e60671f42793c07a46190d64b3`),
-Wikipedia and Nextcloud (F-Droid). Colours are not shown.
+Wikipedia (F-Droid `r/50610-r-2026-10-06`, SHA-256
+`4602977099bff12bf24afbbe5a516c0979cb6e5122a4fbbf21569c3fe46a7040`) and
+Nextcloud (F-Droid `35.0.1`, SHA-256
+`8fd4d86de9497d3afecc0bad201b177c8f413c0e2e3e152cbc80f48d6e9b481f`), captured on
+2026-10-17. Colours are not shown.
 
 The `audit` example is generated from the renderer by
 `tests/test_readme_example.py`, which fails if this document stops matching what
@@ -168,6 +172,36 @@ SHA256:  954967bb3c9b940c16edb981242461b03c34f0e60671f42793c07a46190d64b3
 │ Google LLC (USA) │ com.google     │
 ╰──────────────────┴────────────────╯
 
+🌐 Hosts in the code (40 endpoints, 4 references)
+Carried in the DEX — reachable by the code, not observed in traffic.
+   🌍 Of those, under a vendor this tool reports on (6)
+╭──────────────────────────────────────┬──────────────────╮
+│ Host                                 │ Entity           │
+├──────────────────────────────────────┼──────────────────┤
+│ digitalassetlinks.googleapis.com     │ Google LLC (USA) │
+│ fcmregistrations.googleapis.com      │ Google LLC (USA) │
+│ firebase.google.com                  │ Google LLC (USA) │
+│ firebaseinstallations.googleapis.com │ Google LLC (USA) │
+│ issuetracker.google.com              │ Google LLC (USA) │
+│ play.google.com                      │ Google LLC (USA) │
+╰──────────────────────────────────────┴──────────────────╯
+api.bitwarden-gov.com, api.bitwarden.com, api.bitwarden.eu,
+api.pwnedpasswords.com, app.addy.io, app.simplelogin.io, bitwarden.com,
+bitwarden.company.com, digitalassetlinks.googleapis.com, domain.com,
+events.bitwarden-gov.com, events.bitwarden.com, events.bitwarden.eu,
+fcmregistrations.googleapis.com, fedramp.usdev.bitwarden.pw,
+firebase-settings.crashlytics.com, firebase.google.com,
+firebaseinstallations.googleapis.com, goo.gle, gw.dev.bitwarden.pw,
+gw.stg.bitwarden.pw, icons.bitwarden-gov.com, icons.bitwarden.eu,
+icons.bitwarden.net, identity.bitwarden-gov.com, identity.bitwarden.com,
+identity.bitwarden.eu, issuetracker.google.com, notifications.bitwarden.com,
+notifications.bitwarden.eu, play.google.com, qa-team.sh.bitwarden.pw,
+send.bitwarden-gov.com, send.bitwarden.com, vault.bitwarden-gov.com,
+vault.bitwarden.com, vault.bitwarden.eu, vault.qa.bitwarden.pw,
+vault.usdev.bitwarden.pw, youtrack.jetbrains.com
+references: developer.android.com, example.com, ns.adobe.com,
+schemas.android.com
+
 ⚖️  Provisions applied
 GDPR: verified against EUR-Lex (CELEX 32016R0679)
 Contenuti digitali dir. 2019/770: verified against EUR-Lex (CELEX 32019L0770)
@@ -182,6 +216,10 @@ Google LLC entry covers both Crashlytics and the Google components that are not
 on the tracker list: Firebase Cloud Messaging (push notifications), ML Kit and
 Play Core. For more on this, see
 [Reading the results](#reading-the-results).
+
+The hosts are the string literals in the app's code that look like servers; the
+six under a vendor APKRadar reports on are listed apart. They say what the code
+can reach, not what it contacted — see [Hosts in the code](#hosts-in-the-code).
 
 The `⚖️  Provisions applied` block lists, for each finding, the provision it
 relates to and the hash of the legal text APKRadar verified it against — so a
@@ -198,12 +236,14 @@ $ apkradar audit wikipedia.apk --full --offline
 ...
 ✅ No extra-EU transfers detected
 
+🌐 Hosts in the code (30 endpoints, 8 references)
+...
 
 🔗 Full stack analysis — 1 domains
 
 🔗 wikipedia.org (guessed from package name — unverified)
-  📡 MailRadar: 49/100 — POOR
-  🔒 SSL: valid until 03/11/2026
+  📡 MailRadar: 44/100 — POOR
+  🔒 SSL: valid until 02/01/2027
   🍪 CookieRadar: 0 pre-consent trackers, none persist
 ```
 
@@ -232,7 +272,7 @@ Auditing wikipedia.apk...
   🟡 MODERATE — 70/100 — 0 trackers, 6 sensitive permissions
 
 Auditing bitwarden.apk...
-  🟢 GOOD — 80/100 — 0 trackers, 3 sensitive permissions
+  🟡 MODERATE — 70/100 — 1 trackers, 3 sensitive permissions
 
 Auditing nextcloud.apk...
   🟠 POOR — 55/100 — 0 trackers, 9 sensitive permissions
@@ -270,7 +310,7 @@ Found 3 apps to audit
 Auditing Wikipedia...
   🟡 MODERATE — 70/100 — 0 trackers, 6 sensitive permissions
 Auditing Bitwarden...
-  🟢 GOOD — 80/100 — 0 trackers, 3 sensitive permissions
+  🟡 MODERATE — 70/100 — 1 trackers, 3 sensitive permissions
 Auditing Coin Master...
   ⏭️  SKIPPED — no APK path
 
