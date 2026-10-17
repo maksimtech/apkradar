@@ -455,3 +455,43 @@ def test_a_refused_tag_push_changes_nothing_else(repo):
     assert proc.returncode != 0, proc.stdout + proc.stderr
     assert _remote_tags(remote) == []
     assert _git(remote, "rev-parse", "main") == main_before
+
+
+def _add_readme(work, text):
+    (work / "README.md").write_text(text, encoding="utf-8", newline="\n")
+    _git(work, "add", "README.md")
+    _git(work, "commit", "-q", "-m", "a readme")
+    _git(work, "push", "-q", "origin", "main")
+
+
+def test_the_bump_carries_the_version_the_readme_states(repo):
+    """tests/test_readme_example.py holds the README to the package's version, and
+    the bump commit carried only __init__.py: a README stating the new version
+    before the bump failed that test on main, one stating the old failed it in
+    this script's own suite run. On 2026-10-17 that stopped 2026.46. The bump now
+    moves the README's "APKRadar <version>" with it, in the same commit."""
+    work, remote = repo
+    _add_readme(work, f"$ apkradar --version\nAPKRadar {CURRENT}\n\nReal output from APKRadar {CURRENT}.\n"
+                      "Built with APKRadar 2026.4 and 2026.410, which are not this version.\n")
+
+    proc = _release(work, "2026.42")
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    readme = _git(remote, "show", "release/v2026.42:README.md")
+    assert readme.count("APKRadar 2026.42") == 2
+    assert f"APKRadar {CURRENT}\n" not in readme + "\n"
+    assert "APKRadar 2026.4 and 2026.410" in readme, "a version that only starts the same was rewritten"
+    changed = _git(remote, "diff", "--name-only", "main", "release/v2026.42").split()
+    assert changed == ["README.md", "apkradar/__init__.py"]
+
+
+def test_a_failing_suite_leaves_the_readme_bump_visible_too(repo, python3_with_pytest):
+    work, remote = repo
+    _add_readme(work, f"APKRadar {CURRENT}\n")
+    _add_suite(work, "def test_no():\n    assert False\n")
+
+    proc = _release(work, "2026.42")
+
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert (work / "README.md").read_text(encoding="utf-8") == "APKRadar 2026.42\n"
+    assert "README.md" in proc.stdout + proc.stderr, "the message must say what to undo"
