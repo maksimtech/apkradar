@@ -134,12 +134,37 @@ assert count == 1, "__version__ not found"
 open(path, "w").write(new)
 EOF
 
+# The README states the version its examples come from, and
+# tests/test_readme_example.py holds it to __version__. While the bump commit
+# carried __init__.py alone, that test could not pass on both sides of it: a
+# README already stating the new version failed on main, one stating the old
+# failed in the suite below. On 2026-10-17 that stopped 2026.46. So the README's
+# "APKRadar <old>" moves in the same commit; a longer version that only starts
+# the same (2026.410, 2026.41.1) is left alone.
+BUMPED=("$INIT_FILE")
+if [ -f README.md ]; then
+    if python3 - README.md "$OLD_VERSION" "$VERSION" <<'EOF'
+import re, sys
+path, old, new = sys.argv[1:4]
+with open(path, encoding="utf-8", newline="") as f:
+    text = f.read()
+text, count = re.subn(rf"APKRadar {re.escape(old)}(?![0-9]|\.[0-9])", f"APKRadar {new}", text)
+if count:
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+sys.exit(0 if count else 1)
+EOF
+    then
+        BUMPED+=("README.md")
+    fi
+fi
+
 # The suite, after the bump and before the commit. The version is written above,
 # so a run before the release cannot see what the bump breaks: twice — apkradar
 # 2026.42 and 2026.43 — the README's stated version failed in CI, on main, with
 # the tag already pushed.
 #
-# Before the commit on purpose. A refusal here leaves the version file modified
+# Before the commit on purpose. A refusal here leaves the bumped files modified
 # and nothing else touched, which is what somebody needs to see; a gate after the
 # commit would have to undo one, and undoing is worse than not doing.
 if [ -d tests ]; then
@@ -147,15 +172,15 @@ if [ -d tests ]; then
     python3 -m pytest -q || {
         echo
         fail "the suite fails with ${VERSION} in place — nothing was committed, \
-tagged or pushed. ${INIT_FILE} is left modified so you can see what broke; \
-\`git checkout ${INIT_FILE}\` undoes the bump."
+tagged or pushed. ${BUMPED[*]} left modified so you can see what broke; \
+\`git checkout ${BUMPED[*]}\` undoes the bump."
     }
 else
     echo "🧪 No tests/ directory — nothing to run"
 fi
 
 git switch --quiet -c "$BRANCH_NAME"
-git add "$INIT_FILE"
+git add "${BUMPED[@]}"
 git commit -m "chore: bump version to ${VERSION}"
 echo "📤 Pushing ${BRANCH_NAME} (main is not touched)..."
 git push --quiet -u origin "$BRANCH_NAME"

@@ -142,6 +142,11 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **`release.sh` moves the README's stated version with the bump.** `tests/test_readme_example.py`
+  holds the README to `__version__`, and the bump commit carried `__init__.py` alone: a README already
+  stating the new version failed that test on main, one stating the old failed it in the script's own
+  suite run, which on 2026-10-17 stopped this release. Every "APKRadar <old>" in the README now moves in
+  the same commit; a longer version that only starts the same is left alone.
 - **`SECURITY-EXCEPTIONS.toml`: the settled entries that stay now say why.** Docker Scout and Snyk
   stopped reporting the gcc-14 advisories (CVE-2026-102010 and CVE-2026-95619, and their Snyk ids)
   on 2026-10-07 and 2026-10-08, so the gate lists them as settled. `patchradar debian` on 2026-10-15
