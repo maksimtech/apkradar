@@ -162,6 +162,40 @@ the right, a literal on the left, nothing sanitized.
 """
 review_by = "2026-12-31"
 
+# Added on 2026-10-17 for `observe` and `observe-device`, read line by line the
+# same way. The code they test compares hosts by equality and label suffix as
+# well: observe.py:92 (`host == domain or host.endswith("." + domain)` for the
+# consent platforms), :372 (`r.host != _AD_HOST`, exact, for ad requests) and the
+# set membership of `compare`. The alerts went unanswered for two days because
+# the first remedy tried was to rewrite one assertion as `in text.split()`, which
+# the rule still reports: it looks at the literal and the `in`, not at the type
+# on the right (:195 is a tuple of names and fires the same way).
+
+[[exception]]
+id = "py/incomplete-url-substring-sanitization"
+source = "CodeQL"
+path = "tests/test_observe.py"
+where = "test_observe.py:195, 246, 247 — assertions on a capture's names and on the observe report"
+why = """
+One assertion that a name is among those asked of DNS in a recorded capture, a \
+tuple of strings, and three that hosts appear in the report `apkradar observe` \
+printed in the same test. Nothing is sanitized and no security decision is \
+taken on the outcome.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "py/incomplete-url-substring-sanitization"
+source = "CodeQL"
+path = "tests/test_observe_device.py"
+where = "test_observe_device.py:283 — assertion on the observe-device report"
+why = """
+One assertion that the ad host is a word of the report `apkradar observe-device` \
+printed in the same test. Generated text on the right, a literal on the left, \
+nothing sanitized.
+"""
+review_by = "2026-12-31"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Arrived on 2026-09-30, after 2026.41 was prepared: two advisories published
 # overnight against the base image, which the gate refused before the tag. That
