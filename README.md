@@ -553,6 +553,14 @@ An SDK is detected in two ways:
 
 Each SDK is listed once, with the package that identified it.
 
+Some SDKs ship an interface for another one: Google Ads brings
+`play-services-measurement-sdk-api`, the API it would talk to Analytics
+through if Analytics were there. Those sub-packages (`measurement.api`,
+`measurement.internal`, `measurement.sdk`) do not count as Firebase
+Analytics; its own entry point and components (`AppMeasurement`,
+`AppMeasurementService` and the like) do. The same rule keeps the
+advertising-ID reader from counting as Google Ads.
+
 ### Sensitive permissions
 
 APKRadar flags 28 Android permissions that give access to personal data. Each
