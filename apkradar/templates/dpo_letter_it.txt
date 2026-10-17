@@ -14,7 +14,7 @@ L'analisi statica dell'APK (SHA256: {{ sha256 }}) ha rilevato i seguenti tracker
   → {{ tracker.name }} ({{ tracker.package }})
 {% endfor %}
 
-La presenza di questi SDK comporta la trasmissione di dati personali a soggetti terzi. Si richiede di specificare la base giuridica ex art. 6 GDPR per ciascun trasferimento e di verificare che il consenso sia stato acquisito prima dell'attivazione di tali SDK.
+La presenza del codice di questi SDK non dimostra, da sola, che essi siano attivi né quali dati trasmettano: l'audit legge il codice dell'applicazione, non il suo comportamento. Si chiede di indicare, per ciascuno, quali dati personali trasmetta, a quale destinatario e con quale base giuridica ex art. 6 GDPR, e se il consenso sia acquisito prima della sua attivazione.
 {% else %}
 Non sono stati rilevati tracker o SDK di terze parti noti.
 {% endif %}
@@ -42,14 +42,14 @@ Non sono stati rilevati permessi sensibili.
 
 3. TRASFERIMENTI EXTRA-UE — art. 44-49 GDPR
 {% if extra_eu_transfers %}
-Sono stati rilevati trasferimenti di dati verso i seguenti soggetti extra-UE:
+L'APK contiene codice dei seguenti fornitori con sede fuori dall'Unione europea:
 {% for transfer in extra_eu_transfers %}
   → {{ transfer.entity }}
 {% endfor %}
 
-Si richiede di indicare le garanzie adeguate adottate ai sensi dell'art. 46 GDPR (Clausole Contrattuali Standard, Binding Corporate Rules, o altro).
+La presenza di tale codice non dimostra che dati personali lascino l'Unione. Si chiede di indicare se dati personali degli utenti vengano trasferiti a tali soggetti e, in caso affermativo, con quali garanzie adeguate ai sensi dell'art. 46 GDPR (Clausole Contrattuali Standard, Binding Corporate Rules o altro).
 {% else %}
-Non sono stati rilevati trasferimenti di dati extra-UE noti.
+Non è stato rilevato codice di fornitori extra-UE noti.
 {% endif %}
 
 4. MISURE TECNICHE — art. 32 GDPR

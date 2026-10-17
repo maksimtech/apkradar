@@ -112,8 +112,22 @@ TRACKER_SIGNATURES = {
 #
 # AdMob is still detected: it has hundreds of classes under `ads/` that are not
 # under `ads/identifier/`, and one is enough.
+#
+# `com.google.android.gms.measurement` the same way: play-services-ads brings
+# play-services-measurement-sdk-api, the interface Ads would talk to Analytics
+# through if Analytics were there — on abc 123 Tracing 1.8 (2026-10-17) exactly
+# 14 classes under `api/`, `internal/` and `sdk/api/`, no AppMeasurement, and no
+# traffic to app-measurement.com in 1,038 captured flows. Firebase Analytics
+# itself has its entry point and components directly in the package
+# (AppMeasurement, AppMeasurementService/Receiver/JobService), and those are
+# what counts.
 SIGNATURE_EXCEPTIONS = {
     "com.google.android.gms.ads": ("com.google.android.gms.ads.identifier",),
+    "com.google.android.gms.measurement": (
+        "com.google.android.gms.measurement.api",
+        "com.google.android.gms.measurement.internal",
+        "com.google.android.gms.measurement.sdk",
+    ),
 }
 
 SENSITIVE_PERMISSIONS = {

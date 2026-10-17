@@ -14,6 +14,17 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **"Firebase Analytics" was reported on every app with AdMob.** abc 123 Tracing 1.8 holds, under
+  `com.google.android.gms.measurement`, exactly the 14 classes of play-services-measurement-sdk-api —
+  the interface Google Ads would use to talk to Analytics — and no AppMeasurement, none of its
+  components, no traffic to app-measurement.com in 1,038 captured flows. The scan reported Firebase
+  Analytics, took 10 points and put it in the letter. The `api`, `internal` and `sdk` sub-packages
+  no longer count; Analytics' own entry point and components do.
+- **The DPO letter stated transmissions and transfers that static analysis cannot establish.** It
+  said the SDKs' presence "comporta la trasmissione di dati personali" and that "sono stati
+  rilevati trasferimenti di dati" outside the EU, from code alone — the opposite of what the README
+  says a detected SDK shows, and art. 44 GDPR is about transfers. Both sections now name what was
+  found as code, say what it does not show, and ask, as the art. 9 section already did.
 - **On a pull request, Security Posture called live exceptions unused.** CodeQL reports only what
   the change introduces on a pull request ref, so when it reported anything, an exception for a
   finding still open on main in an untouched file matched nothing and failed the gate
