@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+import httpx
+
 from apkradar import law_fetcher
 from apkradar.law_cache import Key, LawCache
 from apkradar.law_fetcher import CONSUMER_CODE, DIGITAL_CONTENT, GDPR, Act, LawFetchError, Provision
@@ -198,6 +200,8 @@ class ActStatus:
     # "cache": source unreachable, cached copy; "unavailable": no text at all
     source: str
     error: str | None = None
+    # Where a verified text came from: "Cellar", "EUR-Lex" (the fallback) or "Normattiva"; None otherwise
+    origin: str | None = None
 
 
 @dataclass
@@ -218,6 +222,7 @@ def check(
     *,
     cache: LawCache | None = None,
     now: datetime | None = None,
+    client: httpx.Client | None = None,
     **context,
 ) -> LawCheckResult:
     """
@@ -243,13 +248,14 @@ def check(
     # Keyed by (celex, article) — the cache's key, not the fetcher's.
     fresh: dict[Key, Provision] = {}
     errors: dict[Act, str] = {}
+    origins: dict[Act, str] = {}
     for act in acts:
         # The articles cited ("32(1)(a)" is part of article 32) and ALSO_FETCH
         articles = tuple(dict.fromkeys(
             [ref.split("(")[0] for _, a, ref in cited if a == act] + list(ALSO_FETCH.get(act, ()))
         ))
         try:
-            by_article = law_fetcher.fetch_provisions(act, articles, now=now)
+            by_article, origins[act] = law_fetcher.fetch_provisions_from(act, articles, now=now, client=client)
         except LawFetchError as e:
             errors[act] = str(e)
         else:
@@ -267,7 +273,7 @@ def check(
     statuses = []
     for act in acts:
         if act not in errors:
-            statuses.append(ActStatus(act, "verified"))
+            statuses.append(ActStatus(act, "verified", origin=origins[act]))
         else:
             cached = any((act.celex, ref) in provisions for _, a, ref in cited if a == act)
             statuses.append(ActStatus(act, "cache" if cached else "unavailable", errors[act]))

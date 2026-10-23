@@ -203,8 +203,8 @@ references: developer.android.com, example.com, ns.adobe.com,
 schemas.android.com
 
 ⚖️  Provisions applied
-GDPR: verified against EUR-Lex (CELEX 32016R0679)
-Contenuti digitali dir. 2019/770: verified against EUR-Lex (CELEX 32019L0770)
+GDPR: verified against Cellar (CELEX 32016R0679)
+Contenuti digitali dir. 2019/770: verified against Cellar (CELEX 32019L0770)
 Codice del Consumo D.Lgs. 206/2005: verified against Normattiva (URN
 urn:nir:stato:decreto.legislativo:2005-09-06;206)
   testo vigente

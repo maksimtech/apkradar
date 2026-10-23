@@ -51,7 +51,7 @@ def _fake_fetch(suffix=""):
         return {
             ref: Provision.from_text(ref, f"{act.name} {ref}{suffix}", stamp, act.celex)
             for ref in refs if ref.split("(")[0] in articles
-        }
+        }, "Cellar"
 
     fake.calls = calls
     return fake
@@ -65,7 +65,7 @@ def cache(tmp_path):
 @pytest.fixture
 def online(monkeypatch):
     fake = _fake_fetch()
-    monkeypatch.setattr(law_fetcher, "fetch_provisions", fake)
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", fake)
     return fake.calls
 
 
@@ -280,10 +280,10 @@ def test_second_audit_same_text_keeps_version_date(cache, online):
 
 
 def test_second_audit_changed_text_updates_cache(cache, monkeypatch):
-    monkeypatch.setattr(law_fetcher, "fetch_provisions", _fake_fetch())
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch())
     first = check(_result(trackers=True), cache=cache, now=DAY1)
 
-    monkeypatch.setattr(law_fetcher, "fetch_provisions", _fake_fetch(" (rettificato)"))
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch(" (rettificato)"))
     law = check(_result(trackers=True), cache=cache, now=DAY2)
 
     assert law.changed["GDPR art. 6"] == first.citations[1].sha256
@@ -297,7 +297,7 @@ def test_offline_uses_cache(cache, online, monkeypatch):
     def offline(*args, **kwargs):
         raise LawFetchError("offline")
 
-    monkeypatch.setattr(law_fetcher, "fetch_provisions", offline)
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", offline)
     law = check(_result(trackers=True), cache=cache, now=DAY2)
 
     assert [(s.source, s.error) for s in law.acts] == [("cache", "offline"), ("cache", "offline")]
