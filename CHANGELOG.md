@@ -12,6 +12,8 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.47] - 2026-10-23
+
 ### Security
 
 - **certifi 2026.10.19** in `uv.lock`, from 2026.7.22. The older bundle trusts emSign root CAs whose
@@ -1352,7 +1354,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.46...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.47...HEAD
+[2026.47]: https://github.com/maksimtech/apkradar/compare/v2026.46...v2026.47
 [2026.46]: https://github.com/maksimtech/apkradar/compare/v2026.45...v2026.46
 [2026.45]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...v2026.45
 [2026.44.1]: https://github.com/maksimtech/apkradar/compare/v2026.44...v2026.44.1
