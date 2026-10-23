@@ -74,7 +74,8 @@ def test_audit_cites_the_articles_for_trackers(eurlex):
     assert f"SHA256: {_sha('6')}" in out.output
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     assert f"Version of: {today}" in out.output
-    assert "EUR-Lex" in out.output
+    assert "GDPR: verified against Cellar (CELEX 32016R0679)" in out.output
+    assert "EUR-Lex" not in out.output
 
 
 def test_trackers_cite_directive_2019_770_to_be_checked(eurlex):

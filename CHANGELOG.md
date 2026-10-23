@@ -19,6 +19,14 @@ no version in this file has ever matched — 40 is not a month, and
   2026.10.19 is the release the advisory names as fixed. The Security Posture gate stopped every pull
   request on it.
 
+### Fixed
+
+- **A verified text names the source it came from.** EU acts are downloaded from Cellar
+  (publications.europa.eu), with EUR-Lex only as the fallback, but the report said "verified against
+  EUR-Lex" whichever answered (open item of the 2026-10-17 audit). It now says Cellar, EUR-Lex or
+  Normattiva, as the case was, and so does the README example; `law_checker.check` takes an optional
+  HTTP client, so the path is tested on recorded answers.
+
 ## [2026.46] - 2026-10-17
 
 ### Fixed
