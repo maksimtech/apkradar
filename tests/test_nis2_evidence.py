@@ -587,14 +587,16 @@ def test_every_scanner_named_has_its_workflow_and_none_is_left_out(doc):
 
 
 def test_docker_scout_is_said_to_run_when_it_runs(doc):
-    """It reads `latest` from Docker Hub on a push to main, weekly and on demand;
-    nothing starts it when an image is built."""
+    """It reads `latest` from Docker Hub on a push to main, weekly, on demand, and
+    since 2026-10-24 once the image workflow has pushed a new one (until then
+    nothing started it on a build, and the document said so)."""
     scout = yaml.safe_load((WORKFLOWS / "docker-scout.yml").read_text(encoding="utf-8"))
     triggers = scout.get(True, scout.get("on"))
-    assert set(triggers) == {"workflow_dispatch", "push", "schedule"}
+    assert set(triggers) == {"workflow_dispatch", "push", "schedule", "workflow_run"}
+    assert triggers["workflow_run"]["workflows"] == ["Build and Push Docker Image"]
     assert "maksimtech/apkradar:latest" in (WORKFLOWS / "docker-scout.yml").read_text(encoding="utf-8")
     row = next(line for line in section(doc, "scanners").splitlines() if line.startswith("| `Docker Scout`"))
-    assert "build" not in row
+    assert "ogni build dell'immagine" in row
 
 
 def test_dependabot_is_named_because_it_is_configured(doc):

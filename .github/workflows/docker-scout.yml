@@ -1,5 +1,11 @@
 name: Docker Scout CVE Scan
 on:
+  # Also as soon as a new image is on Docker Hub: until 2026-10-24 the scan, and the
+  # Security Posture gate that reads it, kept describing the image a release had
+  # replaced until somebody dispatched them by hand.
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
   # The scan reads maksimtech/apkradar:latest from Docker Hub rather than
   # building anything, so it only says something new once a new image has been
   # published. That happens on a tag, while this workflow runs on a push to main
@@ -16,6 +22,8 @@ permissions:
 jobs:
   scout:
     name: Docker Scout
+    # After a push that failed, Docker Hub still has the old image: nothing to rescan.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout
