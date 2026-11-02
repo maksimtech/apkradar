@@ -24,6 +24,8 @@ no version in this file has ever matched — 40 is not a month, and
   Its first run reported eight CVEs in the base image's Debian packages (util-linux ×4, ncurses, systemd,
   perl, sqlite3), all without a fix in trixie and none in code apkradar runs; they are recorded in
   `SECURITY-EXCEPTIONS.toml` to wait for Debian, review on 2026-12-31.
+  Docker Scout's first scan of the published image then raised three of the sqlite3 issues
+  (CVE-2026-119373, -119374, -119379), recorded the same way.
 
 ### Fixed
 
