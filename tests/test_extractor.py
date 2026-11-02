@@ -270,7 +270,7 @@ class TestExtractMainApkEdgeCases(unittest.TestCase):
 class TestExtractHostileNames(unittest.TestCase):
     """The path returned must be the file that was actually written.
 
-    Snyk Code flags the extraction as "Arbitrary File Write via Archive
+    Snyk Code flagged the extraction as "Arbitrary File Write via Archive
     Extraction". That title is wrong: ZipFile.extract() sanitises the member
     name itself and never writes outside the directory it is given — verified
     against both cases below.
