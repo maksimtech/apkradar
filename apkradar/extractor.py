@@ -124,6 +124,61 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
         return None, None
 
 
+# The ABI directories Android installs native code from (lib/<abi>/ in an APK).
+# Anything else under lib/ is not native code the package manager would load.
+KNOWN_ABIS = ("armeabi", "armeabi-v7a", "arm64-v8a", "x86", "x86_64", "mips", "mips64", "riscv64")
+
+# A configuration split is named after its qualifier, and a split name cannot hold
+# a hyphen: the split for arm64-v8a is split_config.arm64_v8a.apk (APKMirror) or
+# config.arm64_v8a.apk (APKPure).
+_ABI_BY_SPLIT_QUALIFIER = {abi.replace("-", "_"): abi for abi in KNOWN_ABIS}
+_SPLIT_PREFIXES = ("split_config.", "config.")
+
+
+def abis_in_apk(path: str) -> set[str]:
+    """The ABIs an APK ships native code for: the names of its lib/<abi>/ directories.
+
+    Read from the zip directory alone, no library is opened. An APK with no
+    native code ships none, and runs on any ABI. A file that is not a zip has no
+    directory to read: that is for the APK parser to report, not this.
+    """
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+    except (zipfile.BadZipFile, OSError):
+        return set()
+    return {
+        parts[1]
+        for parts in (name.split("/") for name in names)
+        if len(parts) >= 3 and parts[0] == "lib" and parts[1] in KNOWN_ABIS and parts[-1]
+    }
+
+
+def abis_in_splits(path: str) -> set[str]:
+    """The ABIs a bundle's configuration splits are for.
+
+    A bundle ships native code in one split per ABI, so the split names say which
+    ABIs it covers; density and language splits are not ABIs and are skipped.
+    """
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+    except (zipfile.BadZipFile, OSError):
+        return set()
+    found = set()
+    for name in names:
+        base = os.path.basename(name)
+        if not base.endswith(".apk"):
+            continue
+        for prefix in _SPLIT_PREFIXES:
+            if base.startswith(prefix):
+                qualifier = base[len(prefix):-len(".apk")]
+                if qualifier in _ABI_BY_SPLIT_QUALIFIER:
+                    found.add(_ABI_BY_SPLIT_QUALIFIER[qualifier])
+                break
+    return found
+
+
 def cleanup_temp(tmp_dir: str | None) -> None:
     """Remove temporary directory created during extraction."""
     if tmp_dir and os.path.exists(tmp_dir):

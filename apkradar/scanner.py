@@ -255,6 +255,11 @@ class ScanResult:
     # the code *can* reach them, which is not evidence that it does.
     dex_hosts: list[str] = field(default_factory=list)
     dex_hosts_truncated: bool = False
+    # The ABIs the file ships native code for, sorted: the lib/<abi>/ directories
+    # of the APK and, for a bundle, its ABI splits. Empty means no native code,
+    # which runs on any ABI — not an unknown. A device whose ABIs are all missing
+    # from a non-empty list cannot install the file: see apkradar.diff.
+    native_abis: list[str] = field(default_factory=list)
     error: str | None = None
     skipped: bool = False
 
@@ -586,7 +591,13 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
     Returns:
         ScanResult with all findings
     """
-    from apkradar.extractor import cleanup_temp, detect_format, extract_main_apk
+    from apkradar.extractor import (
+        abis_in_apk,
+        abis_in_splits,
+        cleanup_temp,
+        detect_format,
+        extract_main_apk,
+    )
 
     result = ScanResult(apk_path=apk_path)
     tmp_dir = None
@@ -615,6 +626,13 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
 
         # SHA256 hash of original file
         result.sha256 = hashlib.sha256(Path(apk_path).read_bytes()).hexdigest()
+
+        # Native code: the base APK's lib/ directories and, in a bundle, the ABI
+        # splits next to it, which is where a bundle ships its native code.
+        abis = abis_in_apk(str(path))
+        if fmt in ("xapk", "apkm"):
+            abis |= abis_in_splits(apk_path)
+        result.native_abis = sorted(abis)
 
         # Parse APK with androguard
         from androguard.core.apk import APK

@@ -107,6 +107,7 @@ APKRadar 2026.47
 | `apkradar audit <file> --full` | Audit the app, then check the publisher and SDK domains with MailRadar, SSL and CookieRadar (`--offline` skips the Google Play lookup) |
 | `apkradar batch <list.txt>` | Audit every app file listed in a text file |
 | `apkradar batch-excel <file.xlsx>` | Audit the apps listed in an Excel sheet and write the results to Excel |
+| `apkradar diff <old> <new>` | Compare two releases of an app: version, SDK levels, permissions, trackers, transfers, hosts and native ABIs; contacts nothing (`--json` for scripts) |
 | `apkradar search <package>` | Look up an app on Google Play by package name |
 | `apkradar send <file> ...` | Audit an app and send a GDPR letter to the publisher's DPO |
 | `apkradar observe <file> --capture <capture.pcap>` | Audit the app, then list the hosts it contacted in a network capture against the hosts its code carries; contacts nothing |
@@ -338,6 +339,37 @@ overwritten**.
 Every text value APKRadar writes (app names, package names, versions, tracker
 names) is stored as text, never as a formula. A crafted app name or input row
 therefore cannot inject a formula into the report.
+
+### Compare two releases of an app
+
+```
+$ apkradar diff acrobat-24.8.1.apkm acrobat-24.9.0.apkm
+```
+
+Store release notes say what the developer chose to say. `diff` compares what the
+two files declare and carry: version and SDK levels, permissions (sensitive ones
+marked), trackers and the extra-EU transfers they bring, deep-link hosts, the
+servers the code names, and the ABIs the native code is built for.
+
+The last one answers a question release notes never do: why an app stops
+updating on one device. When a release drops the native code for an ABI, a device
+that runs only that ABI is no longer offered it. A Galaxy Tab A SM-T515, for
+instance, runs a 32-bit Android (`armeabi-v7a`) on a 64-bit CPU, so an app whose
+new release ships `arm64-v8a` only stays at the old release there:
+
+```
+Native code (ABIs)
+  arm64-v8a, armeabi-v7a → arm64-v8a
+  - armeabi-v7a
+  ⚠ a device that runs only armeabi-v7a is no longer offered this release
+```
+
+For a bundle (`.apkm`, `.xapk`) the ABIs are read from its splits
+(`split_config.arm64_v8a.apk`) as well as from the base APK. A release with no
+native code at all runs on every ABI, and leaves no device behind.
+
+`--json` prints the comparison as JSON and nothing else, for scripts. Both files
+are read on this machine; `diff` contacts nothing.
 
 ### Look up an app on Google Play
 

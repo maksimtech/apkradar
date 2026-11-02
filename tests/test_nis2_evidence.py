@@ -298,6 +298,23 @@ def test_the_capture_observe_reads_stays_on_the_machine(doc):
     assert "il traffico decifrato letto con `--decrypted`" in prose(doc)
 
 
+def test_diff_reaches_nothing():
+    """It scans two files on disk and compares them; Google Play is not asked who
+    publishes either, and the law sources are left to `audit`."""
+    body = _command("diff")
+    for call in _called(body):
+        assert _name(call) not in NETWORK_CALLS, _name(call)
+        if _name(call) == "scan":
+            assert not call.keywords, "diff asks Google Play"
+    imported = {
+        alias.name.split(".")[0]
+        for node in ast.walk(ast.parse((PACKAGE / "diff.py").read_text(encoding="utf-8")))
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for alias in (node.names if isinstance(node, ast.Import) else [ast.alias(node.module or "")])
+    }
+    assert imported.isdisjoint({"socket", "ssl", "http", "urllib", "requests", "httpx", "aiohttp"}), imported
+
+
 def test_observe_device_reaches_nothing_but_the_device():
     """It drives the phone over adb and reads what it brings back, as observe does."""
     body = _command("observe_device")

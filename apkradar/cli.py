@@ -1140,6 +1140,121 @@ def batch(
         raise typer.Exit(1)
 
 
+def _print_changes(title: str, added: list[str], removed: list[str], out=None) -> None:
+    """One section of the diff: what the new release adds, then what it drops."""
+    out = out or console
+    if not added and not removed:
+        return
+    out.print(f"\n[bold]{escape(title)}[/bold]")
+    for item in added:
+        out.print(f"  [green]+ {escape(item)}[/green]")
+    for item in removed:
+        out.print(f"  [red]- {escape(item)}[/red]")
+
+
+def _print_diff(d, out=None) -> None:
+    from apkradar.diff import ScanDiff
+
+    assert isinstance(d, ScanDiff)
+    out = out or console
+    old, new = d.old, d.new
+    if not d.same_package:
+        out.print(
+            f"\n[yellow]⚠ different packages: {escape(old.package_name)} and "
+            f"{escape(new.package_name)}. These are two apps, not two releases of one.[/yellow]"
+        )
+    else:
+        out.print(f"\n[bold]{escape(new.package_name)}[/bold]")
+
+    def arrow(label: str, values: tuple) -> None:
+        a, b = (v if v not in (None, "") else "—" for v in values)
+        mark = "" if a == b else " [yellow](changed)[/yellow]"
+        out.print(f"  {label:<12} {escape(str(a))} → {escape(str(b))}{mark}")
+
+    arrow("Version", d.version_name)
+    arrow("Version code", d.version_code)
+    arrow("minSdk", d.min_sdk)
+    arrow("targetSdk", d.target_sdk)
+    arrow("Score", d.score)
+
+    if d.permissions_added or d.permissions_removed:
+        out.print("\n[bold]Permissions[/bold]")
+        for p in d.permissions_added:
+            note = " [red](sensitive)[/red]" if p.gdpr_relevant else ""
+            out.print(f"  [green]+ {escape(p.permission)}[/green]{note}")
+        for p in d.permissions_removed:
+            out.print(f"  [red]- {escape(p.permission)}[/red]")
+
+    _print_changes("Trackers", d.trackers_added, d.trackers_removed, out)
+    _print_changes("Extra-EU transfers", d.transfers_added, d.transfers_removed, out)
+    _print_changes("Deep-link hosts (manifest)", d.domains_added, d.domains_removed, out)
+    _print_changes("Hosts in the code", d.hosts_added, d.hosts_removed, out)
+
+    if d.abis_added or d.abis_removed:
+        out.print("\n[bold]Native code (ABIs)[/bold]")
+        out.print(
+            f"  {escape(', '.join(old.native_abis) or 'none')} → "
+            f"{escape(', '.join(new.native_abis) or 'none (runs on any ABI)')}"
+        )
+        for abi in d.abis_added:
+            out.print(f"  [green]+ {escape(abi)}[/green]")
+        for abi in d.abis_removed:
+            out.print(f"  [red]- {escape(abi)}[/red]")
+        if d.abis_left_behind:
+            out.print(
+                f"  [yellow]⚠ a device that runs only {escape(', '.join(d.abis_left_behind))} "
+                "is no longer offered this release[/yellow]"
+            )
+
+    if not d.has_changes:
+        out.print("\n[dim]No difference in what APKRadar reads.[/dim]")
+
+
+@app.command()
+def diff(
+    old: str = typer.Argument(..., help="The earlier release: APK/XAPK/APKM file"),
+    new: str = typer.Argument(..., help="The later release: APK/XAPK/APKM file"),
+    json_output: bool = typer.Option(False, "--json", help="Print the comparison as JSON, and nothing else"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v",
+        help="Show debug output, including androguard's own log",
+    ),
+):
+    """
+    Compare two releases of an app: version and SDK levels, permissions, trackers,
+    extra-EU transfers, hosts, and the ABIs its native code is built for.
+    Contacts nothing: both files are read on this machine.
+    """
+    import json
+
+    from apkradar.diff import diff as compare
+    from apkradar.scanner import scan, set_library_logging
+
+    set_library_logging(verbose)
+
+    results = []
+    for path in (old, new):
+        if json_output:
+            result = scan(path)
+        else:
+            with _status(f"[cyan]Analyzing {escape(path)}...[/cyan]"):
+                result = scan(path)
+        if result.error:
+            message = f"{path}: {result.error}"
+            if json_output:
+                typer.echo(message, err=True)
+            else:
+                console.print(f"[red]{escape(message)}[/red]")
+            raise typer.Exit(1)
+        results.append(result)
+
+    d = compare(*results)
+    if json_output:
+        typer.echo(json.dumps(d.to_dict(), indent=2, ensure_ascii=False))
+    else:
+        _print_diff(d)
+
+
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Package name (e.g. com.moonactive.coinmaster) or app name"),
