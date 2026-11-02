@@ -23,7 +23,7 @@
 # time and the image is rebuilt at every release, so a fix Debian ships arrives
 # here without anyone chasing it.
 #
-# The four below are not one case, although every scanner prints them the same
+# The ones below are not one case, although every scanner prints them the same
 # way — "no fix available", one line, no distinction:
 #
 #   zlib, perl   open in bookworm, trixie, sid and forky alike, nothing
@@ -32,6 +32,14 @@
 #   attr, acl    already fixed in unstable, filed no-dsa for trixie *because the
 #                fix comes in a point release*. That waiting ends at a dated
 #                event: rebuild after it.
+#
+# attr has no entry since 2026-11-02, and not because it was fixed: Snyk was the
+# only scanner reporting CVE-2026-54371, and Snyk was retired that day. Trivy's
+# image scan of the same build, libattr1 1:2.5.2-3, did not list it. The flaw is
+# still in the image until the trixie point release; if a scanner reports it
+# again, its entry is the acl one below with attr's facts — Debian bug 1141107,
+# fixed in unstable and forky at 1:2.6.0-1, a symlink traversal in recursive
+# getfattr/setfattr, which apkradar never runs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [[exception]]
@@ -77,6 +85,24 @@ demonstrably present because a scanner fell silent is the one direction this fil
 must not drift in.
 """
 review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-54369"
+source = "Trivy"
+where = "acl 2.3.2-2+b1 (libacl1), python slim-trixie base image"
+why = """
+Debian bug 1141110: fixed in unstable and forky (acl 2.4.0-1), no-dsa for trixie \
+with the fix scheduled for a point release. Debian's note says why it cannot be \
+backported piecemeal — the fix adds the `acl_*_at()` ABI of 2.4.0. Recorded from \
+2026-09-29 under Snyk's id SNYK-DEBIAN13-ACL-17677866; Trivy's image scan names \
+it by CVE since Snyk was retired on 2026-11-02, and the reason has not changed.
+
+The fix is scheduled, not absent, so the only thing to do is rebuild after the \
+next trixie point release. The date below is set for that: if the point release \
+has happened and this is still reported, the rebuild did not happen. A local \
+TOCTOU in recursive setfacl/chacl; apkradar calls neither.
+"""
+review_by = "2026-11-30"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CodeQL `py/incomplete-url-substring-sanitization`, seven alerts across two test
