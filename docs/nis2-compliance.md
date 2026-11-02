@@ -252,8 +252,7 @@ Analisi automatiche, ciascuna con il proprio workflow in `.github/workflows`:
 | --- | --- | --- |
 | `CodeQL` | analisi statica del codice | ogni pull request, ogni push su `main`, ogni settimana |
 | `Bandit` | analisi statica di sicurezza Python | ogni pull request, ogni push su `main`, ogni settimana |
-| `Trivy` | vulnerabilità note, alte e critiche, nei file del repository | ogni pull request, ogni push su `main`, ogni settimana |
-| `Snyk` | il codice, le dipendenze e un'immagine costruita dal Dockerfile; fa fallire la pull request solo per una vulnerabilità alta o critica nelle dipendenze che la pull request introduce | ogni pull request, ogni push su `main`, quando il token Snyk è disponibile |
+| `Trivy` | vulnerabilità note, alte e critiche, nei file del repository e nell'immagine costruita dal Dockerfile della pull request, prima che venga unita | ogni pull request, ogni push su `main`, ogni settimana |
 | `SonarCloud` | qualità, duplicazioni e copertura | ogni pull request, ogni push su `main`, quando il token SonarCloud è disponibile |
 | `Docker Scout` | vulnerabilità note, alte e critiche, nell'immagine `latest` pubblicata su Docker Hub | ogni push su `main`, ogni build dell'immagine, ogni settimana, a richiesta |
 | `Security Posture` | raccoglie gli avvisi pubblicati dagli altri e fallisce se un avviso alto o critico non ha un'eccezione motivata | ogni pull request, ogni push su `main`, ogni settimana |
