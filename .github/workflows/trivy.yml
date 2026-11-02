@@ -60,6 +60,24 @@ jobs:
           # Without it the SARIF carries every severity whatever `severity` says:
           # Snyk counted 107 low findings in the base image on 2026-11-02.
           limit-severities-for-sarif: true
+      # The SARIF goes to code scanning, where an alert reads "library/trivy-scan:1"
+      # and not which package it is in. The log says it, for whoever has to write
+      # the exception or the fix.
+      - name: List the image findings
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        run: |
+          python3 - trivy-image.sarif <<'LIST'
+          import json, sys
+          found = set()
+          for run in json.load(open(sys.argv[1], encoding="utf-8"))["runs"]:
+              for result in run["results"]:
+                  fields = dict(line.split(": ", 1) for line in result["message"]["text"].splitlines() if ": " in line)
+                  found.add((result["ruleId"], fields.get("Package", "?"), fields.get("Installed Version", "?"),
+                             fields.get("Severity", "?"), fields.get("Fixed Version", "") or "no fix"))
+          for row in sorted(found):
+              print("  ".join(row))
+          print(f"{len(found)} finding(s)")
+          LIST
       # A category of its own, written down rather than derived from the job's
       # name: renaming a job would otherwise start a new configuration and leave
       # the old one's alerts open with nothing left to close them.

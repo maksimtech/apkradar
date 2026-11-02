@@ -105,3 +105,14 @@ def test_both_scans_run_the_same_pinned_trivy(image_job):
     files = step_using(job_scanning("fs"), "trivy-action")["uses"]
     assert image == files
     assert len(image.split("@", 1)[1].split()[0]) == 40, "not pinned to a commit"
+
+
+def test_the_log_names_the_package_of_each_image_finding(image_job):
+    """An image alert in code scanning reads "library/trivy-scan:1" and nothing
+    about the package; on 2026-11-02 that left 45 alerts nobody could act on
+    without the SARIF. The listing reads the SARIF the scan wrote, and runs when
+    the scan step failed too."""
+    listing = next(step for step in image_job["steps"] if step.get("name") == "List the image findings")
+    output = step_using(image_job, "trivy-action")["with"]["output"]
+    assert output in listing["run"]
+    assert listing["if"].startswith("always()")
