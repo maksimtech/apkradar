@@ -30,6 +30,19 @@ no version in this file has ever matched — 40 is not a month, and
   (`split_config.arm64_v8a.apk`, `config.armeabi_v7a.apk`) next to the base APK. Density and
   language splits are not ABIs and are skipped. Read from the zip directories; no library is opened.
 
+### Changed
+
+- **Trivy scans the image a pull request builds; Snyk is gone.** Of what `snyk.yml` ran, only the
+  container scan worked: Snyk Open Source stopped on `SNYK-OS-PYTHON-0013` in all thirty runs from
+  2026-10-17 to 2026-11-02, so its check on new dependency issues let everything through, and Snyk Code
+  repeated CodeQL, Bandit and SonarCloud. `trivy.yml` now builds the image and scans it before merge,
+  with no token and no monthly quota. The Snyk-sourced entries left `SECURITY-EXCEPTIONS.toml`, the gcc
+  reasons moving into the Docker Scout entries; `tests/test_trivy_workflow.py` holds the image scan, and
+  `tests/test_workflow_set.py` keeps `snyk.yml` retired.
+  Its first run reported eight CVEs in the base image's Debian packages (util-linux ×4, ncurses, systemd,
+  perl, sqlite3), all without a fix in trixie and none in code apkradar runs; they are recorded in
+  `SECURITY-EXCEPTIONS.toml` to wait for Debian, review on 2026-12-31.
+
 ### Fixed
 
 - **Docker Scout no longer fails on its own base-image advice.** From 2026-10-24 every run of

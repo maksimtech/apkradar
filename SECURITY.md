@@ -15,12 +15,8 @@ a fix ships as the next release, never as a patch to an older one.
 ## How vulnerabilities are found
 
 - **CodeQL, Bandit and Trivy** (repository files) run on every pull request, on
-  every push to `main` and weekly.
-- **Snyk** checks the code, the dependencies and an image built from the
-  Dockerfile on every pull request and push to `main`, when the Snyk token is
-  available to the run. Of its findings, only a high or critical dependency issue
-  that the pull request adds, and `main` does not have, fails the job; the code and
-  image findings are published to GitHub code scanning.
+  every push to `main` and weekly. Trivy also scans the image built from the
+  Dockerfile of the pull request, before it is merged.
 - **Docker Scout** checks the published `latest` image on every push to `main`,
   weekly and on demand. The image is built on `python:3.12-slim-trixie` (Debian
   Trixie) when a release is cut, with `apt-get upgrade` run at build time; it is
@@ -29,7 +25,7 @@ a fix ships as the next release, never as a patch to an older one.
 - **Dependabot** alerts and security updates are enabled for this repository, and
   `.github/dependabot.yml` asks for version updates of the Python dependencies and
   of the GitHub Actions weekly.
-- **Security Posture** reads the alerts CodeQL, Bandit, Trivy, Snyk and Docker Scout
+- **Security Posture** reads the alerts CodeQL, Bandit, Trivy and Docker Scout
   publish to GitHub code scanning and fails when a high or critical finding has no
   reasoned exception in `SECURITY-EXCEPTIONS.toml`. It also runs weekly, because an
   exception expires by date and not by commit.
