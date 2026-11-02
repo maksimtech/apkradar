@@ -236,3 +236,62 @@ def test_the_command_warns_when_the_packages_differ(tmp_path):
     result = CliRunner().invoke(app, ["diff", a, b])
     assert result.exit_code == 0, result.output
     assert "different packages" in result.output
+
+
+def test_the_command_prints_every_kind_of_change(tmp_path):
+    """Each section of the console output, in both directions: a tracker and its
+    transfer that appear, a host that appears and one that goes, a permission
+    that goes, an ABI that appears."""
+    old = write_apk(
+        tmp_path / "old.apk",
+        manifest(PKG, permissions=(CAMERA,), hosts=("gone.example.com",)),
+        dex=dex_blob(classes=[f"{PKG}.Main"]),
+        native=("arm64-v8a",),
+    )
+    new = write_apk(
+        tmp_path / "new.apk",
+        manifest(PKG, hosts=("links.example.com",)),
+        dex=dex_blob(
+            classes=[f"{PKG}.Main", "com.appsflyer.AppsFlyerLib"],
+            urls=["https://googleads.g.doubleclick.net/mads/gma"],
+        ),
+        native=("arm64-v8a", "x86_64"),
+    )
+    result = CliRunner().invoke(app, ["diff", old, new])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "+ AppsFlyer" in out
+    assert "+ AppsFlyer Ltd. (USA/Israel)" in out
+    assert "+ links.example.com" in out
+    assert "- gone.example.com" in out
+    assert "+ googleads.g.doubleclick.net" in out
+    assert f"- {CAMERA}" in out
+    assert "+ x86_64" in out
+    assert "no longer offered" not in out
+
+
+def test_the_command_says_so_when_nothing_changed(tmp_path):
+    a = write_apk(tmp_path / "a.apk", manifest(PKG))
+    b = write_apk(tmp_path / "b.apk", manifest(PKG))
+    result = CliRunner().invoke(app, ["diff", a, b])
+    assert result.exit_code == 0, result.output
+    assert "No difference" in result.output
+
+
+def test_with_json_an_unreadable_file_is_reported_on_stderr_alone(tmp_path, acrobat_like):
+    """stdout stays empty, so a script reading the JSON gets nothing to misparse."""
+    old, _ = acrobat_like
+    missing = str(tmp_path / "missing.apk")
+    result = CliRunner().invoke(app, ["diff", old, missing, "--json"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "missing.apk" in result.stderr
+
+
+def test_a_file_that_is_not_a_zip_has_no_abi_to_read(tmp_path):
+    from apkradar.extractor import abis_in_apk, abis_in_splits
+
+    junk = tmp_path / "junk.apkm"
+    junk.write_bytes(b"not a zip")
+    assert abis_in_splits(str(junk)) == set()
+    assert abis_in_apk(str(junk)) == set()
