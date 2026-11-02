@@ -105,6 +105,153 @@ TOCTOU in recursive setfacl/chacl; apkradar calls neither.
 review_by = "2026-11-30"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# What Trivy's image scan reported on its first run, 2026-11-02, and no scanner
+# had reported as high before. Eight CVEs in six Debian source packages, all
+# "no fix" for trixie, none in code apkradar runs. Accepted by the maintainer on
+# 2026-11-02 to wait for Debian's fixes, which the next release's rebuild picks
+# up. Read from the Debian tracker where the page could be opened, and from
+# Ubuntu, NVD and OSV where it could not — each entry says which.
+#
+# The container runs as the unprivileged user `apkradar` (Dockerfile, USER) and
+# its entrypoint is apkradar itself; none of these packages' programs is run by
+# it. The libraries are loaded only by whatever links them, which for sqlite was
+# measured rather than assumed: a real `scan()` of an APK built by
+# tests/android_files.py loaded no sqlite3, _sqlite3, sqlalchemy or IPython module.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[exception]]
+id = "CVE-2026-76642"
+source = "Trivy"
+where = "util-linux 2.41.5-0+deb13u1 (bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux), python slim-trixie base image"
+why = """
+libmount does not check the mount helper's exit status before running \
+post-mount hooks (X-mount.idmap, X-mount.owner), so an unprivileged user may run \
+privileged operations on existing filesystems. Debian tracker: no-dsa for trixie, \
+"Minor issue"; fixed in forky and sid (2.42.3-1); bookworm not affected.
+
+Needs a local user running `mount` inside the container. apkradar never mounts \
+anything. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-78408"
+source = "Trivy"
+where = "util-linux 2.41.5-0+deb13u1 (bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux), python slim-trixie base image"
+why = """
+`nsenter --join-cgroup` opens cgroup.procs as root and keeps the descriptor \
+open across namespace, credential and execve() changes (Ubuntu's summary; the \
+Debian page could not be opened from here). Local.
+
+apkradar never runs nsenter. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-78409"
+source = "Trivy"
+where = "util-linux 2.41.5-0+deb13u1 (bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux), python slim-trixie base image"
+why = """
+The X-mount.subdir fast path on Linux 6.15+ passes the subdirectory to \
+open_tree() with AT_SYMLINK_NOFOLLOW, which does not stop intermediate symlink \
+traversal (Ubuntu's summary; the Debian page could not be opened from here). \
+Local, high attack complexity.
+
+apkradar never mounts anything. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-78410"
+source = "Trivy"
+where = "util-linux 2.41.5-0+deb13u1 (bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux), python slim-trixie base image"
+why = """
+Restricted bind mounts read the source path from fstab without pinning it before \
+the privileged mount, so a local user who can replace the source or a writable \
+ancestor may exploit it (Ubuntu's summary; the Debian page could not be opened \
+from here). Local.
+
+apkradar never mounts anything and the image has no fstab entries of its own. \
+Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2025-69720"
+source = "Trivy"
+where = "ncurses 6.5+20250216-2 (libncursesw6, libtinfo6, ncurses-base, ncurses-bin), python slim-trixie base image"
+why = """
+A stack buffer overflow in `analyze_string` of the `infocmp` program (NVD), \
+fixed upstream in 6.5-20251213; trixie carries 6.5+20250216. Local, and it needs \
+someone to run infocmp on a crafted terminal description.
+
+apkradar never runs infocmp; the libraries are in the image because Debian's own \
+tools link them. The Debian page could not be opened from here. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-16742"
+source = "Trivy"
+where = "systemd 257.13-1~deb13u1 (libsystemd0, libudev1), python slim-trixie base image"
+why = """
+A local privilege escalation in systemd-homed: a logged-in, homed-managed user \
+can be added to arbitrary system groups. Debian tracker: no-dsa for trixie, \
+"Minor issue"; fixed in forky (262-1) and sid.
+
+The image holds two systemd libraries and not systemd-homed, and no init system \
+runs in the container: the flaw's component is not there. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-9538"
+source = "Trivy"
+where = "perl 5.40.1-6+deb13u1 (perl-base), python slim-trixie base image"
+why = """
+A crafted file can crash perl — a denial of service (Ubuntu USN-8684-1, which \
+fixes it; BellSoft fixes it in 5.40.4). Trixie has no fix per Trivy; the Debian \
+page could not be opened from here. Not CVE-2026-82560, which Docker Scout \
+reports for the same package and is recorded above.
+
+perl-base is Essential in Debian — dpkg depends on it — and cannot be removed; \
+apkradar is Python and never runs perl. Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-119373"
+source = "Trivy"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+One of the eleven sqlite3 issues the Debian package tracker lists as open in both \
+trixie and sid on 2026-11-02, so there is no fixed version in any suite yet. Its \
+description could not be found from here. The +deb13u2 already in the image did \
+not close it.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module. apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the block header). Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
+build time, so the release after Debian ships a fix carries it, and the review \
+date is when to look at whether it has.
+"""
+review_by = "2026-12-31"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CodeQL `py/incomplete-url-substring-sanitization`, seven alerts across two test
 # files. Read line by line on 2026-09-29 before being written down.
 #

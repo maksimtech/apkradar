@@ -21,6 +21,9 @@ no version in this file has ever matched — 40 is not a month, and
   with no token and no monthly quota. The Snyk-sourced entries left `SECURITY-EXCEPTIONS.toml`, the gcc
   reasons moving into the Docker Scout entries; `tests/test_trivy_workflow.py` holds the image scan, and
   `tests/test_workflow_set.py` keeps `snyk.yml` retired.
+  Its first run reported eight CVEs in the base image's Debian packages (util-linux ×4, ncurses, systemd,
+  perl, sqlite3), all without a fix in trixie and none in code apkradar runs; they are recorded in
+  `SECURITY-EXCEPTIONS.toml` to wait for Debian, review on 2026-12-31.
 
 ### Fixed
 
