@@ -252,6 +252,58 @@ date is when to look at whether it has.
 review_by = "2026-12-31"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# sqlite3 as Docker Scout reports it, from 2026-11-02: its first scan of the image
+# published by #54 raised three of the eleven issues the Debian package tracker
+# lists as open in both trixie and sid. Same package and same decision as the
+# Trivy entry for CVE-2026-119373 above — wait for Debian — taken by the
+# maintainer on 2026-11-02 for the sqlite3 findings.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[exception]]
+id = "CVE-2026-119373"
+source = "Docker Scout"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+The flaw recorded above under Trivy, reported by the other scanner.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the Trivy block above). It waits for Debian, and \
+the release after Debian ships a fix carries it.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-119374"
+source = "Docker Scout"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+Open in trixie and sid with no fixed version in any suite (Debian package tracker, \
+2026-11-02); its description could not be found from here.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the Trivy block above). It waits for Debian, and \
+the release after Debian ships a fix carries it.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-119379"
+source = "Docker Scout"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+Open in trixie and sid with no fixed version in any suite (Debian package tracker, \
+2026-11-02); its description could not be found from here.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the Trivy block above). It waits for Debian, and \
+the release after Debian ships a fix carries it.
+"""
+review_by = "2026-12-31"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CodeQL `py/incomplete-url-substring-sanitization`, seven alerts across two test
 # files. Read line by line on 2026-09-29 before being written down.
 #
