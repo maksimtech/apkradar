@@ -73,6 +73,7 @@ valutarne l'uso.
 | `apkradar audit` | le fonti normative, quando ci sono rilievi da citare, anche con `--offline`; con `--full` anche Google Play (salvo `--offline`), DuckDuckGo se Google Play non ha la scheda dell'app, e i domini analizzati come descritto più sotto |
 | `apkradar batch` | nessuno; con `--full` i domini analizzati di ciascuna app, senza interpellare Google Play |
 | `apkradar batch-excel` | nessuno |
+| `apkradar diff` | nessuno: legge e confronta due file già salvati su disco |
 | `apkradar observe` | nessuno: legge l'APK e una cattura di rete e/o il traffico decifrato (HAR) già salvati su disco |
 | `apkradar observe-device` | nessuno: comanda via adb il dispositivo collegato e ne legge APK e cattura come `observe`; in rete va l'app osservata, sul dispositivo |
 | `apkradar search` | con un nome di pacchetto, Google Play e, se l'app non è elencata, DuckDuckGo; con un nome di app nessuno: stampa il link alla ricerca sullo store |

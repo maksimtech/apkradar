@@ -18,6 +18,7 @@ test that uses them runs androguard's parser, its AXMLPrinter and its get_xml()
 
 from __future__ import annotations
 
+import json
 import struct
 import xml.etree.ElementTree as ET
 import zipfile
@@ -143,12 +144,20 @@ def manifest(
     activities: tuple[str, ...] = (),
     hosts: tuple[str, ...] = (),
     receivers: tuple[str, ...] = (),
+    permissions: tuple[str, ...] = (),
+    version_code: int = 1,
+    version_name: str = "1.0",
+    min_sdk: int = 24,
+    target_sdk: int = 34,
 ) -> str:
     """The plain XML of a manifest: one activity per name, one deep link per host.
 
     A receiver per name too: that is how an SDK's install-referrer receiver is
     declared, and a declaration left behind by a build that removed the SDK's
     code is a case the scanner has to tell apart from the SDK itself.
+
+    A uses-permission per permission, and the version and SDK levels as given:
+    what two releases of the same app differ in, for `apkradar diff`.
 
     A host is written as a character reference where XML would otherwise
     normalise it, so a CR/LF in one reaches the binary manifest as a CR/LF.
@@ -165,9 +174,12 @@ def manifest(
     ) + "".join(
         f'<receiver android:name="{name}" android:exported="true"/>' for name in receivers
     )
+    uses = "".join(f'<uses-permission android:name="{p}"/>' for p in permissions)
     return (
-        f'<manifest {a} package="{package}" android:versionCode="1" android:versionName="1.0">'
-        '<uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34"/>'
+        f'<manifest {a} package="{package}" android:versionCode="{version_code}"'
+        f" android:versionName={quoteattr(version_name)}>"
+        f'<uses-sdk android:minSdkVersion="{min_sdk}" android:targetSdkVersion="{target_sdk}"/>'
+        f"{uses}"
         f'<application android:label="{package}">{components}</application>'
         "</manifest>"
     )
@@ -187,14 +199,51 @@ def dex_blob(classes=(), urls=()) -> bytes:
     return b"dex\n035\x00" + body
 
 
-def write_apk(path: str | Path, manifest_xml: str, dex: bytes | None = None) -> str:
+def write_apk(
+    path: str | Path,
+    manifest_xml: str,
+    dex: bytes | None = None,
+    native: tuple[str, ...] = (),
+) -> str:
     """An APK at `path` whose AndroidManifest.xml is `manifest_xml`, compiled.
 
     With `dex`, the bytes go in as classes.dex — see `dex_blob`. Without it the
     APK has no code at all, which is also a case the scanner has to handle.
+
+    With `native`, one `lib/<abi>/libapp.so` per ABI, where the packager puts
+    native code. The file is empty: the scanner reads which ABIs an APK ships,
+    from the directory names, and never opens a library.
     """
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("AndroidManifest.xml", binary_xml(manifest_xml))
         if dex is not None:
             z.writestr("classes.dex", dex)
+        for abi in native:
+            z.writestr(f"lib/{abi}/libapp.so", b"")
+    return str(path)
+
+
+def write_bundle(
+    path: str | Path,
+    base_apk: str | Path,
+    splits: tuple[str, ...] = (),
+    *,
+    package: str,
+    kind: str = "apkm",
+) -> str:
+    """An .apkm or .xapk at `path`: `base_apk` plus one empty split per name.
+
+    The layout the two stores use, as extract_main_apk reads it: a manifest.json
+    naming the package, the base APK, and the configuration splits, which APKMirror
+    calls `split_config.<qualifier>.apk` and APKPure `config.<qualifier>.apk`. A
+    split for an ABI is how a bundle ships native code for that ABI only, so its
+    name is what says which ABIs the bundle covers. Its content is never read.
+    """
+    prefix = "split_config." if kind == "apkm" else "config."
+    meta = {"pname": package} if kind == "apkm" else {"package_name": package, "xapk_version": 2}
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", json.dumps(meta))
+        z.write(base_apk, "base.apk" if kind == "apkm" else f"{package}.apk")
+        for qualifier in splits:
+            z.writestr(f"{prefix}{qualifier}.apk", b"")
     return str(path)

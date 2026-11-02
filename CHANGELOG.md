@@ -12,6 +12,24 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Added
+
+- **`apkradar diff OLD NEW`: what changed between two releases of an app.** Store release notes say
+  what the developer chose to say; `diff` compares what the two files declare and carry: version and
+  SDK levels, permissions (sensitive ones marked), trackers and extra-EU transfers, deep-link hosts,
+  servers named in the code, and the ABIs of the native code. `--json` prints the comparison alone,
+  for scripts. Both files are read locally; the command contacts nothing, and
+  `docs/nis2-compliance.md` says so. It answers a question release notes never do: Adobe Acrobat
+  Reader stopped updating at 24.8.1 on a Galaxy Tab A SM-T515, which runs a 32-bit Android
+  (armeabi-v7a) on a 64-bit CPU, because later releases ship native code for arm64-v8a only.
+  `diff` flags an ABI a release drops as devices it leaves behind, unless the release drops native
+  code altogether and so runs on every ABI.
+
+- **The scan reads which ABIs a file ships native code for** (`ScanResult.native_abis`): the
+  `lib/<abi>/` directories of the APK and, for `.apkm` and `.xapk` bundles, the ABI splits
+  (`split_config.arm64_v8a.apk`, `config.armeabi_v7a.apk`) next to the base APK. Density and
+  language splits are not ABIs and are skipped. Read from the zip directories; no library is opened.
+
 ### Changed
 
 - **Trivy scans the image a pull request builds; Snyk is gone.** Of what `snyk.yml` ran, only the
