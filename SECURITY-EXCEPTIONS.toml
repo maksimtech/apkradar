@@ -238,16 +238,15 @@ id = "CVE-2026-119373"
 source = "Trivy"
 where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
 why = """
-One of the eleven sqlite3 issues the Debian package tracker lists as open in both \
-trixie and sid on 2026-11-02, so there is no fixed version in any suite yet. Its \
-description could not be found from here. The +deb13u2 already in the image did \
-not close it.
+SQLite before 3.54.0: an FTS5 heap buffer overflow in fts5MergeRowidLists() (OSV, \
+2026-11-02). Debian fixed it in sid (3.54.1-1) and marked it no-dsa for \
+trixie, "Minor issue" (security tracker, 2026-11-09): no trixie update will come, \
+so the +deb13u2 in the image keeps it.
 
 libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
 Python's own sqlite3 module. apkradar does not import sqlite3, and a real scan \
-loads no module that does (see the block header). Like every finding in this block, it waits for Debian: `apt-get upgrade` runs at \
-build time, so the release after Debian ships a fix carries it, and the review \
-date is when to look at whether it has.
+loads no module that does (see the block header). Unlike the rest of this block, it does not wait for Debian, which will not fix it \
+in trixie: the review date is when to look for a base image with a fixed sqlite3.
 """
 review_by = "2026-12-31"
 
@@ -260,6 +259,40 @@ review_by = "2026-12-31"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [[exception]]
+id = "CVE-2026-119374"
+source = "Trivy"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+SQLite before 3.54.0: an FTS5 heap buffer overflow in fts5DoSecureDelete() (OSV, \
+2026-11-02). Debian fixed it in sid (3.54.1-1) and marked it no-dsa for \
+trixie, "Minor issue" (security tracker, 2026-11-09): no trixie update will come, \
+so the +deb13u2 in the image keeps it.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the block header). Accepted on that ground, not on waiting for \
+Debian: the review date is when to look for a base image with a fixed sqlite3.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
+id = "CVE-2026-119379"
+source = "Trivy"
+where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
+why = """
+SQLite before 3.54.0: a heap buffer overflow in the Session Extension, \
+sessionUpdateFind() (OSV, 2026-11-02). Debian fixed it in sid (3.54.1-1) and marked it no-dsa for \
+trixie, "Minor issue" (security tracker, 2026-11-09): no trixie update will come, \
+so the +deb13u2 in the image keeps it.
+
+libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
+Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
+loads no module that does (see the block header). Accepted on that ground, not on waiting for \
+Debian: the review date is when to look for a base image with a fixed sqlite3.
+"""
+review_by = "2026-12-31"
+
+[[exception]]
 id = "CVE-2026-119373"
 source = "Docker Scout"
 where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
@@ -268,8 +301,8 @@ The flaw recorded above under Trivy, reported by the other scanner.
 
 libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
 Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
-loads no module that does (see the Trivy block above). It waits for Debian, and \
-the release after Debian ships a fix carries it.
+loads no module that does (see the Trivy block above). Accepted on that ground, not on waiting for \
+Debian: the review date is when to look for a base image with a fixed sqlite3.
 """
 review_by = "2026-12-31"
 
@@ -278,13 +311,15 @@ id = "CVE-2026-119374"
 source = "Docker Scout"
 where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
 why = """
-Open in trixie and sid with no fixed version in any suite (Debian package tracker, \
-2026-11-02); its description could not be found from here.
+SQLite before 3.54.0: an FTS5 heap buffer overflow in fts5DoSecureDelete() (OSV, \
+2026-11-02). Debian fixed it in sid (3.54.1-1) and marked it no-dsa for \
+trixie, "Minor issue" (security tracker, 2026-11-09): no trixie update will come, \
+so the +deb13u2 in the image keeps it.
 
 libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
 Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
-loads no module that does (see the Trivy block above). It waits for Debian, and \
-the release after Debian ships a fix carries it.
+loads no module that does (see the Trivy block above). Accepted on that ground, not on waiting for \
+Debian: the review date is when to look for a base image with a fixed sqlite3.
 """
 review_by = "2026-12-31"
 
@@ -293,13 +328,15 @@ id = "CVE-2026-119379"
 source = "Docker Scout"
 where = "sqlite3 3.46.1-7+deb13u2 (libsqlite3-0), python slim-trixie base image"
 why = """
-Open in trixie and sid with no fixed version in any suite (Debian package tracker, \
-2026-11-02); its description could not be found from here.
+SQLite before 3.54.0: a heap buffer overflow in the Session Extension, \
+sessionUpdateFind() (OSV, 2026-11-02). Debian fixed it in sid (3.54.1-1) and marked it no-dsa for \
+trixie, "Minor issue" (security tracker, 2026-11-09): no trixie update will come, \
+so the +deb13u2 in the image keeps it.
 
 libsqlite3-0 is in the image as a dependency of util-linux (liblastlog2-2) and of \
 Python's own sqlite3 module; apkradar does not import sqlite3, and a real scan \
-loads no module that does (see the Trivy block above). It waits for Debian, and \
-the release after Debian ships a fix carries it.
+loads no module that does (see the Trivy block above). Accepted on that ground, not on waiting for \
+Debian: the review date is when to look for a base image with a fixed sqlite3.
 """
 review_by = "2026-12-31"
 
