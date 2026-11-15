@@ -79,6 +79,15 @@ no version in this file has ever matched — 40 is not a month, and
   `security-posture.yml` follows the scan. `docs/nis2-compliance.md` now says so, and `tests/test_scan_after_publish.py`
   holds them together.
 
+### Security
+
+- **dnspython 2.9.2 (CVE-2026-128089, GHSA-vvf4-9x63-8xvv).** dnspython reaches APKRadar through
+  MailRadar, and every version before 2.9.2 can be made to use excessive memory and CPU by a DNS answer
+  (CVSS 7.5, network, no privileges). Published on 2026-11-13; Trivy reported it on uv.lock on
+  2026-11-15 and Security Posture stopped there. 2.9.2 is twelve days old, under the fourteen days a
+  dependency waits here: it goes in early because the version it replaces has the known vulnerability,
+  and 2.9.1 has it too. Only uv.lock changes. MailRadar took the same update in its #89.
+
 ## [2026.47] - 2026-10-23
 
 ### Security
