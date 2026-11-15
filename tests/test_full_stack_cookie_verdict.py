@@ -46,11 +46,26 @@ def _run(cookie_result) -> tuple[bool, str]:
     return violation, buf.getvalue()
 
 
+def _listed(out: str) -> dict[str, str]:
+    """The report's "→ <item> (<why>)" lines, as {item: why}.
+
+    Compared whole, not searched for a domain: a domain looked for inside a
+    string is what CodeQL reads as a URL check (py/incomplete-url-substring-
+    sanitization), and an exact item says more than a substring anyway."""
+    rows = {}
+    for line in out.splitlines():
+        item, arrow, rest = line.strip().partition("→ ")
+        if arrow and not item:
+            name, _, why = rest.partition(" (")
+            rows[name] = why.rstrip(")")
+    return rows
+
+
 def test_tracker_persisting_after_rejection_is_a_violation():
     violation, out = _run(_result(pre=["doubleclick.net"], rej=["doubleclick.net"]))
     assert violation is True
     assert "VIOLATION" in out
-    assert "doubleclick.net" in out
+    assert _listed(out) == {"doubleclick.net": "persists from pre-consent"}
 
 
 def test_tracker_new_after_rejection_is_a_violation():
@@ -58,8 +73,7 @@ def test_tracker_new_after_rejection_is_a_violation():
     violation, out = _run(_result(pre=[], rej=["doubleclick.net"]))
     assert violation is True
     assert "VIOLATION" in out
-    assert "doubleclick.net" in out
-    assert "new after rejection" in out
+    assert _listed(out) == {"doubleclick.net": "new after rejection"}
     assert "none persist" not in out
 
 
