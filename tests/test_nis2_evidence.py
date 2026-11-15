@@ -108,7 +108,19 @@ def hosts_in_code() -> dict[str, set[str]]:
 # mailradar.gpg for the key lookup, cookieradar.scanner imports its tracker list.
 DEPENDENCY_CALLS = {
     ("mailradar.checker", "analyze_domain"),
+    # One DNS query of type A before analyze_domain, as MailRadar's own `check`
+    # asks it: a domain that does not exist is not graded.
+    ("mailradar.checker", "domain_exists"),
+    ("mailradar.checker", "DNSLookupError"),
     ("cookieradar.scanner", "scan"),
+    # CookieRadar's verdict on the result `scan` returned: no network of their
+    # own, imported from the same module and listed so the set stays exact.
+    ("cookieradar.scanner", "Verdict"),
+    ("cookieradar.scanner", "verdict"),
+    ("cookieradar.scanner", "find_violations"),
+    ("cookieradar.scanner", "stored_before_choice"),
+    ("cookieradar.scanner", "not_served"),
+    ("cookieradar.scanner", "bot_challenge"),
     ("google_play_scraper", "app"),
     ("google_play_scraper.exceptions", "NotFoundError"),
 }

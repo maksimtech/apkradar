@@ -535,7 +535,9 @@ class TestCheckMailradar(unittest.TestCase):
     def test_mailradar_exception_returns_none(self):
         """Exception should return (None, None)."""
         from apkradar.cli import _check_mailradar
-        with patch("mailradar.checker.analyze_domain", side_effect=Exception("error")):
+        # The domain exists; the analysis itself fails.
+        with patch("mailradar.checker.domain_exists", return_value=True), \
+             patch("mailradar.checker.analyze_domain", side_effect=Exception("error")):
             score, grade = _check_mailradar("nonexistent.example.com")
             self.assertIsNone(score)
             self.assertIsNone(grade)

@@ -3,7 +3,7 @@ import io
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from rich.console import Console
 from typer.testing import CliRunner
@@ -95,9 +95,8 @@ class TestFullStackMarkup(unittest.TestCase):
 
     def test_domain_and_cookieradar_data_escaped(self):
         from apkradar.cli import _full_stack_domain
-        cookie = MagicMock()
-        cookie.pre_consent.trackers = [MagicMock(domain="tracker[/red].example")]
-        cookie.post_reject.trackers = [MagicMock(domain="tracker[/red].example")]
+        from tests.cookie_results import cookie_result
+        cookie = cookie_result(pre=["tracker[/red].example"], rej=["tracker[/red].example"])
 
         def fake_run(coro):
             coro.close()

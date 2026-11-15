@@ -111,12 +111,12 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "androguard", specifier = ">=4.0.0" },
-    { name = "cookieradar", specifier = ">=2026.44" },
+    { name = "cookieradar", specifier = ">=2026.47" },
     { name = "google-play-scraper", specifier = ">=1.2.7" },
     { name = "httpx", specifier = ">=0.24.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.140" },
     { name = "jinja2", specifier = ">=3.1.0" },
-    { name = "mailradar", specifier = ">=2026.44" },
+    { name = "mailradar", specifier = ">=2026.47" },
     { name = "mutmut", marker = "extra == 'dev'", specifier = ">=3.8" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18" },
     { name = "openpyxl", specifier = ">=3.1.0" },
@@ -340,7 +340,7 @@ wheels = [
 
 [[package]]
 name = "cookieradar"
-version = "2026.44"
+version = "2026.47"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -348,9 +348,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/00/91b9335051bc7446283ee78038a5b74ffd6dc9b2bc326714270600f917ae/cookieradar-2026.44.tar.gz", hash = "sha256:8b72c79001671e554e92bbd4fb10d3dc175cbd7a7ace1f2d58e7f0c508159e45", size = 202175, upload-time = "2026-10-10T09:16:22.34Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/08/67fb3905b20844d0665855a3d5c2e8da32179d9e2788711f374afd7f34cd/cookieradar-2026.47.tar.gz", hash = "sha256:db988799bc021ef7c1aaa8cd3d39e8fef5811a697671a84d489dcd34078130df", size = 378621, upload-time = "2026-11-15T11:02:38.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/c4/cd1a375bc9d443adecfa264f3b8348fb33ed76bf1a037a330e6b82d8925c/cookieradar-2026.44-py3-none-any.whl", hash = "sha256:073c8a9afc91a776fcf9403bd18a1a1ef9d441293af816f474aca12be7d6c61a", size = 47462, upload-time = "2026-10-10T09:16:20.919Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/00/1880161479e41bb5652a41c2d30bb26497b0ddc84c85861f44df653afc41/cookieradar-2026.47-py3-none-any.whl", hash = "sha256:26eced07ed5dfe738134729c90b6fbd32d2862abef774a204820ba34d9dcd7ae", size = 54500, upload-time = "2026-11-15T11:02:37.172Z" },
 ]
 
 [[package]]
@@ -1201,7 +1201,7 @@ wheels = [
 
 [[package]]
 name = "mailradar"
-version = "2026.44"
+version = "2026.47"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -1211,9 +1211,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/6a/cb8c62ad52416f05cd0f671b45668cc6516a572c3f4f1737c7d68d4ce124/mailradar-2026.44.tar.gz", hash = "sha256:f8e90a4ee4eb43cd8444daf5628da61285a2e4a54b122cc85da3b64a4c3a488b", size = 385830, upload-time = "2026-10-10T09:12:11.021Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/3a/3c418811c4164dd15332c2f07bebe35ae4e6d68eba123e9b8c85b0b9d055/mailradar-2026.47.tar.gz", hash = "sha256:77c1513d8f10595ec19497f7007bc845957264468d802d45ee1da97bd555fbe7", size = 513244, upload-time = "2026-10-28T19:21:09.117Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/93/095c72f6b612c46963b212e3f1c4e6f527838bbd5fcde75f617780c28677/mailradar-2026.44-py3-none-any.whl", hash = "sha256:bf815d9cc0deafb785f2778a341593d0ba2cdc5f4887b0e4d158e412d6ce13c3", size = 147185, upload-time = "2026-10-10T09:12:09.492Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/7c/24714d1439983e5fd0c38f27ce8c9ae2bc1b4bbeaf4eff10d8f545d426f1/mailradar-2026.47-py3-none-any.whl", hash = "sha256:3f2845f66027ba984b69016ac7a3696ba8c92e2b65a5d169ce206e7e94e70950", size = 150349, upload-time = "2026-10-28T19:21:07.548Z" },
 ]
 
 [[package]]

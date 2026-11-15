@@ -1,6 +1,6 @@
 """Tests for APKRadar CLI --full flag with mocked dependencies."""
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -22,10 +22,8 @@ def _make_scan_result(package_name="com.example.app"):
 
 
 def _make_cookie_result():
-    mock = MagicMock()
-    mock.pre_consent.trackers = []
-    mock.post_reject.trackers = []
-    return mock
+    from tests.cookie_results import cookie_result
+    return cookie_result()
 
 
 class TestAuditFullFlag(unittest.TestCase):

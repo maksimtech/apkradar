@@ -455,15 +455,85 @@ def _check_mailradar(domain: str) -> tuple[int | None, str | None]:
     """
     Run MailRadar analysis on domain.
 
+    Asks first whether the domain exists, as MailRadar's own `check` does: a name
+    with no DNS answers NXDOMAIN to every lookup, and graded anyway it came out
+    as "0/100 — CRITICAL" — a claim about the email security of a holder who
+    does not exist, which `send --publisher-domain` with a typo put in a letter.
+
     Returns:
-        Tuple of (score, grade)
+        (score, grade) when MailRadar graded the domain; (None, reason) when
+        there was nothing to grade; (None, None) when MailRadar itself failed.
     """
     try:
-        from mailradar.checker import analyze_domain
+        from mailradar.checker import DNSLookupError, analyze_domain, domain_exists
+    except ImportError:
+        return None, "MailRadar not installed"
+    try:
+        if not domain_exists(domain):
+            return None, "domain not found in DNS"
+    except DNSLookupError:
+        return None, "DNS lookup failed, existence not established"
+    try:
         mail_result = analyze_domain(domain)
-        return mail_result.total_score, mail_result.grade
     except Exception:
         return None, None
+    if mail_result.total_score is None:
+        return None, "not graded: some DNS lookups got no answer"
+    return mail_result.total_score, mail_result.grade
+
+
+def _mail_grade_colour(grade: str | None) -> str:
+    """The colour of a grade, following MailRadar's grades rather than score
+    thresholds of its own. MailRadar shows POOR in orange; here it is red."""
+    if grade in ("EXCELLENT", "GOOD"):
+        return "green"
+    if grade == "MODERATE":
+        return "yellow"
+    return "red"
+
+
+def _report_cookieradar(cookie_result, outcome) -> bool:
+    """Print CookieRadar's verdict on a result; True when it is a VIOLATION.
+
+    The verdict is CookieRadar's own (`scanner.verdict`), passed in as `outcome`.
+    Deciding it here, as "trackers seen both before consent and after
+    rejection", printed a green "none persist" for a tracker new after
+    rejection, a tracking cookie stored before any choice, a refusal that could
+    not be clicked and an error page.
+    """
+    from cookieradar.scanner import (
+        Verdict,
+        bot_challenge,
+        find_violations,
+        not_served,
+        stored_before_choice,
+    )
+
+    if outcome is Verdict.VIOLATION:
+        violations = find_violations(cookie_result)
+        stored = stored_before_choice(cookie_result)
+        console.print("  🍪 CookieRadar: [red]VIOLATION[/red]")
+        for cookie in stored:
+            console.print(f"       → {escape(cookie)} [dim](stored before any choice)[/dim]")
+        for d in sorted(violations.persistent):
+            console.print(f"       → {escape(d)} [dim](persists from pre-consent)[/dim]")
+        for d in sorted(violations.new):
+            console.print(f"       → {escape(d)} [dim](new after rejection)[/dim]")
+        return True
+    if outcome is Verdict.UNVERIFIED:
+        console.print("  🍪 CookieRadar: [yellow]UNVERIFIED — no refusal could be applied, "
+                      "so nothing is known about what a refusal does[/yellow]")
+    elif outcome is Verdict.ERROR:
+        refused = not_served(cookie_result)
+        why = (f"HTTP {refused[1]} in the {refused[0]} session" if refused
+               else bot_challenge(cookie_result).describe())
+        console.print(f"  🍪 CookieRadar: [yellow]ERROR — the site was not seen ({escape(why)}); "
+                      "not audited[/yellow]")
+    else:
+        pre = {t.domain for t in cookie_result.pre_consent.trackers}
+        console.print(f"  🍪 CookieRadar: [green]OK — {len(pre)} pre-consent trackers, "
+                      "none loaded after rejection[/green]")
+    return False
 
 
 def _domains_to_analyse(result):
@@ -530,10 +600,11 @@ def _full_stack_domain(domain: str, verbose: bool = False, note: str = "") -> bo
         console.print("  [dim]→ Running MailRadar...[/dim]")
     mail_score, mail_grade = _check_mailradar(domain)
     if mail_score is not None:
-        grade_color = "green" if mail_score >= 80 else "yellow" if mail_score >= 60 else "red"
+        grade_color = _mail_grade_colour(mail_grade)
         console.print(f"  📡 MailRadar: [{grade_color}]{mail_score}/100 — {escape(str(mail_grade))}[/{grade_color}]")
     else:
-        console.print("  📡 MailRadar: [dim]unavailable[/dim]")
+        reason = f" — {escape(mail_grade)}" if mail_grade else ""
+        console.print(f"  📡 MailRadar: [dim]unavailable{reason}[/dim]")
 
     # SSL
     if verbose:
@@ -545,20 +616,19 @@ def _full_stack_domain(domain: str, verbose: bool = False, note: str = "") -> bo
     if verbose:
         console.print("  [dim]→ Running CookieRadar...[/dim]")
     try:
+        # `verdict` with `scan`, before the browser starts: a CookieRadar too old
+        # to have it is named at once, not after a three-session run.
         from cookieradar.scanner import scan as cookie_scan
+        from cookieradar.scanner import verdict
         url = f"https://{domain}"
         cookie_result = asyncio.run(cookie_scan(url))
-        pre = {t.domain for t in cookie_result.pre_consent.trackers}
-        rej = {t.domain for t in cookie_result.post_reject.trackers}
-        persistent = pre & rej
-        if persistent:
-            console.print(f"  🍪 CookieRadar: [red]VIOLATION — {len(persistent)} tracker(s) post-rejection[/red]")
-            for t in sorted(persistent):
-                console.print(f"       → {escape(t)}")
-            return True
-        console.print(f"  🍪 CookieRadar: [green]{len(pre)} pre-consent trackers, none persist[/green]")
-    except ImportError:
+        return _report_cookieradar(cookie_result, verdict(cookie_result))
+    except ModuleNotFoundError:
         console.print("  🍪 CookieRadar: [dim]not installed[/dim]")
+    except ImportError:
+        # Installed, but older than `scanner.verdict`: not the same advice.
+        console.print("  🍪 CookieRadar: [yellow]installed version too old for --full — "
+                      "update cookieradar[/yellow]")
     except Exception as e:
         console.print(f"  🍪 CookieRadar: [dim]error: {escape(str(e))}[/dim]")
     return False
@@ -1425,6 +1495,11 @@ def send(
         mail_score, mail_grade = _check_mailradar(domain)
         if mail_score is not None:
             console.print(f"📡 MailRadar — {escape(domain)}: {mail_score}/100 — {escape(str(mail_grade))}")
+        else:
+            # Not a grade: the letter must not carry it as one.
+            if mail_grade:
+                console.print(f"[yellow]📡 MailRadar — {escape(domain)}: {escape(mail_grade)}[/yellow]")
+            mail_grade = None
 
         console.print(f"[dim]Checking SSL on {escape(domain)}...[/dim]")
         ssl_status, ssl_expiry = _check_ssl(domain)
