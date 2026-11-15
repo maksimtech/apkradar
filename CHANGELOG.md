@@ -76,6 +76,26 @@ no version in this file has ever matched — 40 is not a month, and
   `tests/test_security_posture_workflow.py` runs the step's own function against a stand-in `gh` that
   answers in two pages.
 
+- **`--full` gives CookieRadar's verdict, not a narrower one of its own.** It counted only the trackers
+  seen both before consent and after rejection, and printed a green "none persist" for a tracker new
+  after rejection, a tracking cookie stored before any choice, a refusal that could not be clicked
+  (UNVERIFIED) and an error page or bot challenge (ERROR). The first two were also kept from the law
+  check, so GDPR art. 7 went uncited. The verdict now comes from `cookieradar.scanner.verdict`, public
+  since CookieRadar 2026.47, which is now the lowest version accepted; an older CookieRadar is named as
+  too old before the browser starts, not after a three-session run. The `--full` tests use CookieRadar's
+  own result objects instead of a MagicMock, which is how the gap stayed invisible.
+
+- **MailRadar does not grade a domain that does not exist.** A name answering NXDOMAIN came back as
+  "0/100 — CRITICAL" (measured with MailRadar 2026.44), and through `send --publisher-domain` a typo put
+  that grade in a letter to a DPO. APKRadar now asks `mailradar.checker.domain_exists` first, as
+  MailRadar's `check` does, and says why there is no score: the domain was not found, the lookup failed,
+  or MailRadar left the report ungraded. That needs MailRadar 2026.47, now the lowest version accepted:
+  before 2026.45 `domain_exists` read a DNS timeout as a missing domain, and only 2026.47 leaves a
+  report ungraded when lookups get no answer. The tests replace the resolver rather than ask the
+  network. The colour of a grade now follows MailRadar's grades (a GOOD 78 was yellow, a MODERATE 55
+  red); POOR stays red where MailRadar shows orange. `docs/nis2-compliance.md` lists the added DNS
+  query.
+
 - **Docker Scout no longer fails on its own base-image advice.** From 2026-10-24 every run of
   `docker-scout.yml` failed and GitHub mailed it on each push to main: the CVE scan worked, then the scout
   CLI crashed in the `recommendations` part (nil pointer in `recommendations/markdown.go`) on images built

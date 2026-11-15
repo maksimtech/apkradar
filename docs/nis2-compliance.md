@@ -100,11 +100,12 @@ HTTP di APKRadar usano lo User-Agent predefinito della libreria che le fa.
 
 ### Host contattati attraverso le dipendenze
 
-APKRadar chiama tre funzioni di librerie che vanno in rete:
-`google_play_scraper.app`, `mailradar.checker.analyze_domain` e
-`cookieradar.scanner.scan`. La tabella elenca gli host fissi che i moduli eseguiti da
+APKRadar chiama quattro funzioni di librerie che vanno in rete:
+`google_play_scraper.app`, `mailradar.checker.domain_exists`,
+`mailradar.checker.analyze_domain` e `cookieradar.scanner.scan`. La tabella elenca gli host fissi che i moduli eseguiti da
 quelle chiamate nominano, letti dalla versione installata delle librerie: se una nuova
 versione ne aggiunge uno, i test falliscono. Di MailRadar APKRadar usa solo
+`domain_exists` (una query DNS al resolver del sistema, nessun host fisso) e
 `analyze_domain`: gli altri host di MailRadar, che il suo documento NIS2 elenca per
 l'uso autonomo (per esempio crt.sh e rdap.org del comando `discover`, e le fonti
 normative), non vengono raggiunti da APKRadar.
@@ -159,7 +160,9 @@ Su ciascun dominio analizzato APKRadar esegue:
 
 - solo per il dominio del publisher, la verifica "in vendita": una richiesta GET a
   `https://<dominio>` e, se fallisce, a `http://<dominio>`, seguendo i redirect;
-- MailRadar (`mailradar.checker.analyze_domain`): interrogazioni DNS attraverso il
+- MailRadar: prima una query DNS di tipo A (`mailradar.checker.domain_exists`) per
+  sapere se il dominio esiste, e un dominio che non esiste non viene analizzato; poi
+  (`mailradar.checker.analyze_domain`) interrogazioni DNS attraverso il
   resolver del sistema (DMARC, SPF, DKIM, BIMI, MTA-STS, TLS-RPT); se il dominio
   pubblica un record MTA-STS, `https://mta-sts.<dominio>/.well-known/mta-sts.txt`; se
   il record BIMI indica un'immagine a un indirizzo https pubblico, quell'immagine, su

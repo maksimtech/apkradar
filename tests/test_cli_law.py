@@ -2,7 +2,7 @@
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from apkradar import law_fetcher
 from apkradar.cli import app
 from apkradar.scanner import PermissionFound, ScanResult, TrackerFound, TransferFound
+from tests.cookie_results import cookie_result
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "gdpr_it_excerpt.html"
@@ -198,10 +199,7 @@ def test_failed_scan_skips_law_check(eurlex):
 @patch("apkradar.cli._check_ssl", return_value=("valid", "01/01/2027"))
 @patch("apkradar.cli._check_mailradar", return_value=(90, "A"))
 def test_full_cookie_violation_cites_article_7(mock_mail, mock_ssl, eurlex):
-    tracker = MagicMock(domain="tracker.example")
-    cookies = MagicMock()
-    cookies.pre_consent.trackers = [tracker]
-    cookies.post_reject.trackers = [tracker]
+    cookies = cookie_result(pre=["tracker.example"], rej=["tracker.example"])
 
     with patch("asyncio.run", return_value=cookies):
         out = _audit(_result(), "--full")
@@ -215,9 +213,7 @@ def test_full_cookie_violation_cites_article_7(mock_mail, mock_ssl, eurlex):
 @patch("apkradar.cli._check_ssl", return_value=("valid", "01/01/2027"))
 @patch("apkradar.cli._check_mailradar", return_value=(90, "A"))
 def test_full_without_cookie_violation_does_not_cite_article_7(mock_mail, mock_ssl, eurlex):
-    cookies = MagicMock()
-    cookies.pre_consent.trackers = [MagicMock(domain="tracker.example")]
-    cookies.post_reject.trackers = []
+    cookies = cookie_result(pre=["tracker.example"], rej=[])
 
     with patch("asyncio.run", return_value=cookies):
         out = _audit(_result(), "--full")
