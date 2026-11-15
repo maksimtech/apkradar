@@ -80,6 +80,19 @@ def test_a_report_mailradar_did_not_grade_gives_no_score():
     assert "not graded" in reason
 
 
+def test_a_domain_that_exists_is_graded_as_mailradar_grades_it():
+    graded = SimpleNamespace(total_score=78, grade="GOOD")
+    with patch("mailradar.checker.domain_exists", return_value=True), \
+         patch("mailradar.checker.analyze_domain", return_value=graded):
+        assert _check_mailradar("example.com") == (78, "GOOD")
+
+
+def test_without_mailradar_the_reason_says_so():
+    """A missing install is not a missing domain, and not a failed lookup."""
+    with patch.dict("sys.modules", {"mailradar.checker": None}):
+        assert _check_mailradar("example.com") == (None, "MailRadar not installed")
+
+
 def test_the_letter_carries_no_grade_for_a_missing_domain():
     """The reason is shown to whoever sends, and stays out of the letter."""
     from apkradar.scanner import ScanResult
