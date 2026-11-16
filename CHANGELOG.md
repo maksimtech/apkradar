@@ -12,6 +12,19 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Fixed
+
+- **A release no longer goes red because the index answered the check before it had caught up.**
+  On 2026.48 the upload succeeded at 15:04:08, `wait_for_pypi.sh` saw the version at 15:04:30, and
+  the install that checks the published wheel, three seconds later on the same runner, was told
+  "from versions: … 2026.47": *Publish to PyPI* failed on a release that was fine. The workflow had
+  given that install no retry on the ground that the job has a single resolver, the runner, and
+  that one is not enough was what this release showed. The install now goes through
+  `.github/scripts/install_from_pypi.sh`, which asks again (ten attempts, 30 s apart) until it
+  succeeds or names the version it could not install. A longer grace would not have done it:
+  ReleaseRadar lost the same race on v2026.4 with 45 s, and retries its install since. The script,
+  and `tests/test_install_from_pypi.py` that runs it, are the same in all six Radar.
+
 ## [2026.48] - 2026-11-16
 
 ### Changed

@@ -48,9 +48,12 @@ jobs:
       # and after the upload — where a slow index delays a check instead of failing a
       # build that had nothing to do with it.
       #
-      # No margin: the grace in that script is for the case of two resolvers, the
-      # runner and the buildx container — which is what was measured here on
-      # 2026-10-03. There is only the runner in this job.
+      # No margin, and the install is retried instead. This said "there is only the
+      # runner in this job", so one install after the wait would do: on 2026.48 the
+      # wait saw the version at 15:04:30 and the install was refused it at 15:04:33,
+      # on the same runner. Two requests can be two answers. A margin would not have
+      # fixed it — releaseradar lost on v2026.4 with 45 s — so the install itself is
+      # what is asked again, by install_from_pypi.sh.
       - name: Extract version
         id: version
         env:
@@ -70,6 +73,5 @@ jobs:
           VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           python -m venv "${RUNNER_TEMP}/verify"
-          "${RUNNER_TEMP}/verify/bin/pip" install --no-cache-dir \
-              --only-binary :all: "apkradar==${VERSION}"
+          bash .github/scripts/install_from_pypi.sh "${RUNNER_TEMP}/verify" apkradar "$VERSION" 10 30
           "${RUNNER_TEMP}/verify/bin/apkradar" --version
