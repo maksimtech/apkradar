@@ -35,6 +35,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WAIT_FOR_PYPI = ROOT / ".github" / "scripts" / "wait_for_pypi.sh"
+INSTALL_FROM_PYPI = ROOT / ".github" / "scripts" / "install_from_pypi.sh"
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 PACKAGE = "apkradar"
@@ -216,6 +217,118 @@ def test_the_default_grace_is_a_wait_and_not_zero(fake_pip):
         proc.wait(timeout=10)
 
 
+# ─── the install that checks the upload, retried ────────────────────────────
+
+@pytest.fixture
+def fake_venv(tmp_path):
+    """A venv whose `bin/pip` fails until the call count reaches SUCCEED_AT.
+
+    The script is run for real, by bash, against this venv, as publish.yml runs it
+    against the one it has just created. What is faked is only the answer from the
+    index.
+    """
+    venv = tmp_path / "verify"
+    (venv / "bin").mkdir(parents=True)
+    log = tmp_path / "installs.log"
+    pip = venv / "bin" / "pip"
+    pip.write_text(
+        "#!/bin/sh\n"
+        f'echo "$@" >> "{log.as_posix()}"\n'
+        f'n=$(wc -l < "{log.as_posix()}")\n'
+        '[ "$n" -ge "$SUCCEED_AT" ]\n',
+        encoding="utf-8",
+    )
+    pip.chmod(0o755)
+    env = {**os.environ}
+
+    def run(succeed_at, *args, with_venv=True):
+        command = [BASH, str(INSTALL_FROM_PYPI), *([venv.as_posix()] if with_venv else []), *args]
+        proc = subprocess.run(
+            command,
+            env={**env, "SUCCEED_AT": str(succeed_at)},
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        calls = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+        return proc, calls
+
+    def start(succeed_at, *args):
+        return subprocess.Popen(
+            [BASH, str(INSTALL_FROM_PYPI), venv.as_posix(), *args],
+            env={**env, "SUCCEED_AT": str(succeed_at)},
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    run.start = start
+    return run
+
+
+def test_the_install_asks_the_venv_for_the_exact_wheel_and_stops_on_success(fake_venv):
+    proc, calls = fake_venv(1, PACKAGE, "2026.48", "5", "0")
+
+    assert proc.returncode == 0, proc.stderr
+    assert len(calls) == 1
+    assert calls[0].split()[0] == "install"
+    assert "--no-cache-dir" in calls[0]       # a cached answer is the one thing not to trust
+    assert "--only-binary :all:" in calls[0]  # the wheel that was uploaded, not a build of the sdist
+    assert f"{PACKAGE}==2026.48" in calls[0]
+
+
+def test_the_install_is_asked_again_until_the_index_answering_it_has_caught_up(fake_venv):
+    """The case this script exists for.
+
+    apkradar 2026.48, 2026-11-16: wait_for_pypi.sh saw the version at 15:04:30 and the
+    install three seconds later, from the same runner, was told "from versions: …
+    2026.47". The upload had succeeded; the job went red. releaseradar had lost the
+    same way on v2026.2 and on v2026.4, the second time with a 45 second grace in
+    place. One request seeing the file does not mean the next one will.
+    """
+    proc, calls = fake_venv(3, PACKAGE, "2026.48", "5", "0")
+
+    assert proc.returncode == 0, proc.stderr
+    assert len(calls) == 3
+    assert "not installable yet" in proc.stdout, "it retried without saying why"
+
+
+def test_the_install_gives_up_and_names_what_it_could_not_install(fake_venv):
+    """A version that never becomes installable is a failure, and the message has to
+    carry the version: patience for a CDN, not a verdict deferred for ever."""
+    proc, calls = fake_venv(99, PACKAGE, "2026.48", "4", "0")
+
+    assert proc.returncode != 0
+    assert len(calls) == 4
+    assert f"{PACKAGE}==2026.48" in proc.stderr
+
+
+@pytest.mark.parametrize("args", [(), (PACKAGE,), (PACKAGE, "2026.48")])
+def test_the_install_refuses_to_run_without_a_venv_a_package_and_a_version(fake_venv, args):
+    """Called short, it must not install something else and then report success."""
+    proc, calls = fake_venv(1, *args, with_venv=False)
+
+    assert proc.returncode != 0
+    assert calls == []
+    assert "Usage" in proc.stderr
+
+
+def test_the_default_interval_between_installs_is_a_wait_and_not_zero(fake_venv):
+    """The default is what publish.yml would get if it stopped passing one, so it is
+    measured here too: against an index that answers on the second ask, the script
+    must still be waiting a few seconds after the first. Zero retries would hammer the
+    same stale edge and give up in a second."""
+    proc = fake_venv.start(2, PACKAGE, "2026.48")
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            proc.wait(timeout=3)
+    finally:
+        proc.kill()
+        proc.wait(timeout=10)
+
+
 # ─── the workflow: where the wait sits, and what it is given ────────────────
 
 yaml = pytest.importorskip("yaml")
@@ -315,19 +428,33 @@ def test_the_published_file_is_still_checked_where_it_was_published():
     verify = next(i for i, s in enumerate(steps) if "--version" in s.get("run", ""))
 
     assert upload < wait < verify, names
-    assert "apkradar==" in steps[verify]["run"], "it has to be the version just uploaded"
+    install = steps[verify]["run"].split("install_from_pypi.sh", 1)
+    assert len(install) == 2, "the check installs through the script that retries"
+    assert install[1].split()[1:3] == ["apkradar", '"$VERSION"'], (
+        "it has to be the version just uploaded"
+    )
 
 
-def test_the_check_asks_for_no_margin_because_there_is_one_resolver():
-    """The grace exists because the runner and the buildx container ask different
-    edges of the index — measured here, on 2026-10-03. In publish.yml there is only
-    the runner, which has just had `pip download` answer, so a margin would buy
-    nothing, and a wait that buys nothing is what that script was rewritten to stop
-    doing."""
-    wait = next(s for s in _publish_steps() if "wait_for_pypi.sh" in s.get("run", ""))
-    arguments = wait["run"].split("wait_for_pypi.sh", 1)[1].split()
+def test_the_check_retries_the_install_instead_of_buying_a_margin():
+    """This said the opposite until 2026-11-16: that publish.yml had one resolver,
+    the runner, so a poll that had just been answered made a margin pointless and a
+    single install enough. apkradar 2026.48 disproved it — the poll saw the version at
+    15:04:30, the install was refused it at 15:04:33, on the same runner. Two requests
+    are two answers, whoever makes them.
 
-    assert arguments[-1] == "0", wait["run"]
+    A margin would not have fixed it either: releaseradar had a 45 second grace on
+    v2026.4 and lost anyway. So the wait keeps no grace, and the install itself is
+    what is asked again — through the script, never a single `pip install` in the
+    step, which is the shape that failed."""
+    steps = _publish_steps()
+    wait = next(s for s in steps if "wait_for_pypi.sh" in s.get("run", ""))
+    verify = next(s for s in steps if "--version" in s.get("run", ""))
+
+    assert wait["run"].split("wait_for_pypi.sh", 1)[1].split()[-1] == "0", wait["run"]
+    assert "install_from_pypi.sh" in verify["run"]
+    assert "pip\" install" not in verify["run"] and "pip install" not in verify["run"], (
+        "a single install is the race this replaced"
+    )
 
 
 def test_nothing_in_the_docker_workflow_waits_by_sleeping():
