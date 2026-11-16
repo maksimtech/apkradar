@@ -22,7 +22,8 @@ no version in this file has ever matched — 40 is not a month, and
   that one is not enough was what this release showed. The install now goes through
   `.github/scripts/install_from_pypi.sh`, which asks again (ten attempts, 30 s apart) until it
   succeeds or names the version it could not install. A longer grace would not have done it:
-  ReleaseRadar lost the same race on v2026.4 with 45 s, and retries its install since.
+  ReleaseRadar lost the same race on v2026.4 with 45 s, and retries its install since. The script,
+  and `tests/test_install_from_pypi.py` that runs it, are the same in all six Radar.
 
 ## [2026.48] - 2026-11-16
 
