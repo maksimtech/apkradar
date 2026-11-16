@@ -12,6 +12,8 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.48] - 2026-11-16
+
 ### Changed
 
 - **The sqlite3 findings say what Debian decided, and Trivy's two new ones are recorded.** On
@@ -1461,7 +1463,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.47...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.48...HEAD
+[2026.48]: https://github.com/maksimtech/apkradar/compare/v2026.47...v2026.48
 [2026.47]: https://github.com/maksimtech/apkradar/compare/v2026.46...v2026.47
 [2026.46]: https://github.com/maksimtech/apkradar/compare/v2026.45...v2026.46
 [2026.45]: https://github.com/maksimtech/apkradar/compare/v2026.44.1...v2026.45
