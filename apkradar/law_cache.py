@@ -67,7 +67,8 @@ class LawCache:
         """
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        # RecursionError: a deeply nested file, which used to end the law check
+        except (OSError, ValueError, RecursionError):
             return {}
         entries = data.get("entries") if isinstance(data, dict) else None
         if not isinstance(entries, list):

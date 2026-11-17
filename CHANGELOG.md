@@ -12,6 +12,13 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Fixed
+
+- **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
+  `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
+  now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
+  other law fixes below.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed
