@@ -642,8 +642,10 @@ def test_dependabot_is_named_because_it_is_configured(doc):
     """Alerts and security updates were enabled on 2026-10-11 (repository
     settings); version updates are this file."""
     config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
-    assert {u["package-ecosystem"] for u in config["updates"]} == {"pip", "github-actions"}
+    assert {u["package-ecosystem"] for u in config["updates"]} == {"pip", "uv", "github-actions"}
     assert "Dependabot" in doc
+    # uv is there for security updates only, and the document says which file it reads.
+    assert "uv.lock" in doc
     assert "Dependabot" in SECURITY.read_text(encoding="utf-8")
 
 

@@ -243,7 +243,8 @@ notifica ai clienti, procedura di rollback. In sintesi:
   release successiva;
 - Dependabot è attivo sul repository per gli avvisi e gli aggiornamenti di sicurezza
   (impostazioni lette il 2026-10-11), e `.github/dependabot.yml` chiede ogni settimana
-  gli aggiornamenti delle dipendenze Python e delle GitHub Actions.
+  gli aggiornamenti delle dipendenze Python e delle GitHub Actions. Dal 2026-11-17 legge
+  anche `uv.lock`, solo per gli aggiornamenti di sicurezza.
 
 Contatto per le segnalazioni: <security@maksimtech.com>.
 
