@@ -140,6 +140,36 @@ def test_the_pages_that_count_as_deliberate(apk, path):
     assert found.policy_url
 
 
+@pytest.mark.parametrize("path", [
+    "/it/privacy", "/privacy.html", "/legal/", "/tos?lang=it", "/terms-of-service", "/privacy_policy",
+])
+def test_policy_pages_in_their_usual_forms_still_count(apk, path):
+    found = mentions_of("example.com", apk(f"https://example.com{path} ".encode()))
+
+    assert found.policy_url == f"https://example.com{path}"
+
+
+@pytest.mark.parametrize("path", [
+    "/tostring.js",               # the bug hunt's case
+    "/legalese",
+    "/termsheet.pdf",
+    "/privacyfirst-sdk/init.js",
+    "/app?next=/privacy",         # the word in a query, not in the path
+    "/app#/terms",
+])
+def test_policy_path_is_a_path_segment_not_a_prefix(apk, path):
+    """`/tos` matched `/tostring.js` and `/legal` matched `/legalese`: one
+    unrelated URL counted as a policy link, which made the Play domain
+    "verified" and unlocked the letter's art. 32 statements."""
+    content = f"\x00junk\x00https://example.com{path}\x00more".encode()
+    found = mentions_of("example.com", apk(content))
+
+    assert found.policy_url is None, found
+    assert found.deliberate is False
+    pub = publisher.resolve("com.builder.app", "https://example.com", corroboration=found)
+    assert not pub.verified
+
+
 def test_a_policy_url_on_a_different_domain_does_not_corroborate(apk):
     """The lookahead after the host refused only [a-z0-9-], so a `.` was let
     through: https://example.com.attacker.net/privacy counted as example.com's

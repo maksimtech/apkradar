@@ -37,6 +37,14 @@ no version in this file has ever matched — 40 is not a month, and
   `android.permission.health.READ_*` and `WRITE_*` is now a sensitive permission, described by its
   record ("Health Connect: sexual activity (read)"), and counts in the score like the others.
 
+- **A policy link is a whole path segment.** The content check that corroborates the publisher's
+  domain took `/privacy`, `/terms`, `/legal`, `/tos` and the rest as substrings of the URL, so
+  `https://example.com/tostring.js`, `/legalese` or `?next=/privacy` counted as the app pointing at
+  its policy page: one such string made the Play domain "verified", and the DPO letter then stated
+  its art. 32 findings about that domain. The word must now be a segment of the path, on its own,
+  followed by more words after `-` or `_` (`terms-of-service`, `privacy_policy`), or by an extension
+  (`privacy.html`).
+
 - **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
   `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
