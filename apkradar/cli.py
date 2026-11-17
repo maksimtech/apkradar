@@ -756,7 +756,10 @@ def audit(
     if result.error:
         raise typer.Exit(1)
 
-    consent_violation = False
+    # The publisher's domains with trackers kept after rejection: what GDPR
+    # art. 7 is cited for. An SDK vendor's own website is analysed and shown,
+    # but its cookie banner is the vendor's, not the app's.
+    consent_domains: list[str] = []
     if full and result.package_name:
         # Asked before anything is analysed: a domain on sale has no holder, and
         # a finding against it would belong to whoever buys it next.
@@ -812,18 +815,17 @@ def audit(
                     domain, verbose=verbose,
                     note=publisher_domain.PROVENANCE_LABELS[source],
                 ):
-                    consent_violation = True
+                    consent_domains.append(domain)
 
             for domain in others:
-                if _full_stack_domain(
+                _full_stack_domain(
                     domain, verbose=verbose,
                     note="SDK or deep-link domain found in the APK",
-                ):
-                    consent_violation = True
+                )
 
         console.print()
 
-    _print_law_check(_law_check(result, consent_violation=consent_violation))
+    _print_law_check(_law_check(result, consent_domains=consent_domains))
 
     # Written last, so the file holds the whole report — the law citations
     # included. A scan that errored has already left through Exit(1) above:

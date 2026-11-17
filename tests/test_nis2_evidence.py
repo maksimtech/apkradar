@@ -383,7 +383,7 @@ def test_the_play_lookup_and_the_law_check_are_where_the_document_says(doc):
 def test_a_clean_result_asks_no_law_source(tmp_path):
     """Nothing to cite, nothing fetched: no act is even attempted."""
     clean = ScanResult(apk_path="clean.apk", package_name="org.example.app")
-    result = law_checker.check(clean, cache=law_cache.LawCache(tmp_path / "law_cache.json"), consent_violation=False)
+    result = law_checker.check(clean, cache=law_cache.LawCache(tmp_path / "law_cache.json"), consent_domains=())
     assert result.acts == [] and result.citations == []
     assert not (tmp_path / "law_cache.json").exists()
 

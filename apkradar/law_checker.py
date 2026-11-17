@@ -11,6 +11,7 @@ Shared by the Radar tools: only the mapping section is specific to APKRadar.
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -144,14 +145,16 @@ FINDING_TITLES = {
 ALSO_FETCH: dict = {GDPR: ("4", "5", "6", "7", "9", "13", "28", "46")}
 
 
-def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]:
+def findings_of(result, consent_domains: Sequence[str] = ()) -> dict[str, list[str]]:
     """
     Findings in an APKRadar ScanResult, with what triggered each.
 
     Args:
         result: ScanResult
-        consent_violation: CookieRadar found trackers that persist after the
-            user rejected them (audit --full)
+        consent_domains: the publisher's domains on which CookieRadar found
+            trackers that persist after the user rejected them (audit --full).
+            Only the publisher's: a violation on an SDK vendor's own website is
+            that vendor's, and used to be cited against the app as GDPR art. 7.
     """
     found: dict[str, list[str]] = {}
     if result.trackers:
@@ -160,8 +163,10 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
         found["tracker_undisclosed"] = names
     if result.extra_eu_transfers:
         found["extra_eu"] = [transfer.entity for transfer in result.extra_eu_transfers]
-    if consent_violation:
-        found["consent"] = ["trackers still active after rejection (CookieRadar)"]
+    if consent_domains:
+        found["consent"] = [
+            f"{domain}: trackers still active after rejection (CookieRadar)" for domain in consent_domains
+        ]
     if result.sensitive_permissions:
         permissions = [
             f"{perm.permission.split('.')[-1]} ({perm.description})"
@@ -179,7 +184,7 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
     return {finding: found[finding] for finding in FINDING_ARTICLES if finding in found}
 
 
-def notes_of(result, consent_violation: bool = False) -> list[str]:
+def notes_of(result, consent_domains: Sequence[str] = ()) -> list[str]:
     return []
 
 

@@ -200,9 +200,15 @@ def test_every_special_category_permission_can_actually_be_found():
     assert missing == set()
 
 
+def test_a_consent_finding_names_the_domain_it_was_found_on():
+    assert findings_of(_result(), consent_domains=["example.com"]) == {
+        "consent": ["example.com: trackers still active after rejection (CookieRadar)"],
+    }
+
+
 def test_findings_of_all_in_report_order():
     result = _result(trackers=True, transfers=True, sensitive=True)
-    assert list(findings_of(result, consent_violation=True)) == [
+    assert list(findings_of(result, consent_domains=["example.com"])) == [
         "tracker", "tracker_undisclosed", "extra_eu", "consent", "sensitive", "permissions_undisclosed",
     ]
 
@@ -248,7 +254,7 @@ def test_downloads_cited_and_explanatory_articles(cache, online):
 def test_each_finding_cites_its_article(cache, online):
     law = check(
         _result(trackers=True, transfers=True, sensitive=True),
-        consent_violation=True, cache=cache, now=DAY1,
+        consent_domains=["example.com"], cache=cache, now=DAY1,
     )
     assert [c.article for c in law.citations] == [
         "5(1)(a)", "6", "8(1)(b)", "46", "7", "5(1)(c)", "6", "49",
@@ -264,7 +270,7 @@ def test_a_special_category_permission_adds_art_9_and_nothing_else_does(cache, o
     """
     law = check(
         _result(trackers=True, transfers=True, sensitive=True, permission=BODY_SENSORS),
-        consent_violation=True, cache=cache, now=DAY1,
+        consent_domains=["example.com"], cache=cache, now=DAY1,
     )
     assert [c.article for c in law.citations] == [
         "5(1)(a)", "6", "8(1)(b)", "46", "7", "5(1)(c)", "6", "9", "49",

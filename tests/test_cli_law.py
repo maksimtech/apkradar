@@ -251,3 +251,51 @@ def test_full_without_cookie_violation_does_not_cite_article_7(mock_mail, mock_s
         out = _audit(_result(), "--full")
 
     assert "art. 7" not in out.output
+
+
+# ─── art. 7 is about the publisher's site, not an SDK vendor's ────────────────
+
+SDK_NOTE = "SDK or deep-link domain found in the APK"
+
+
+@pytest.fixture
+def violation_on(monkeypatch):
+    """`audit --full` where CookieRadar finds a violation on the domains that
+    `which(domain, note)` picks, and nowhere else; no network, no parked check."""
+    from apkradar import cli, publisher
+
+    monkeypatch.setattr(publisher, "looks_parked", lambda domain, fetch=None: False)
+
+    def run(which):
+        analysed = []
+
+        def full_stack(domain, verbose=False, note=""):
+            analysed.append((domain, note))
+            return which(domain, note)
+
+        monkeypatch.setattr(cli, "_full_stack_domain", full_stack)
+        out = _audit(_result(), "--full")
+        assert out.exit_code == 0, out.output
+        return out, analysed
+
+    return run
+
+
+def test_a_violation_on_an_sdk_vendors_site_does_not_cite_art_7(eurlex, violation_on):
+    """abc_full.out: CookieRadar found trackers kept after rejection on
+    doubleclick.net, an SDK domain, and the letter's art. 7 citation went to the
+    app — whose publisher's own site had no such finding."""
+    out, analysed = violation_on(lambda domain, note: note == SDK_NOTE)
+
+    assert any(note == SDK_NOTE for _, note in analysed), analysed   # an SDK domain was analysed
+    assert "art. 7" not in out.output
+    assert "Consent" not in out.output
+
+
+def test_a_violation_on_the_publishers_site_cites_art_7_and_names_it(eurlex, violation_on):
+    out, analysed = violation_on(lambda domain, note: note != SDK_NOTE)
+    [publisher_domain] = [domain for domain, note in analysed if note != SDK_NOTE]
+    flat = _flat(out.output)
+
+    assert "Provision applied: GDPR art. 7" in flat
+    assert f"{publisher_domain}: trackers still active after rejection (CookieRadar)" in flat

@@ -787,7 +787,9 @@ The CookieRadar line reads:
   was made, and none of them was still present after rejection.
 - `VIOLATION — N tracker(s) post-rejection`, followed by the tracker domains:
   these trackers loaded before consent **and** stayed after the user rejected
-  cookies.
+  cookies. On the publisher's domain this is cited as GDPR art. 7, with the
+  domain named; on an SDK or deep-link domain it is shown and not cited, since
+  that cookie banner is the vendor's, not the app's.
 - `error: ...`: the browser could not run. Usually this means
   `playwright install chromium` has not been run, or system libraries are
   missing (see [Installation](#installation)).

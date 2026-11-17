@@ -22,6 +22,13 @@ no version in this file has ever matched — 40 is not a month, and
   states); otherwise the letter names the check that produced no result and says the technical
   measures were not verified in full, which is not a finding of compliance.
 
+- **`audit --full` cites GDPR art. 7 only for the publisher's own site.** Any domain analysed with a
+  CookieRadar violation set the consent finding, SDK and deep-link domains included: an app whose
+  publisher's site was clean was cited under art. 7 because doubleclick.net kept Google Analytics
+  after rejection on its own website. Only the publisher's candidate domains count now, and the
+  evidence line names the domain ("example.com: trackers still active after rejection
+  (CookieRadar)"). The other domains are still analysed and shown.
+
 - **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
   `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
