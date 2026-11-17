@@ -24,6 +24,12 @@ MAIL_SCORE_POOR_THRESHOLD = 60
 # the publisher domain is inferred from the package name and may be wrong.
 SSL_LETTER_ISSUES = {"expired", "self_signed", "unknown_ca"}
 
+# SSL statuses that are a result the letter can rest on: a valid certificate,
+# or one of the issues above. A timeout, an error, a hostname mismatch or a
+# failure without a known cause is no result, and the letter used to read it
+# as "no issues found" in the publisher's technical measures.
+SSL_LETTER_RESULTS = {"valid"} | SSL_LETTER_ISSUES
+
 
 class SpecialCategoryPermission(NamedTuple):
     """A declared permission that can reach a special category of data.
@@ -143,6 +149,9 @@ def render_letter(
         mail_score=mail_score,
         mail_grade=mail_grade,
         mail_poor=mail_score is not None and mail_score < MAIL_SCORE_POOR_THRESHOLD,
+        # The letter says no issues were found only when both checks ran
+        mail_checked=mail_score is not None,
+        ssl_checked=ssl_status in SSL_LETTER_RESULTS,
         ssl_status=ssl_status,
         ssl_issue=ssl_status in SSL_LETTER_ISSUES,
         publisher_domain_verified=publisher_domain_verified,

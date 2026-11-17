@@ -14,6 +14,14 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Fixed
 
+- **The DPO letter no longer clears the publisher when the checks did not run.** Section 4 said "Non
+  sono state rilevate criticità nelle misure tecniche del publisher" whenever no issue had been found,
+  including when MailRadar produced no score (domain not found, MailRadar missing) and the SSL check
+  ended in an error or a timeout: `send --dry-run` on a domain DNS does not know printed it. The
+  sentence now needs a MailRadar score and an SSL result (valid, or one of the issues the letter
+  states); otherwise the letter names the check that produced no result and says the technical
+  measures were not verified in full, which is not a finding of compliance.
+
 - **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
   `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the

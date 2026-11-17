@@ -146,10 +146,41 @@ def test_a_verified_domain_with_nothing_wrong_says_so():
         publisher_domain_verified=True,
         mail_score=95,
         mail_grade="A",
+        ssl_status="valid",
     )
 
     assert NO_ISSUES in letter
     assert INADEQUATE not in letter
+
+
+@pytest.mark.parametrize(("mail", "ssl_status", "unverified"), [
+    # The hunt's `send --dry-run` on a domain DNS does not know: MailRadar found
+    # no domain and the TLS handshake failed, and section 4 cleared the publisher
+    ((None, None), "error", ["sicurezza email", "certificato SSL"]),
+    ((None, None), "valid", ["sicurezza email"]),
+    ((95, "A"), "timeout", ["certificato SSL"]),
+    ((95, "A"), None, ["certificato SSL"]),
+    # Not alleged, and not a clean certificate either
+    ((95, "A"), "hostname_mismatch", ["certificato SSL"]),
+    ((95, "A"), "invalid", ["certificato SSL"]),
+])
+def test_letter_does_not_clear_the_publisher_when_checks_did_not_run(mail, ssl_status, unverified):
+    """"No issues in the technical measures" is a finding, and a check that
+    produced no result found nothing: the letter says what was not verified."""
+    letter = _letter(
+        publisher_domain="where.areu.lombardia.it",
+        publisher_domain_verified=True,
+        mail_score=mail[0],
+        mail_grade=mail[1],
+        ssl_status=ssl_status,
+    )
+    section = " ".join(letter.split("4. MISURE TECNICHE")[1].split("5. RICHIESTE")[0].split())
+
+    assert NO_ISSUES not in section
+    assert "non costituisce accertamento di conformità" in section
+    for check in unverified:
+        assert check in section, section
+    assert "in violazione" not in section
 
 
 # ── `send` ──────────────────────────────────────────────────────────────────

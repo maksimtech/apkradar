@@ -459,7 +459,8 @@ The letter has six sections:
    safeguards
 4. Technical measures (art. 32): the MailRadar score, described as inadequate
    below 60, and the SSL certificate if it is expired, self-signed or issued by
-   an unknown authority
+   an unknown authority. It says no issues were found only when both checks
+   produced a result; a check that did not is named as not verified
 5. Formal requests (art. 15, 13, 17, 21)
 6. Escalation (art. 77, and optionally [NOYB](https://noyb.eu))
 
