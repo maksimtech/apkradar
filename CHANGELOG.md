@@ -12,6 +12,8 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.48.1] - 2026-11-17
+
 ### Changed
 
 - **The image is built on Python 3.14.** It was built on `python:3.12-slim-trixie`; 3.12 has had
@@ -1509,7 +1511,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.48...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.48.1...HEAD
+[2026.48.1]: https://github.com/maksimtech/apkradar/compare/v2026.48...v2026.48.1
 [2026.48]: https://github.com/maksimtech/apkradar/compare/v2026.47...v2026.48
 [2026.47]: https://github.com/maksimtech/apkradar/compare/v2026.46...v2026.47
 [2026.46]: https://github.com/maksimtech/apkradar/compare/v2026.45...v2026.46
