@@ -4,8 +4,13 @@ import os
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 
+import pytest
+
+from apkradar import extractor
 from apkradar.extractor import cleanup_temp, detect_format, extract_main_apk
+from apkradar.scanner import scan
 
 
 def _make_zip(path: str, files: dict) -> None:
@@ -329,3 +334,60 @@ class TestExtractHostileNames(unittest.TestCase):
         apk_path, tmp_dir = self._extract_named(member)
         self._assert_path_is_real(apk_path, tmp_dir, member)
         self.assertTrue(apk_path.endswith("com.example.app.apk"))
+
+
+# --- a member that unpacks to far more than it holds ---------------------------------
+#
+# Found by the 2026-11-17 bug hunt: z.extract() wrote whatever the member unpacked to,
+# and a 1 MiB .xapk wrote 1 GiB in 1.5 s. Real APKs deflate at most about 4:1 (the
+# split and base APKs of Outlook, Candy Crush, Fitbit, measured at level 9), and the
+# largest seen is Outlook's base, 175 MB.
+
+def _bomb(path, size: int) -> None:
+    """A bundle whose base APK is `size` zero bytes, deflated to about a thousandth of that."""
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        z.writestr("manifest.json", json.dumps({"xapk_version": 2}))
+        with z.open("main.apk", "w", force_zip64=True) as fh:
+            for _ in range(size // (1 << 20)):
+                fh.write(b"\0" * (1 << 20))
+
+
+def test_bundle_member_size_is_bounded(tmp_path):
+    bundle = tmp_path / "bomb.xapk"
+    _bomb(bundle, 64 << 20)
+    assert bundle.stat().st_size < 1 << 20
+    before = set(os.listdir(tempfile.gettempdir()))
+    with pytest.raises(extractor.BundleMemberRefused, match="main.apk.*unpacks to 67108864 bytes from"):
+        extractor.extract_main_apk(str(bundle))
+    # refused before anything was written: no apkradar_ directory is left either
+    assert {n for n in set(os.listdir(tempfile.gettempdir())) - before if n.startswith("apkradar_")} == set()
+
+
+def test_a_member_over_the_size_limit_is_refused_whatever_its_ratio(tmp_path, monkeypatch):
+    monkeypatch.setattr(extractor, "MAX_MEMBER_BYTES", 1 << 20)
+    bundle = tmp_path / "big.xapk"
+    with zipfile.ZipFile(bundle, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("manifest.json", json.dumps({"xapk_version": 2}))
+        z.writestr("main.apk", os.urandom(2 << 20))
+    with pytest.raises(extractor.BundleMemberRefused, match="over the 1048576-byte limit"):
+        extractor.extract_main_apk(str(bundle))
+
+
+def test_a_member_within_the_limits_is_extracted_whole(tmp_path):
+    bundle = tmp_path / "app.xapk"
+    content = os.urandom(3 << 20)
+    with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", json.dumps({"xapk_version": 2}))
+        z.writestr("main.apk", content)
+    apk, tmp_dir = extractor.extract_main_apk(str(bundle))
+    try:
+        assert apk is not None and Path(apk).read_bytes() == content
+    finally:
+        cleanup_temp(tmp_dir)
+
+
+def test_scanning_a_bomb_says_why_it_was_refused(tmp_path):
+    bundle = tmp_path / "bomb.xapk"
+    _bomb(bundle, 64 << 20)
+    result = scan(str(bundle))
+    assert result.error and "refused" in result.error and "main.apk" in result.error

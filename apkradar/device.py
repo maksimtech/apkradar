@@ -4,7 +4,8 @@ PCAPdroid (com.emanuelef.remote_capture, F-Droid and Google Play) captures one a
 traffic on the phone itself, without root, through a local VPN, and takes requests
 from other apps through its CaptureCtrl activity. adb sends those requests, starts the
 app, takes a screenshot and brings the files back. APKRadar never taps the phone:
-PCAPdroid asks the operator to allow the capture, and the operator answers.
+PCAPdroid asks the operator to allow the capture, and then its stop, and the operator
+answers.
 
 Everything goes through `adb shell`, which hands its words to the phone's shell, so the
 package name is checked before anything is sent. Nothing here reaches the network: the
@@ -81,6 +82,35 @@ def _wait(phone: Device, capturing: bool, timeout: float, poll: float) -> bool:
     return True
 
 
+def _stop(phone: Device, say: Callable[[str], object], timeout: float, poll: float) -> bool:
+    """Ask PCAPdroid to stop, and wait for it: True once its capture service is gone.
+
+    PCAPdroid asks on the phone before it lets another app stop a capture, as it does
+    before a start (moto g17, PCAPdroid 1.9.1, 2026-11-17: every time, from adb shell).
+    """
+    phone.shell("am", "start", "-e", "action", "stop", "-n", CONTROL)
+    if not phone.capturing():
+        return True
+    say(f"PCAPdroid asks on the phone to allow stopping the capture: tap Allow. Waiting up to {timeout:g} s.")
+    return _wait(phone, False, timeout, poll)
+
+
+def _still_running(timeout: float) -> str:
+    """What a run whose capture did not stop leaves on the phone, and how to end it.
+
+    PCAPdroid is not killed: that would end its VPN, and the file with whatever it had
+    not yet written, while the request on the screen, once allowed, closes it properly.
+    The file is not pulled either: PCAPdroid is still writing it, so it would be cut
+    short and read as the whole run.
+    """
+    return (
+        f"PCAPdroid did not stop within {timeout:g} s, so the capture was not brought back: it is still "
+        "running on the phone, and with it PCAPdroid's VPN. To end them, tap Allow on PCAPdroid's request "
+        "if it is still on the screen, or open PCAPdroid and stop the capture. The capture stays on the "
+        f"phone as {REMOTE_CAPTURE} and the screenshot as {REMOTE_SCREENSHOT}; the next run removes them."
+    )
+
+
 def observe_app(
     phone: Device,
     package: str,
@@ -90,10 +120,13 @@ def observe_app(
     say: Callable[[str], object],
     clear_data: bool = False,
     confirm_timeout: float = 60,
-    stop_timeout: float = 30,
     poll: float = 1,
 ) -> Run:
-    """Run `package` on the phone for `seconds` while PCAPdroid captures it; bring the files into `out`."""
+    """Run `package` on the phone for `seconds` while PCAPdroid captures it; bring the files into `out`.
+
+    `confirm_timeout` is how long the operator has to allow each of PCAPdroid's two
+    requests on the phone, the start and the stop.
+    """
     if not _PACKAGE.fullmatch(package):
         raise DeviceError(f"{package!r} is not an Android package name")
     found = phone.shell("pm", "path", package)
@@ -133,6 +166,7 @@ def observe_app(
                 "cannot be allowed later. Run again and tap Allow."
             )
 
+    finished = False
     try:
         launched = phone.shell("monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1")
         if launched.returncode != 0 or "Events injected: 1" not in launched.stdout:
@@ -140,17 +174,25 @@ def observe_app(
         say(f"Capturing {package} for {seconds:g} s.")
         time.sleep(seconds)
         phone.shell("screencap", "-p", REMOTE_SCREENSHOT)
+        finished = True
     finally:
-        phone.shell("am", "start", "-e", "action", "stop", "-n", CONTROL)
-        stopped = _wait(phone, False, stop_timeout, poll)
+        stopped = _stop(phone, say, confirm_timeout, poll)
         phone.shell("am", "force-stop", package)
+        if not stopped and not finished:
+            # The error on its way out is the app's; this one is said beside it.
+            say(_still_running(confirm_timeout))
     if not stopped:
-        raise DeviceError(f"PCAPdroid did not stop within {stop_timeout:g} s: its capture would be cut short")
+        raise DeviceError(_still_running(confirm_timeout))
 
     capture, screenshot = out / "capture.pcap", out / "screenshot.png"
-    phone.pull(REMOTE_CAPTURE, capture)
-    phone.pull(REMOTE_SCREENSHOT, screenshot)
-    phone.shell("rm", "-f", REMOTE_CAPTURE, REMOTE_SCREENSHOT)
+    pulled: list[str] = []
+    try:
+        for remote, local in ((REMOTE_CAPTURE, capture), (REMOTE_SCREENSHOT, screenshot)):
+            phone.pull(remote, local)
+            pulled.append(remote)
+    finally:
+        if pulled:
+            phone.shell("rm", "-f", *pulled)
     if capture.stat().st_size == 0:
         raise DeviceError("PCAPdroid wrote an empty capture: nothing was recorded")
     return Run(apks=apks, capture=capture, screenshot=screenshot)

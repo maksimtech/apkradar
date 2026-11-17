@@ -546,11 +546,24 @@ lets it run, takes a screenshot, stops the capture and brings the files into
 them from the phone. Then it reports on `base.apk` and the capture as
 `observe --capture` does.
 
-PCAPdroid asks on the phone before it lets another app drive a capture.
-APKRadar does not tap it for you: tap **Allow** when it appears, within the
-`--wait` seconds (60 by default). If nobody does, PCAPdroid is closed, so the
+PCAPdroid asks on the phone before it lets another app drive a capture, twice:
+once to start it and once to stop it. APKRadar does not tap it for you: tap
+**Allow** each time it appears, within the `--wait` seconds (60 by default);
+the console says when. If nobody allows the start, PCAPdroid is closed, so the
 request cannot be allowed later. A capture already running is refused, since
 PCAPdroid would drop this run's request.
+
+If nobody allows the stop, the run ends with exit code 1 and reports nothing:
+the APKs are in `--out`, the capture is not. The console says that the capture,
+and PCAPdroid's VPN with it, are still running on the phone. To end them, tap **Allow** on the request if it is still on
+the screen, or open PCAPdroid and stop the capture. APKRadar does not kill
+PCAPdroid then: that would end the VPN, but also cut the capture short, while
+the request, once allowed, closes it properly. Nor does it pull the file while
+PCAPdroid is still writing it, since a cut capture would be read as the whole
+run. The capture stays on the phone as
+`/sdcard/Download/PCAPdroid/apkradar-observe.pcap` and the screenshot as
+`/sdcard/Download/apkradar-observe.png`, both named in the message; the next
+run removes them before it starts.
 
 `--clear-data` runs `pm clear` on the app first, which deletes its data on the
 phone, so the run is a first launch; without it the app keeps its data. Use
@@ -764,6 +777,12 @@ otherwise `<package>.apk` or `base.apk`, and never a split (files named
 the audit stops with an error instead. See
 [Known limitations](#known-limitations).
 
+The base APK is refused, before anything is written, if it would unpack to more
+than 1 GiB, or to more than 100 times its compressed size once past 1 MiB: that
+is a zip bomb, not an APK. The largest real one seen is Outlook's base, 175 MB,
+and real APKs, being zips themselves, compress at most about 4:1. The audit then
+stops with an error that says which limit the member went past.
+
 APKRadar computes the SHA-256 hash of the file as supplied. The console and
 Excel reports show its first 16 characters, and the DPO letter includes it in
 full. This lets you show later exactly which file was audited.
@@ -876,6 +895,13 @@ scores 14/100, and anyone can buy the name — including after a report quoting 
 has been written. A row like that invalidates the audit that contains it, so the
 candidate is fetched once and dropped if it answers with a sale.
 
+That fetch goes only to public addresses. The candidate comes from a Play
+listing or a package name, so whoever wrote either chooses it: a name that
+resolves to a loopback, private, link-local or otherwise non-public address is
+not asked, and neither is a redirect that leads to one. Redirects are followed
+one at a time, at most five. A candidate the check does not ask is kept, as one
+that cannot be reached is: "cannot tell" is not "for sale".
+
 In the DPO letter this matters legally: section 4 states a failing under art. 32
 GDPR against the addressee. It is written only for a domain that has been
 established — because both declared sources agree, because the app itself
@@ -965,6 +991,11 @@ cd apkradar
 pip install -e ".[dev]"
 pytest
 ```
+
+The suite does not reach EUR-Lex and does not write to your `~/.apkradar`: every
+fixture and test runs with `APKRADAR_HOME` in pytest's temporary folder and the
+law fetcher disabled, and the run fails if anything under the real
+`~/.apkradar` changed while it ran.
 
 The changes in each release are listed in [CHANGELOG.md](CHANGELOG.md).
 Security issues: see [SECURITY.md](SECURITY.md).

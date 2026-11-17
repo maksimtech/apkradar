@@ -991,7 +991,9 @@ def observe_device(
         help="Clear the app's data on the device first (pm clear), so the run is a first launch",
     ),
     serial: str = typer.Option(None, "--serial", help="adb serial of the device, when more than one is connected"),
-    wait: int = typer.Option(60, "--wait", help="Seconds to wait for the capture to be allowed on the phone"),
+    wait: int = typer.Option(
+        60, "--wait", help="Seconds to wait for the capture to be allowed on the phone, and again for its stop",
+    ),
     adb: str = typer.Option("adb", "--adb", help="The adb program"),
     output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
 ):

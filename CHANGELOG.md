@@ -110,6 +110,50 @@ no version in this file has ever matched — 40 is not a month, and
   of their own. `21(3-bis)` and `21(4-bis)` now exist, as do -ter, -quater and the later Latin
   numbers (every one after quater ends in -ies), with their lettered points.
 
+- **`observe-device` says when PCAPdroid asks to allow the stop, and what is left when nobody does.**
+  PCAPdroid asks on the phone before it lets another app stop a capture, as it does before a start:
+  seen on the moto g17 on 2026-11-17, every time. The run sent the stop request, waited 30 s in silence
+  and ended with "PCAPdroid did not stop within 30 s: its capture would be cut short", leaving the
+  capture and PCAPdroid's VPN running and the capture file on the phone without a word about either.
+  The console now says "PCAPdroid asks on the phone to allow stopping the capture: tap Allow" and
+  waits the same `--wait` seconds as for the start. If the stop is still not allowed, the error says
+  that the capture and the VPN are still running, how to end them (allow the request, or stop the
+  capture in PCAPdroid) and which files stay on the phone. PCAPdroid is not killed, and the file is
+  not pulled while PCAPdroid may still be writing it: either would cut the capture short. When an app
+  error ends the run first, the same is said beside it. A capture pulled is now removed from the
+  phone even when the screenshot pull after it fails.
+
+- **The test suite no longer reaches EUR-Lex or rewrites `~/.apkradar/law_cache.json`.** The
+  isolation in `tests/conftest.py` was a function-scoped autouse fixture, and pytest sets up a
+  module-scoped fixture before it: `tests/test_readme_example.py` ran `apkradar audit` in one, with
+  the real home and the real network. Running the suite with HOME and USERPROFILE pointed at an empty
+  folder left a `.apkradar/law_cache.json` in it, and that file alone wrote it. The same isolation
+  (`APKRADAR_HOME` in pytest's temporary folder, the law fetcher disabled) is now also set for the
+  whole session, before any fixture; `tests/test_isolation.py` holds it for a module-scoped fixture,
+  and the run fails if anything under the real `~/.apkradar` changed while it ran.
+
+### Security
+
+- **A bundle's base APK is refused past 1 GiB, or past 100 times its compressed size.** `z.extract`
+  wrote whatever the member unpacked to: in the 2026-11-17 bug hunt a 1 MiB `.xapk` wrote 1 GiB to
+  the temporary folder in 1.5 s. The member's declared size and ratio are now checked before anything
+  is written (`MAX_MEMBER_BYTES`, 1 GiB; `MAX_RATIO`, 100:1 for members over 1 MiB), and the copy
+  stops at the size declared. The largest real base APK seen is Outlook's, 175 MB, and the real ones
+  measured compress at most about 4:1. The audit ends with an error naming the member and the limit
+  ("refused to extract 'main.apk' from the bundle: it unpacks to 67108864 bytes from 65232, more than
+  100 times its size"), where it used to fail on whatever androguard made of the result.
+
+- **The for-sale check asks only public addresses.** It fetched the candidate domain with
+  `follow_redirects=True`, so a domain answering 302 to `http://127.0.0.1:<port>/router/admin` had
+  APKRadar request that page: a blind GET into the network it runs from, made by `send` too, without
+  `--full`, for a domain a Play listing or a package name supplies (bug hunt of 2026-11-17,
+  `redirect_probe.py`). Redirects are now followed by hand, at most five (`MAX_REDIRECTS`), and every
+  URL, the first one included, only to a host whose every address is public: loopback, private,
+  link-local, shared (100.64/10), unspecified and reserved addresses are refused, numeric forms such
+  as `127.1` and `2130706433` and IPv4-mapped IPv6 included. A refused candidate is read as "cannot
+  tell", as an unreachable one always was, so it is kept. A name that resolves differently when httpx
+  connects (DNS rebinding) is not caught.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed
