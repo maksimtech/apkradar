@@ -459,7 +459,8 @@ The letter has six sections:
    safeguards
 4. Technical measures (art. 32): the MailRadar score, described as inadequate
    below 60, and the SSL certificate if it is expired, self-signed or issued by
-   an unknown authority
+   an unknown authority. It says no issues were found only when both checks
+   produced a result; a check that did not is named as not verified
 5. Formal requests (art. 15, 13, 17, 21)
 6. Escalation (art. 77, and optionally [NOYB](https://noyb.eu))
 
@@ -566,6 +567,7 @@ Every app starts at 100 points. Points are deducted for each finding:
 |---|---|
 | Tracker SDK | −10 each |
 | Sensitive permission | −5 each |
+| Health Connect permissions (`android.permission.health.*`) | −5 once, for all of them together |
 | Extra-EU vendor | −5 each |
 
 The report prints the arithmetic under the score, so the number can be checked
@@ -575,6 +577,11 @@ without reading the source:
 Score: 70/100 — MODERATE
 100 − 10 (1 tracker) − 15 (3 sensitive permissions) − 5 (1 transfer) = 70
 ```
+
+Health Connect has a permission per kind of health record, so a fitness app
+declares dozens of them for one capability. They are one group in the score, and
+the arithmetic says so: `− 5 (Health Connect (80 permissions, counted once))`.
+Each of them is still listed, and cited under GDPR art. 9.
 
 The printed score never goes below 0, but the sum can: an app with sixteen
 tracking SDKs comes to −95, and the line then reads
@@ -649,6 +656,13 @@ code's):
 | Body and biometrics | `BODY_SENSORS`, `BODY_SENSORS_BACKGROUND`, `ACTIVITY_RECOGNITION`, `USE_BIOMETRIC`, `USE_FINGERPRINT` |
 | Storage and calendar | `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `READ_CALENDAR`, `WRITE_CALENDAR` |
 | Advertising identifiers | `AD_ID` (Play services), `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_TOPICS`, `ACCESS_ADSERVICES_ATTRIBUTION` |
+
+Besides these, every Health Connect permission that reads or writes a record
+(`android.permission.health.READ_*` and `WRITE_*`: heart rate, sexual activity,
+menstruation, medical data and the rest) is flagged as health data, matched by
+its prefix rather than listed, and cited under GDPR art. 9. Each one is listed;
+in the score they count once, together, as one sensitive permission (see
+[Score](#score)).
 
 These are permissions the app **declares**. Whether a permission is justified
 depends on what the app does. A password manager needs `CAMERA` to scan QR
@@ -742,8 +756,12 @@ built by concatenation (`"https://" + host`) cannot be recovered at all.
 | `.apkm` | APKMirror bundle | The base APK is extracted to a temporary folder and analysed |
 
 The format is detected from the file extension, or from the file contents if
-the extension is missing or different. For bundles, APKRadar takes the base APK
-and ignores split APKs (files named `split_*` or `config.*`). See
+the extension is missing or different. For bundles, APKRadar takes the base APK:
+the one `manifest.json` names as the base (`"id": "base"` under `split_apks`),
+otherwise `<package>.apk` or `base.apk`, and never a split (files named
+`split_*` or `config.*`). An APK whose manifest declares it a split
+(`<manifest split="...">`), such as a dynamic feature, is not scored as the app:
+the audit stops with an error instead. See
 [Known limitations](#known-limitations).
 
 APKRadar computes the SHA-256 hash of the file as supplied. The console and
@@ -786,7 +804,9 @@ The CookieRadar line reads:
   was made, and none of them was still present after rejection.
 - `VIOLATION — N tracker(s) post-rejection`, followed by the tracker domains:
   these trackers loaded before consent **and** stayed after the user rejected
-  cookies.
+  cookies. On the publisher's domain this is cited as GDPR art. 7, with the
+  domain named; on an SDK or deep-link domain it is shown and not cited, since
+  that cookie banner is the vendor's, not the app's.
 - `error: ...`: the browser could not run. Usually this means
   `playwright install chromium` has not been run, or system libraries are
   missing (see [Installation](#installation)).

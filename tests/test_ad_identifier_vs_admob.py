@@ -186,6 +186,9 @@ class _StubAPK:
     def get_permissions(self):
         return ["com.google.android.gms.permission.AD_ID"]
 
+    def get_android_manifest_xml(self):
+        return None   # the manifest as XML: no split= to read
+
     def get_files(self):
         return []
 

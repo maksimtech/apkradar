@@ -1,5 +1,6 @@
 """Tests for the law check that `apkradar audit` runs."""
 import hashlib
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -162,6 +163,37 @@ def test_audit_offline_without_cache():
     assert "SHA256: not available" in out.output
 
 
+def _flat(output):
+    """The output on one line and without colours: Rich wraps at the terminal's
+    width, and colours Typer's panels on GitHub Actions."""
+    return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", output).split())
+
+
+def test_a_source_that_answered_without_the_point_is_not_called_unreachable(eurlex, monkeypatch):
+    """Cellar answered, and only 5(1)(a) was missing from its page: the audit
+    printed "EUR-Lex unreachable", naming neither the source nor the failure."""
+    _audit(_result())
+    page = FIXTURE.read_text(encoding="utf-8")
+    label = '<p class="oj-normal">a)</p>'
+    at = page.index(label, page.index('<div id="005.001">'))
+    untabled = page[:at] + '<p class="oj-normal"></p>' + page[at + len(label):]
+    monkeypatch.setattr(law_fetcher, "fetch_html", lambda url, **kw: untabled if "32016R0679" in url
+                        else _page_for(url).read_text(encoding="utf-8"))
+
+    out = _flat(_audit(_result()).output)
+
+    assert "GDPR: Cellar answered without the text cited, text from the cached copy" in out
+    assert "unreachable" not in out
+    assert f"SHA256: {_sha('5(1)(a)')}" in out
+
+
+def test_both_sources_unreachable_are_both_named():
+    # conftest makes every download fail
+    out = _flat(_audit(_result()).output)
+
+    assert "GDPR: Cellar and EUR-Lex unreachable and nothing cached" in out
+
+
 def test_audit_reports_changed_text(eurlex, monkeypatch):
     _audit(_result())
     page = FIXTURE.read_text(encoding="utf-8").replace(
@@ -219,3 +251,51 @@ def test_full_without_cookie_violation_does_not_cite_article_7(mock_mail, mock_s
         out = _audit(_result(), "--full")
 
     assert "art. 7" not in out.output
+
+
+# ─── art. 7 is about the publisher's site, not an SDK vendor's ────────────────
+
+SDK_NOTE = "SDK or deep-link domain found in the APK"
+
+
+@pytest.fixture
+def violation_on(monkeypatch):
+    """`audit --full` where CookieRadar finds a violation on the domains that
+    `which(domain, note)` picks, and nowhere else; no network, no parked check."""
+    from apkradar import cli, publisher
+
+    monkeypatch.setattr(publisher, "looks_parked", lambda domain, fetch=None: False)
+
+    def run(which):
+        analysed = []
+
+        def full_stack(domain, verbose=False, note=""):
+            analysed.append((domain, note))
+            return which(domain, note)
+
+        monkeypatch.setattr(cli, "_full_stack_domain", full_stack)
+        out = _audit(_result(), "--full")
+        assert out.exit_code == 0, out.output
+        return out, analysed
+
+    return run
+
+
+def test_a_violation_on_an_sdk_vendors_site_does_not_cite_art_7(eurlex, violation_on):
+    """abc_full.out: CookieRadar found trackers kept after rejection on
+    doubleclick.net, an SDK domain, and the letter's art. 7 citation went to the
+    app — whose publisher's own site had no such finding."""
+    out, analysed = violation_on(lambda domain, note: note == SDK_NOTE)
+
+    assert any(note == SDK_NOTE for _, note in analysed), analysed   # an SDK domain was analysed
+    assert "art. 7" not in out.output
+    assert "Consent" not in out.output
+
+
+def test_a_violation_on_the_publishers_site_cites_art_7_and_names_it(eurlex, violation_on):
+    out, analysed = violation_on(lambda domain, note: note != SDK_NOTE)
+    [publisher_domain] = [domain for domain, note in analysed if note != SDK_NOTE]
+    flat = _flat(out.output)
+
+    assert "Provision applied: GDPR art. 7" in flat
+    assert f"{publisher_domain}: trackers still active after rejection (CookieRadar)" in flat

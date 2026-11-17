@@ -21,18 +21,29 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 # A mention is deliberate if the app points at a page of this kind, or if it
 # names the host repeatedly. One bare occurrence is a coincidence until something
 # else says otherwise: a string in a resource, a changelog, a comment.
-POLICY_PATHS = (
-    "/privacy",
-    "/privacy-policy",
-    "/informativa",
-    "/terms",
-    "/termini",
-    "/legal",
-    "/tos",
+POLICY_PAGES = (
+    "privacy",
+    "privacy-policy",
+    "informativa",
+    "terms",
+    "termini",
+    "legal",
+    "tos",
+)
+
+# A policy page is a whole segment of the URL's path: the word itself, the word
+# with more words after a hyphen or an underscore (terms-of-service,
+# privacy_policy), and a file extension (privacy.html). The words used to be
+# matched anywhere in the URL, so `/tostring.js`, `/legalese` and `?next=/privacy`
+# were policy links: one unrelated URL made the Play domain verified, and the
+# letter's art. 32 statements with it.
+_POLICY_SEGMENT = re.compile(
+    rf"(?:{'|'.join(map(re.escape, POLICY_PAGES))})(?:[-_][a-z0-9_-]*)?(?:\.[a-z0-9]+)?"
 )
 
 REPEATED_IS_DELIBERATE = 3
@@ -105,11 +116,16 @@ def mentions_of(domain: str, apk_path: str | Path) -> Mention:
         f"https?://{_WWW}{host}{_URL_HOST_END}{_URL_TAIL}", text
     ):
         url = match.group()
-        if any(part in url for part in POLICY_PATHS):
+        if _is_policy_page(url):
             policy = _as_written(data, match.start(), len(url))
             break
 
     return Mention(count=len(occurrences), policy_url=policy)
+
+
+def _is_policy_page(url: str) -> bool:
+    """Whether a segment of the URL's path, not its query or fragment, names a policy page."""
+    return any(_POLICY_SEGMENT.fullmatch(segment) for segment in urlsplit(url).path.split("/"))
 
 
 def _as_written(data: bytes, start: int, length: int) -> str:

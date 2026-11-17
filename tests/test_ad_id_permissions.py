@@ -74,6 +74,9 @@ class _StubAPK:
         return list(self._permissions)
 
     # Everything the rest of the scan touches, answering "nothing here".
+    def get_android_manifest_xml(self):
+        return None   # the manifest as XML: no split= to read
+
     def get_files(self):
         return []
 

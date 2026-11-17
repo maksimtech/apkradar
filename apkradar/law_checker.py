@@ -10,13 +10,15 @@ Shared by the Radar tools: only the mapping section is specific to APKRadar.
 """
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import httpx
 
 from apkradar import law_fetcher
-from apkradar.law_cache import Key, LawCache
+from apkradar.law_cache import Key, LawCache, merge
 from apkradar.law_fetcher import CONSUMER_CODE, DIGITAL_CONTENT, GDPR, Act, LawFetchError, Provision
 
 # ─── Mapping: APKRadar findings → provisions ──────────────────────────────────
@@ -94,10 +96,10 @@ _SPECIAL_CATEGORY_PERMISSIONS = {
 }
 
 # Health Connect addresses each kind of record with its own permission —
-# android.permission.health.READ_HEART_RATE and some fifty others — so the prefix
-# is matched rather than the names listed. None of these are in
-# scanner.SENSITIVE_PERMISSIONS yet; when one is added, it arrives here already
-# cited correctly instead of silently joining the art. 9 claim by default.
+# android.permission.health.READ_HEART_RATE and some eighty others — so the prefix
+# is matched rather than the names listed, here and in scanner.sensitive_permission,
+# which reports them. Until 2026-11-17 the scanner did not, and this branch could
+# not be reached.
 _HEALTH_CONNECT_PREFIX = "android.permission.health."
 _HEALTH_CONNECT_REASON = {
     "en": "a Health Connect record, which is data concerning health",
@@ -143,14 +145,16 @@ FINDING_TITLES = {
 ALSO_FETCH: dict = {GDPR: ("4", "5", "6", "7", "9", "13", "28", "46")}
 
 
-def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]:
+def findings_of(result, consent_domains: Sequence[str] = ()) -> dict[str, list[str]]:
     """
     Findings in an APKRadar ScanResult, with what triggered each.
 
     Args:
         result: ScanResult
-        consent_violation: CookieRadar found trackers that persist after the
-            user rejected them (audit --full)
+        consent_domains: the publisher's domains on which CookieRadar found
+            trackers that persist after the user rejected them (audit --full).
+            Only the publisher's: a violation on an SDK vendor's own website is
+            that vendor's, and used to be cited against the app as GDPR art. 7.
     """
     found: dict[str, list[str]] = {}
     if result.trackers:
@@ -159,8 +163,10 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
         found["tracker_undisclosed"] = names
     if result.extra_eu_transfers:
         found["extra_eu"] = [transfer.entity for transfer in result.extra_eu_transfers]
-    if consent_violation:
-        found["consent"] = ["trackers still active after rejection (CookieRadar)"]
+    if consent_domains:
+        found["consent"] = [
+            f"{domain}: trackers still active after rejection (CookieRadar)" for domain in consent_domains
+        ]
     if result.sensitive_permissions:
         permissions = [
             f"{perm.permission.split('.')[-1]} ({perm.description})"
@@ -178,7 +184,7 @@ def findings_of(result, consent_violation: bool = False) -> dict[str, list[str]]
     return {finding: found[finding] for finding in FINDING_ARTICLES if finding in found}
 
 
-def notes_of(result, consent_violation: bool = False) -> list[str]:
+def notes_of(result, consent_domains: Sequence[str] = ()) -> list[str]:
     return []
 
 
@@ -196,12 +202,28 @@ class Citation:
 @dataclass(frozen=True)
 class ActStatus:
     act: Act
-    # "verified": downloaded now from the act's source (EUR-Lex or Normattiva);
-    # "cache": source unreachable, cached copy; "unavailable": no text at all
+    # "verified": every reference cited was in the text downloaded now from the act's source
+    # (EUR-Lex or Normattiva); "cache": the source was unreachable or its text lacked a
+    # reference, cached copy; "unavailable": no text at all
     source: str
     error: str | None = None
     # Where a verified text came from: "Cellar", "EUR-Lex" (the fallback) or "Normattiva"; None otherwise
     origin: str | None = None
+    # When not verified: the source tried last ("Cellar", "EUR-Lex", "Normattiva", "Cellar and
+    # EUR-Lex"; None if unknown), and why it was not used: "unreachable" (no page) or "not_in_text"
+    # (a page, without the text cited)
+    tried: str | None = None
+    failure: str | None = None
+
+    @property
+    def reason(self) -> str | None:
+        """Why the act was not verified, as a report says it: "Cellar and EUR-Lex unreachable"."""
+        if self.source == "verified":
+            return None
+        tried = self.tried or self.act.source
+        if self.failure == "not_in_text":
+            return f"{tried} answered without the text cited"
+        return f"{tried} unreachable"
 
 
 @dataclass
@@ -247,36 +269,52 @@ def check(
     acts = list(dict.fromkeys(act for _, act, _ in cited))
     # Keyed by (celex, article) — the cache's key, not the fetcher's.
     fresh: dict[Key, Provision] = {}
-    errors: dict[Act, str] = {}
+    errors: dict[Act, LawFetchError] = {}
     origins: dict[Act, str] = {}
     for act in acts:
+        refs = list(dict.fromkeys(ref for _, a, ref in cited if a == act))
         # The articles cited ("32(1)(a)" is part of article 32) and ALSO_FETCH
         articles = tuple(dict.fromkeys(
-            [ref.split("(")[0] for _, a, ref in cited if a == act] + list(ALSO_FETCH.get(act, ()))
+            [ref.split("(")[0] for ref in refs] + list(ALSO_FETCH.get(act, ()))
         ))
         try:
-            by_article, origins[act] = law_fetcher.fetch_provisions_from(act, articles, now=now, client=client)
+            by_article, origin = law_fetcher.fetch_provisions_from(act, articles, now=now, client=client)
+            # The article being there is not enough: each reference cited is
+            # checked against the text just parsed. A point the parser missed
+            # used to fall back to the cache, old hash and date included, under
+            # the "verified" label, or to no hash at all.
+            missing = [ref for ref in refs if ref not in by_article]
+            if missing:
+                raise LawFetchError(
+                    f"{act.name} art. {', '.join(missing)} not found in the text from {origin}",
+                    source=origin, reached=True,
+                )
         except LawFetchError as e:
-            errors[act] = str(e)
+            errors[act] = e
         else:
+            origins[act] = origin
             fresh.update({p.key: p for p in by_article.values()})
 
-    changed: dict[Key, str] = {}
-    try:
-        if fresh:
-            provisions, changed = cache.update(fresh, checked_at=law_fetcher.utc_stamp(now))
-        else:
-            provisions = cache.load()
-    except OSError:
-        provisions = {**cache.load(), **fresh}   # the text just downloaded can still be cited
+    # Merged here, not by the save: a cache that cannot be written (read-only,
+    # disk full) must not hide a change in the law, nor date an unchanged
+    # wording to today.
+    provisions, changed = merge(cache.load(), fresh)
+    if fresh:
+        # Unsaved, the text just downloaded can still be cited
+        with contextlib.suppress(OSError):
+            cache.update(fresh, checked_at=law_fetcher.utc_stamp(now))
 
     statuses = []
     for act in acts:
         if act not in errors:
             statuses.append(ActStatus(act, "verified", origin=origins[act]))
         else:
+            error = errors[act]
             cached = any((act.celex, ref) in provisions for _, a, ref in cited if a == act)
-            statuses.append(ActStatus(act, "cache" if cached else "unavailable", errors[act]))
+            statuses.append(ActStatus(
+                act, "cache" if cached else "unavailable", str(error),
+                tried=error.source, failure="not_in_text" if error.reached else "unreachable",
+            ))
 
     citations = []
     for finding, act, ref in cited:

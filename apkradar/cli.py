@@ -656,13 +656,17 @@ def _print_law_check(law, out=None) -> None:
     out.print("[bold]⚖️  Provisions applied[/bold]")
     for status in law.acts:
         act = status.act
-        name, source = escape(act.name), escape(act.source)
+        name = escape(act.name)
+        # Which source was tried, and whether it was unreachable or answered
+        # without the text cited: "EUR-Lex unreachable" whatever happened was
+        # how a reached page with a moved point used to be reported
+        reason = escape(status.reason or "")
         if status.source == "verified":
             origin = escape(status.origin or act.source)
             out.print(f"[dim]{name}: verified against {origin} ({act.id_label} {escape(act.celex)})[/dim]")
         elif status.source == "cache":
             out.print(
-                f"[yellow]{name}: {source} unreachable, "
+                f"[yellow]{name}: {reason}, "
                 "text from the cached copy, not re-verified[/yellow]"
             )
         else:
@@ -671,7 +675,7 @@ def _print_law_check(law, out=None) -> None:
             # for a bug in the hashing. There is no verified text to hash, and
             # printing one anyway would assert a verification never made.
             out.print(
-                f"[yellow]{name}: {source} unreachable and nothing cached, "
+                f"[yellow]{name}: {reason} and nothing cached, "
                 "text not verifiable: the citations below have no SHA-256[/yellow]"
             )
         if act.note:
@@ -752,7 +756,10 @@ def audit(
     if result.error:
         raise typer.Exit(1)
 
-    consent_violation = False
+    # The publisher's domains with trackers kept after rejection: what GDPR
+    # art. 7 is cited for. An SDK vendor's own website is analysed and shown,
+    # but its cookie banner is the vendor's, not the app's.
+    consent_domains: list[str] = []
     if full and result.package_name:
         # Asked before anything is analysed: a domain on sale has no holder, and
         # a finding against it would belong to whoever buys it next.
@@ -808,18 +815,17 @@ def audit(
                     domain, verbose=verbose,
                     note=publisher_domain.PROVENANCE_LABELS[source],
                 ):
-                    consent_violation = True
+                    consent_domains.append(domain)
 
             for domain in others:
-                if _full_stack_domain(
+                _full_stack_domain(
                     domain, verbose=verbose,
                     note="SDK or deep-link domain found in the APK",
-                ):
-                    consent_violation = True
+                )
 
         console.print()
 
-    _print_law_check(_law_check(result, consent_violation=consent_violation))
+    _print_law_check(_law_check(result, consent_domains=consent_domains))
 
     # Written last, so the file holds the whole report — the law citations
     # included. A scan that errored has already left through Exit(1) above:

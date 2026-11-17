@@ -177,6 +177,26 @@ SENSITIVE_PERMISSIONS = {
     "android.permission.ACCESS_ADSERVICES_ATTRIBUTION": "ad attribution (Privacy Sandbox)",
 }
 
+# Health Connect gives each kind of health record its own permission —
+# android.permission.health.READ_HEART_RATE, READ_SEXUAL_ACTIVITY,
+# WRITE_MENSTRUATION, READ_MEDICAL_DATA_VACCINES and some eighty more — so
+# the prefix is matched rather than the names listed. None was in the table
+# above, and law_checker's art. 9 reason for them could not be reached: the bug
+# hunt of 2026-11-17 found Fitbit's app declaring about eighty, none reported.
+HEALTH_CONNECT_PREFIX = "android.permission.health."
+
+
+def sensitive_permission(permission: str) -> str | None:
+    """What a sensitive permission gives access to, or None if it is not one."""
+    if permission in SENSITIVE_PERMISSIONS:
+        return SENSITIVE_PERMISSIONS[permission]
+    if permission.startswith(HEALTH_CONNECT_PREFIX):
+        action, _, record = permission.removeprefix(HEALTH_CONNECT_PREFIX).partition("_")
+        if action in ("READ", "WRITE") and record:
+            # READ_SEXUAL_ACTIVITY -> "Health Connect: sexual activity (read)"
+            return f"Health Connect: {record.replace('_', ' ').lower()} ({action.lower()})"
+    return None
+
 EXTRA_EU_TRANSFERS = {
     "com.google": "Google LLC (USA)",
     "com.facebook": "Meta Platforms Inc. (USA)",
@@ -297,7 +317,41 @@ class ScanResult:
 
     @property
     def sensitive_permission_count(self) -> int:
+        """Every sensitive permission declared: what the report lists."""
         return len(self.sensitive_permissions)
+
+    @property
+    def health_connect_permission_count(self) -> int:
+        return sum(p.permission.startswith(HEALTH_CONNECT_PREFIX) for p in self.sensitive_permissions)
+
+    # The Health Connect permissions are one group in the score (owner's
+    # decision, 2026-11-17): Health Connect has a permission per kind of record,
+    # so a fitness app asks for dozens where another asks for one BODY_SENSORS,
+    # and at 5 points each Fitbit's eighty cost 400 points for one capability.
+    # The group costs what one sensitive permission costs. Every permission is
+    # still listed, and each is still cited under art. 9.
+    def _scored_permission_count(self) -> int:
+        """Sensitive permissions as the score counts them: the group as one.
+
+        Plain counting, apart from the terms below: the score is read for every
+        row of a batch, and building the explanation there made it three times slower
+        (CodSpeed, test_bench_scan_result_score_computation).
+        """
+        permissions = self.sensitive_permissions
+        if not permissions:
+            return 0
+        health = self.health_connect_permission_count
+        return len(permissions) - health + (1 if health else 0)
+
+    def _scored_permission_terms(self) -> list[tuple[str, int]]:
+        health = self.health_connect_permission_count
+        others = self.sensitive_permission_count - health
+        terms = []
+        if others:
+            terms.append((f"{others} sensitive permission{'' if others == 1 else 's'}", others * 5))
+        if health:
+            terms.append((f"Health Connect ({health} permission{'' if health == 1 else 's'}, counted once)", 5))
+        return terms
 
     @property
     def score_deductions(self) -> list[tuple[str, int]]:
@@ -310,18 +364,15 @@ class ScanResult:
         if self.score is None:
             return []
 
-        counted = (
-            (self.tracker_count, 10, "tracker", "trackers"),
-            (self.sensitive_permission_count, 5, "sensitive permission",
-             "sensitive permissions"),
+        def term(count: int, weight: int, one: str, many: str) -> list[tuple[str, int]]:
+            return [(f"{count} {one if count == 1 else many}", count * weight)] if count else []
+
+        return [
+            *term(self.tracker_count, 10, "tracker", "trackers"),
+            *self._scored_permission_terms(),
             # Short on purpose: the Extra-EU Transfers table is printed a few
             # lines below, and the full term pushed this line past 80 columns.
-            (len(self.extra_eu_transfers), 5, "transfer", "transfers"),
-        )
-        return [
-            (f"{count} {one if count == 1 else many}", count * weight)
-            for count, weight, one, many in counted
-            if count
+            *term(len(self.extra_eu_transfers), 5, "transfer", "transfers"),
         ]
 
     @property
@@ -360,7 +411,7 @@ class ScanResult:
             return None
         score = 100
         score -= self.tracker_count * 10
-        score -= self.sensitive_permission_count * 5
+        score -= self._scored_permission_count() * 5
         score -= len(self.extra_eu_transfers) * 5
         return max(0, score)
 
@@ -638,6 +689,19 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
         from androguard.core.apk import APK
         apk = APK(str(path))
 
+        # A split declares itself in its manifest (<manifest split="...">). Its
+        # code, permissions and components are a part of the app at most, and
+        # scanning one as the app reported 100/100 for an app with Google Ads in
+        # its base: no score is better than that one.
+        manifest_xml = apk.get_android_manifest_xml()
+        split = manifest_xml.get("split") if manifest_xml is not None else None
+        if isinstance(split, str) and split:
+            result.error = (
+                f"{Path(actual_path).name} is a split APK ({split}), not the base APK of the app: "
+                "audit the base APK, or the whole bundle"
+            )
+            return result
+
         # Metadata
         result.package_name = apk.get_package() or ""
         result.app_name = apk.get_app_name() or ""
@@ -658,10 +722,10 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
         # Scan permissions
         permissions = apk.get_permissions() or []
         for perm in permissions:
-            if perm in SENSITIVE_PERMISSIONS:
+            if (description := sensitive_permission(perm)) is not None:
                 pf = PermissionFound(
                     permission=perm,
-                    description=SENSITIVE_PERMISSIONS[perm],
+                    description=description,
                     gdpr_relevant=True,
                 )
                 result.permissions.append(pf)

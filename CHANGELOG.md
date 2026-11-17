@@ -12,6 +12,104 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+### Fixed
+
+- **The DPO letter no longer clears the publisher when the checks did not run.** Section 4 said "Non
+  sono state rilevate criticità nelle misure tecniche del publisher" whenever no issue had been found,
+  including when MailRadar produced no score (domain not found, MailRadar missing) and the SSL check
+  ended in an error or a timeout: `send --dry-run` on a domain DNS does not know printed it. The
+  sentence now needs a MailRadar score and an SSL result (valid, or one of the issues the letter
+  states); otherwise the letter names the check that produced no result and says the technical
+  measures were not verified in full, which is not a finding of compliance.
+
+- **`audit --full` cites GDPR art. 7 only for the publisher's own site.** Any domain analysed with a
+  CookieRadar violation set the consent finding, SDK and deep-link domains included: an app whose
+  publisher's site was clean was cited under art. 7 because doubleclick.net kept Google Analytics
+  after rejection on its own website. Only the publisher's candidate domains count now, and the
+  evidence line names the domain ("example.com: trackers still active after rejection
+  (CookieRadar)"). The other domains are still analysed and shown.
+
+- **Health Connect permissions are reported, and cited under art. 9.** `law_checker` has matched
+  `android.permission.health.*` as data concerning health since 2026-09-30, but the scanner reported a
+  permission as sensitive only if it was in `SENSITIVE_PERMISSIONS`, where none of them is: Fitbit's
+  app declares about eighty (sexual activity, menstruation, medical records among them) and the
+  report listed none, so that art. 9 branch could never be reached. Every
+  `android.permission.health.READ_*` and `WRITE_*` is now a sensitive permission, described by its
+  record ("Health Connect: sexual activity (read)"), listed in the report, the letter and `diff`, and
+  cited under art. 9. In the score they are one group: all of them together cost what one sensitive
+  permission costs (5 points), however many the app declares, and the arithmetic says so —
+  `− 5 (Health Connect (80 permissions, counted once))`. Health Connect has a permission per kind of
+  record, so at 5 points each Fitbit's eighty would have cost 400 points for one capability.
+
+- **A policy link is a whole path segment.** The content check that corroborates the publisher's
+  domain took `/privacy`, `/terms`, `/legal`, `/tos` and the rest as substrings of the URL, so
+  `https://example.com/tostring.js`, `/legalese` or `?next=/privacy` counted as the app pointing at
+  its policy page: one such string made the Play domain "verified", and the DPO letter then stated
+  its art. 32 findings about that domain. The word must now be a segment of the path, on its own,
+  followed by more words after `-` or `_` (`terms-of-service`, `privacy_policy`), or by an extension
+  (`privacy.html`).
+
+- **A bundle is audited on its base APK, and a split is never scored as the app.** The extractor took
+  the first member of an XAPK or APKM not named `split_*` or `config.*`, so a dynamic-feature split
+  named freely (`feature_ads.apk`) listed before the base was scanned instead: no code, no
+  permissions, and 100/100 — GOOD for an app with Google Ads in its base. The base is now the one
+  `manifest.json` names (`"id": "base"` under `split_apks`), then `<package>.apk` or `base.apk`; a
+  base named there but missing from the archive is an error, not a guess. And any APK whose manifest
+  declares `split="..."`, given in a bundle or on its own, ends the audit with an error rather than a
+  score.
+
+- **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
+  `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
+  now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
+  other law fixes below.
+
+- **A citation is "verified" only when the reference it cites is in the text downloaded now.** The
+  check looked at the article: with article 5 of the GDPR parsed and point a) laid out as a paragraph
+  instead of a label/text table, `5(1)(a)` was missing from the fresh text and fell back to the cache,
+  old SHA-256 and date included, under "verified against Cellar"; with an empty cache the same label
+  stood beside `SHA256: not available`. Every cited reference is now looked up in the text just
+  parsed, and one that is missing makes the act a fetch failure: its citations come from the cache,
+  labelled as such, or have no hash and say so.
+
+- **A change in the law is reported even when the cache cannot be written.** The comparison with the
+  previous text was made by the save, so with a read-only cache a law whose text changed was cited
+  without the warning, and an unchanged wording was dated to the day of the audit. The merge is now
+  `law_cache.merge`, made before the save and kept whether the save succeeds or not.
+
+- **The audit says which source failed, and how.** A text from the cache or no text at all was always
+  explained as "EUR-Lex unreachable", the act's publisher, even when Cellar had answered with a page
+  that lacked the point cited. `ActStatus` now carries `tried` ("Cellar", "Normattiva", "Cellar and
+  EUR-Lex") and `failure` ("unreachable", or "not_in_text"), with `reason` as the audit prints it:
+  "GDPR: Cellar answered without the text cited, text from the cached copy", or "Cellar and EUR-Lex
+  unreachable and nothing cached".
+
+- **A failed download always reaches the EUR-Lex fallback and the cache.** Only `httpx.HTTPError` was
+  turned into a fetch failure. A 303 to `http://xn--/DOC_1` makes httpx raise `idna.core.IDNAError`, a
+  `ValueError`, which skipped the fallback and ended the whole law check even with the cache populated.
+  `httpx.InvalidURL` and `ValueError` are now fetch failures too.
+
+- **Redirects stay on the source's host.** Any `Location` was followed, so a text served by another
+  host was labelled "verified against Cellar". Cellar may redirect only to publications.europa.eu,
+  EUR-Lex only to eur-lex.europa.eu and Normattiva only to www.normattiva.it, on the default port; the
+  http:// hop Cellar makes is still taken over HTTPS. Any other target ends the fetch before a request
+  is sent to it, and the hosts in `docs/nis2-compliance.md` are now the only ones the law check can
+  reach.
+
+- **A page is read up to 32 MiB, and a fetch ends after 120 seconds.** The timeout bounded each read,
+  not the whole: a server sending a byte every few seconds held the audit for as long as it liked, and
+  nothing limited the size of the page. The body is now streamed, refused past `MAX_RESPONSE_BYTES`
+  (32 MiB; the GDPR from Cellar is 823981 bytes) and abandoned past `FETCH_DEADLINE` (120 s, redirects
+  included); either one is a fetch failure, so the fallbacks apply.
+
+- **A missing article names the page it was missing from.** It always read "not found in the EUR-Lex
+  page", for Normattiva and Cellar pages too. `LawFetchError` now carries `source` (the source tried,
+  or "Cellar and EUR-Lex" when the fallback failed too) and `reached` (it answered, without the text).
+
+- **Normattiva's "-bis" paragraphs can be cited.** Paragraph numbers were read as `\d+`, so paragraphs
+  3-bis and 4-bis of art. 21 of the Consumer Code were part of the article's text and had no reference
+  of their own. `21(3-bis)` and `21(4-bis)` now exist, as do -ter, -quater and the later Latin
+  numbers (every one after quater ends in -ies), with their lettered points.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed

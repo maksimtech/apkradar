@@ -68,7 +68,17 @@ Il certificato SSL del sito {{ publisher_domain }} è autofirmato e non verifica
 Il certificato SSL del sito {{ publisher_domain }} è emesso da un'autorità di certificazione non riconosciuta, in violazione del principio di sicurezza del trattamento ex art. 32 GDPR.
 {% endif %}
 {% if publisher_domain_verified and not mail_poor and not ssl_issue %}
+{% if mail_checked and ssl_checked %}
 Non sono state rilevate criticità nelle misure tecniche del publisher.
+{% else %}
+{% if not mail_checked %}
+L'analisi della sicurezza email del dominio {{ publisher_domain }} non ha prodotto un risultato.
+{% endif %}
+{% if not ssl_checked %}
+La verifica del certificato SSL del sito {{ publisher_domain }} non ha prodotto un esito conclusivo.
+{% endif %}
+Le misure tecniche del publisher non sono state pertanto verificate per intero: ciò non costituisce accertamento di conformità.
+{% endif %}
 {% endif %}
 
 5. RICHIESTE FORMALI

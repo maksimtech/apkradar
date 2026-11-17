@@ -106,10 +106,42 @@ def test_normattiva_articles_21_and_49():
     )
 
 
+def test_normattiva_bis_paragraphs_can_be_cited():
+    """Art. 21 of the Consumer Code has paragraphs 3-bis and 4-bis: they were
+    part of the article's text, and could not be cited on their own."""
+    texts = parse_articles(page("normattiva_cdc_art21.html"), ("21",))
+
+    assert texts["21(3-bis)"].startswith("3-bis. ")
+    assert texts["21(4-bis)"].startswith("4-bis. ")
+    assert texts["21"].split("\n") == [
+        texts[f"21({n})"] for n in ("1", "2", "3", "3-bis", "4", "4-bis")
+    ]
+
+
+@pytest.mark.parametrize("suffix", ["ter", "quater", "quinquies", "sexies", "decies", "terdecies"])
+def test_normattiva_later_latin_paragraphs_can_be_cited(suffix):
+    """The same page with paragraph 4-bis renumbered, as later amendments number theirs."""
+    html = page("normattiva_cdc_art21.html").replace(">4-bis. <", f">4-{suffix}. <")
+    assert html != page("normattiva_cdc_art21.html")
+
+    assert parse_articles(html, ("21",))[f"21(4-{suffix})"].startswith(f"4-{suffix}. ")
+
+
 def test_normattiva_page_of_another_article_raises():
     # Normattiva answers 200 for an article that does not exist
     with pytest.raises(LawFetchError, match="49"):
         parse_articles(page("normattiva_cdc_art20.html"), ("49",))
+
+
+def test_an_article_missing_from_normattiva_names_normattiva(monkeypatch):
+    """It read "not found in the EUR-Lex page" for a Normattiva page too."""
+    monkeypatch.setattr(law_fetcher, "fetch_html", lambda url, **kwargs: page("normattiva_cdc_art20.html"))
+    with pytest.raises(LawFetchError) as caught:
+        law_fetcher.fetch_provisions_from(CONSUMER_CODE, ("99",))
+
+    assert "Normattiva" in str(caught.value)
+    assert "EUR-Lex" not in str(caught.value)
+    assert (caught.value.source, caught.value.reached) == ("Normattiva", True)
 
 
 def test_fetch_consumer_code_one_page_per_article(monkeypatch):

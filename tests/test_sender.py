@@ -338,6 +338,8 @@ class TestRenderLetterMailScore(unittest.TestCase):
             sender_email="test@example.com",
             mail_score=mail_score,
             mail_grade=mail_grade,
+            # The SSL check ran: "no issues" needs both checks to have a result
+            ssl_status="valid",
         )
 
     def test_good_score_no_accusation(self):
@@ -444,6 +446,8 @@ class TestRenderLetterSsl(unittest.TestCase):
             sender_name="Test User",
             sender_org="",
             sender_email="test@example.com",
+            mail_score=95,
+            mail_grade="A",
             ssl_status=ssl_status,
         )
 
@@ -470,8 +474,17 @@ class TestRenderLetterSsl(unittest.TestCase):
             with self.subTest(status=status):
                 letter = self._render(status)
                 self.assertNotIn("scaduto", letter)
-                self.assertNotIn("certificato SSL", letter)
-                self.assertIn(self.NO_ISSUES, letter)
+                self.assertNotIn("in violazione", letter)
+
+    def test_only_a_valid_certificate_is_no_issue(self):
+        """A check without a result found nothing: until 2026-11-17 a timeout or
+        an error in the SSL check let the letter say no issues were found."""
+        self.assertIn(self.NO_ISSUES, self._render("valid"))
+        for status in ("hostname_mismatch", "invalid", "timeout", "error", None):
+            with self.subTest(status=status):
+                letter = self._render(status)
+                self.assertNotIn(self.NO_ISSUES, letter)
+                self.assertIn("certificato SSL del sito wonet.com non ha prodotto un esito conclusivo", letter)
 
 
 class TestSendSslOutput(unittest.TestCase):
