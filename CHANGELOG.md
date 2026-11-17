@@ -19,6 +19,33 @@ no version in this file has ever matched — 40 is not a month, and
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
   other law fixes below.
 
+- **A failed download always reaches the EUR-Lex fallback and the cache.** Only `httpx.HTTPError` was
+  turned into a fetch failure. A 303 to `http://xn--/DOC_1` makes httpx raise `idna.core.IDNAError`, a
+  `ValueError`, which skipped the fallback and ended the whole law check even with the cache populated.
+  `httpx.InvalidURL` and `ValueError` are now fetch failures too.
+
+- **Redirects stay on the source's host.** Any `Location` was followed, so a text served by another
+  host was labelled "verified against Cellar". Cellar may redirect only to publications.europa.eu,
+  EUR-Lex only to eur-lex.europa.eu and Normattiva only to www.normattiva.it, on the default port; the
+  http:// hop Cellar makes is still taken over HTTPS. Any other target ends the fetch before a request
+  is sent to it, and the hosts in `docs/nis2-compliance.md` are now the only ones the law check can
+  reach.
+
+- **A page is read up to 32 MiB, and a fetch ends after 120 seconds.** The timeout bounded each read,
+  not the whole: a server sending a byte every few seconds held the audit for as long as it liked, and
+  nothing limited the size of the page. The body is now streamed, refused past `MAX_RESPONSE_BYTES`
+  (32 MiB; the GDPR from Cellar is 823981 bytes) and abandoned past `FETCH_DEADLINE` (120 s, redirects
+  included); either one is a fetch failure, so the fallbacks apply.
+
+- **A missing article names the page it was missing from.** It always read "not found in the EUR-Lex
+  page", for Normattiva and Cellar pages too. `LawFetchError` now carries `source` (the source tried,
+  or "Cellar and EUR-Lex" when the fallback failed too) and `reached` (it answered, without the text).
+
+- **Normattiva's "-bis" paragraphs can be cited.** Paragraph numbers were read as `\d+`, so paragraphs
+  3-bis and 4-bis of art. 21 of the Consumer Code were part of the article's text and had no reference
+  of their own. `21(3-bis)` and `21(4-bis)` now exist, as do -ter, -quater and the later Latin
+  numbers (every one after quater ends in -ies), with their lettered points.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed
