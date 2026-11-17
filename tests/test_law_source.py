@@ -91,3 +91,70 @@ def test_a_text_from_the_cache_names_no_source(real_fetch, tmp_path):
     law = law_checker.check(result, cache=cache, now=NOW, client=recorded({}, []))
     gdpr = next(status for status in law.acts if status.act == law_fetcher.GDPR)
     assert (gdpr.source, gdpr.origin) == ("cache", None)
+
+
+# ─── verified means every reference cited, from the host asked ────────────────
+# Ported from MailRadar's replayed tests (#103), on the same recorded GDPR page.
+
+TRACKER = ScanResult(apk_path="app.apk", package_name="com.example.app",
+                     trackers=[TrackerFound(package="com.appsflyer", name="AppsFlyer")])
+
+
+def _point_a_untabled(page: str) -> str:
+    """The GDPR page with the label of 5(1)(a) gone, as when Cellar lays the
+    point out as a paragraph: article 5 still parses, point a) does not."""
+    label = '<p class="oj-normal">a)</p>'
+    at = page.index(label, page.index('<div id="005.001">'))
+    return page[:at] + '<p class="oj-normal"></p>' + page[at + len(label):]
+
+
+def test_a_point_missing_from_the_fresh_text_is_not_verified(real_fetch, tmp_path):
+    """Cellar answered and article 5 parsed, but point a) was not in it: GDPR was
+    "verified against Cellar" beside "SHA256: not available"."""
+    page = _point_a_untabled(GDPR_PAGE)
+    law = law_checker.check(TRACKER, cache=LawCache(tmp_path / "law_cache.json"), now=NOW,
+                            client=recorded({GDPR_CELLAR_URL: page}, []))
+
+    gdpr = next(status for status in law.acts if status.act == law_fetcher.GDPR)
+    assert (gdpr.source, gdpr.tried, gdpr.failure) == ("unavailable", "Cellar", "not_in_text")
+    assert gdpr.reason == "Cellar answered without the text cited"
+    assert law.citations[0].article == "5(1)(a)"
+    assert law.citations[0].sha256 is None
+
+
+def test_a_text_from_another_host_is_not_verified_against_cellar(real_fetch, tmp_path):
+    """Cellar's 303 pointing elsewhere: the page that host serves is not Cellar's."""
+    seen: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.host == "publications.europa.eu":
+            return httpx.Response(303, headers={"Location": "https://example.org/DOC_1"})
+        if request.url.host == "example.org":
+            return httpx.Response(200, text=GDPR_PAGE)
+        return httpx.Response(202, text="challenge")   # EUR-Lex's WAF
+
+    law = law_checker.check(TRACKER, cache=LawCache(tmp_path / "law_cache.json"), now=NOW,
+                            client=httpx.Client(transport=httpx.MockTransport(answer)))
+
+    gdpr = next(status for status in law.acts if status.act == law_fetcher.GDPR)
+    assert (gdpr.source, gdpr.origin) == ("unavailable", None)
+    assert gdpr.reason == "Cellar and EUR-Lex unreachable"
+    assert not any(httpx.URL(url).host == "example.org" for url in seen), seen
+
+
+def test_a_redirect_httpx_cannot_follow_falls_back_to_eur_lex(real_fetch, tmp_path):
+    """http://xn--/DOC_1 made httpx raise idna.core.IDNAError, which went past
+    both fallbacks and out of the law check."""
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "publications.europa.eu":
+            return httpx.Response(303, headers={"Location": "http://xn--/DOC_1"})
+        if str(request.url) == GDPR_EURLEX_URL:
+            return httpx.Response(200, text=GDPR_PAGE)
+        return httpx.Response(503)
+
+    law = law_checker.check(TRACKER, cache=LawCache(tmp_path / "law_cache.json"), now=NOW,
+                            client=httpx.Client(transport=httpx.MockTransport(answer)))
+
+    gdpr = next(status for status in law.acts if status.act == law_fetcher.GDPR)
+    assert (gdpr.source, gdpr.origin) == ("verified", "EUR-Lex")

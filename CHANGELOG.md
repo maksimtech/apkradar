@@ -19,6 +19,26 @@ no version in this file has ever matched — 40 is not a month, and
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
   other law fixes below.
 
+- **A citation is "verified" only when the reference it cites is in the text downloaded now.** The
+  check looked at the article: with article 5 of the GDPR parsed and point a) laid out as a paragraph
+  instead of a label/text table, `5(1)(a)` was missing from the fresh text and fell back to the cache,
+  old SHA-256 and date included, under "verified against Cellar"; with an empty cache the same label
+  stood beside `SHA256: not available`. Every cited reference is now looked up in the text just
+  parsed, and one that is missing makes the act a fetch failure: its citations come from the cache,
+  labelled as such, or have no hash and say so.
+
+- **A change in the law is reported even when the cache cannot be written.** The comparison with the
+  previous text was made by the save, so with a read-only cache a law whose text changed was cited
+  without the warning, and an unchanged wording was dated to the day of the audit. The merge is now
+  `law_cache.merge`, made before the save and kept whether the save succeeds or not.
+
+- **The audit says which source failed, and how.** A text from the cache or no text at all was always
+  explained as "EUR-Lex unreachable", the act's publisher, even when Cellar had answered with a page
+  that lacked the point cited. `ActStatus` now carries `tried` ("Cellar", "Normattiva", "Cellar and
+  EUR-Lex") and `failure` ("unreachable", or "not_in_text"), with `reason` as the audit prints it:
+  "GDPR: Cellar answered without the text cited, text from the cached copy", or "Cellar and EUR-Lex
+  unreachable and nothing cached".
+
 - **A failed download always reaches the EUR-Lex fallback and the cache.** Only `httpx.HTTPError` was
   turned into a fetch failure. A 303 to `http://xn--/DOC_1` makes httpx raise `idna.core.IDNAError`, a
   `ValueError`, which skipped the fallback and ended the whole law check even with the cache populated.

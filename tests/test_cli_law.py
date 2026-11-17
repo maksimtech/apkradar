@@ -1,5 +1,6 @@
 """Tests for the law check that `apkradar audit` runs."""
 import hashlib
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -160,6 +161,37 @@ def test_audit_offline_without_cache():
     assert out.exit_code == 0
     assert "Provision applied: GDPR art. 5(1)(a)" in out.output
     assert "SHA256: not available" in out.output
+
+
+def _flat(output):
+    """The output on one line and without colours: Rich wraps at the terminal's
+    width, and colours Typer's panels on GitHub Actions."""
+    return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", output).split())
+
+
+def test_a_source_that_answered_without_the_point_is_not_called_unreachable(eurlex, monkeypatch):
+    """Cellar answered, and only 5(1)(a) was missing from its page: the audit
+    printed "EUR-Lex unreachable", naming neither the source nor the failure."""
+    _audit(_result())
+    page = FIXTURE.read_text(encoding="utf-8")
+    label = '<p class="oj-normal">a)</p>'
+    at = page.index(label, page.index('<div id="005.001">'))
+    untabled = page[:at] + '<p class="oj-normal"></p>' + page[at + len(label):]
+    monkeypatch.setattr(law_fetcher, "fetch_html", lambda url, **kw: untabled if "32016R0679" in url
+                        else _page_for(url).read_text(encoding="utf-8"))
+
+    out = _flat(_audit(_result()).output)
+
+    assert "GDPR: Cellar answered without the text cited, text from the cached copy" in out
+    assert "unreachable" not in out
+    assert f"SHA256: {_sha('5(1)(a)')}" in out
+
+
+def test_both_sources_unreachable_are_both_named():
+    # conftest makes every download fail
+    out = _flat(_audit(_result()).output)
+
+    assert "GDPR: Cellar and EUR-Lex unreachable and nothing cached" in out
 
 
 def test_audit_reports_changed_text(eurlex, monkeypatch):

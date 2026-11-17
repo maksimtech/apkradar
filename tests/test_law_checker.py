@@ -342,6 +342,127 @@ def test_cache_written_by_the_previous_version_is_still_read(cache):
     assert cache.load() == {(GDPR.celex, "6"): old}
 
 
+# ─── each cited reference must be in the text downloaded now ──────────────────
+
+def _fake_fetch_without(missing):
+    """_fake_fetch, with the reference `missing` absent from the parsed text: the
+    article is there, a point the parser did not recognise is not."""
+    fake = _fake_fetch()
+
+    def without(act, articles, now=None, **kwargs):
+        provisions, origin = fake(act, articles, now=now, **kwargs)
+        return {ref: p for ref, p in provisions.items() if ref != missing}, origin
+
+    return without
+
+
+def test_a_reference_missing_from_the_fresh_text_is_not_verified(cache, monkeypatch):
+    """Article 5 was downloaded and parsed, point 5(1)(a) was not in it: the act
+    used to be "verified against Cellar" beside "SHA256: not available"."""
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch_without("5(1)(a)"))
+    law = check(_result(trackers=True), cache=cache, now=DAY1)
+
+    gdpr = next(status for status in law.acts if status.act == GDPR)
+    assert gdpr.source == "unavailable", gdpr
+    assert "5(1)(a)" in (gdpr.error or "")
+    assert (gdpr.tried, gdpr.failure) == ("Cellar", "not_in_text")
+    assert law.citations[0].article == "5(1)(a)"
+    assert law.citations[0].sha256 is None
+
+
+def test_a_cached_reference_is_not_served_as_verified(cache, online, monkeypatch):
+    """The same, with the point cached by an earlier audit: its old SHA-256 and
+    date came back under the "verified" label."""
+    first = check(_result(trackers=True), cache=cache, now=DAY1)
+
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch_without("5(1)(a)"))
+    law = check(_result(trackers=True), cache=cache, now=DAY2)
+
+    gdpr = next(status for status in law.acts if status.act == GDPR)
+    assert gdpr.source == "cache", gdpr
+    assert gdpr.reason == "Cellar answered without the text cited"
+    assert law.citations[0].sha256 == first.citations[0].sha256
+    assert law.citations[0].version_date == "2026-09-19"
+
+
+# ─── why an act was not verified ──────────────────────────────────────────────
+
+@pytest.mark.parametrize(("error", "tried", "failure", "reason"), [
+    (LawFetchError("Cellar answered HTTP 503; and EUR-Lex answered HTTP 202", source="Cellar and EUR-Lex"),
+     "Cellar and EUR-Lex", "unreachable", "Cellar and EUR-Lex unreachable"),
+    (LawFetchError("Article 49 not found in the Normattiva page", source="Normattiva", reached=True),
+     "Normattiva", "not_in_text", "Normattiva answered without the text cited"),
+    # An error that does not say where it came from is said of the act's source
+    (LawFetchError("offline"), None, "unreachable", "EUR-Lex unreachable"),
+])
+def test_a_status_says_which_source_failed_and_how(cache, monkeypatch, error, tried, failure, reason):
+    def failing(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", failing)
+    [status] = check(_result(transfers=True), cache=cache, now=DAY1).acts
+
+    assert (status.source, status.tried, status.failure, status.reason) == ("unavailable", tried, failure, reason)
+
+
+def test_a_verified_status_has_no_reason(cache, online):
+    [status] = check(_result(transfers=True), cache=cache, now=DAY1).acts
+
+    assert (status.source, status.tried, status.failure, status.reason) == ("verified", None, None, None)
+
+
+# ─── a cache that cannot be written ───────────────────────────────────────────
+
+@pytest.fixture
+def read_only_cache(cache):
+    """Call it after a first audit: it makes `cache` read-only, the file (what
+    stops os.replace on Windows) and its folder (what stops it on POSIX)."""
+    import os
+    import stat
+
+    def freeze():
+        cache.path.chmod(stat.S_IREAD)
+        cache.path.parent.chmod(stat.S_IREAD | stat.S_IEXEC)
+        try:
+            cache.update({}, checked_at="2026-10-01T09:30:00Z")
+        except OSError:
+            return
+        pytest.skip("this user can write a read-only file (root?)")
+
+    yield freeze
+    os.chmod(cache.path.parent, stat.S_IRWXU)
+    if cache.path.exists():
+        os.chmod(cache.path, stat.S_IREAD | stat.S_IWRITE)
+
+
+def test_a_changed_text_is_reported_when_the_cache_cannot_be_written(cache, read_only_cache, monkeypatch):
+    """The change used to be computed only by a successful save: with the cache
+    read-only, a law whose text changed was cited with no warning."""
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch())
+    first = check(_result(transfers=True), cache=cache, now=DAY1)
+    read_only_cache()
+
+    monkeypatch.setattr(law_fetcher, "fetch_provisions_from", _fake_fetch(" (rettificato)"))
+    law = check(_result(transfers=True), cache=cache, now=DAY2)
+
+    assert law.changed == {"GDPR art. 46": first.citations[0].sha256}
+    assert law.citations[0].sha256 != first.citations[0].sha256
+    assert law.citations[0].version_date == "2026-10-01"
+
+
+def test_an_unchanged_text_keeps_its_version_date_when_the_cache_cannot_be_written(
+    cache, read_only_cache, online
+):
+    """The date of a wording is its first download, saved or not."""
+    check(_result(transfers=True), cache=cache, now=DAY1)
+    read_only_cache()
+
+    law = check(_result(transfers=True), cache=cache, now=DAY2)
+
+    assert law.changed == {}
+    assert law.citations[0].version_date == "2026-09-19"
+
+
 # ─── format ───────────────────────────────────────────────────────────────────
 
 def test_format_citation():
