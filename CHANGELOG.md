@@ -134,6 +134,17 @@ no version in this file has ever matched — 40 is not a month, and
   ("refused to extract 'main.apk' from the bundle: it unpacks to 67108864 bytes from 65232, more than
   100 times its size"), where it used to fail on whatever androguard made of the result.
 
+- **The for-sale check asks only public addresses.** It fetched the candidate domain with
+  `follow_redirects=True`, so a domain answering 302 to `http://127.0.0.1:<port>/router/admin` had
+  APKRadar request that page: a blind GET into the network it runs from, made by `send` too, without
+  `--full`, for a domain a Play listing or a package name supplies (bug hunt of 2026-11-17,
+  `redirect_probe.py`). Redirects are now followed by hand, at most five (`MAX_REDIRECTS`), and every
+  URL, the first one included, only to a host whose every address is public: loopback, private,
+  link-local, shared (100.64/10), unspecified and reserved addresses are refused, numeric forms such
+  as `127.1` and `2130706433` and IPv4-mapped IPv6 included. A refused candidate is read as "cannot
+  tell", as an unreachable one always was, so it is kept. A name that resolves differently when httpx
+  connects (DNS rebinding) is not caught.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed

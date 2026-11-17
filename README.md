@@ -895,6 +895,13 @@ scores 14/100, and anyone can buy the name — including after a report quoting 
 has been written. A row like that invalidates the audit that contains it, so the
 candidate is fetched once and dropped if it answers with a sale.
 
+That fetch goes only to public addresses. The candidate comes from a Play
+listing or a package name, so whoever wrote either chooses it: a name that
+resolves to a loopback, private, link-local or otherwise non-public address is
+not asked, and neither is a redirect that leads to one. Redirects are followed
+one at a time, at most five. A candidate the check does not ask is kept, as one
+that cannot be reached is: "cannot tell" is not "for sale".
+
 In the DPO letter this matters legally: section 4 states a failing under art. 32
 GDPR against the addressee. It is written only for a domain that has been
 established — because both declared sources agree, because the app itself

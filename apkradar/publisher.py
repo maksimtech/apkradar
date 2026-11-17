@@ -31,8 +31,11 @@ and a report that audits a domain on the market invalidates itself.
 """
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 from dataclasses import dataclass, replace
+from urllib.parse import urljoin, urlsplit
 
 # Hosts that serve many customers. A tenant under one of these is not the
 # publisher's own domain: its mail records, its certificate and its cookies are
@@ -97,6 +100,15 @@ FOR_SALE_MARKERS = (
 
 # Enough of the page to find a phrase in, and no more.
 _SNIFF = 4096
+
+# The probe follows redirects by hand, at most this many, and each only to a host
+# whose every address is a public one.
+_REDIRECTS = frozenset({301, 302, 303, 307, 308})
+MAX_REDIRECTS = 5
+
+
+class RedirectRefused(Exception):
+    """A URL the for-sale probe does not ask: not a public address, or one redirect too many."""
 
 # What each provenance means, in the words that get printed next to the domain.
 PROVENANCE_LABELS = {
@@ -166,13 +178,13 @@ def _fetch(domain: str) -> tuple[str, str]:
     accusation, not the missed one.
 
     Failures raise: `looks_parked` treats them as "cannot tell", which is not the
-    same as "for sale".
+    same as "for sale". So does a URL `_get` will not ask (RedirectRefused).
     """
     import httpx
 
-    with httpx.Client(follow_redirects=True, timeout=8.0) as client:
+    with httpx.Client(follow_redirects=False, timeout=8.0) as client:
         try:
-            response = client.get(f"https://{domain}")
+            response = _get(client, f"https://{domain}")
         except httpx.HTTPError:
             # Cleartext on purpose, and only after https has already failed.
             # Reviewed 2026-09-29; re-read by 2026-12-31. The `# NOSONAR` that
@@ -195,10 +207,60 @@ def _fetch(domain: str) -> tuple[str, str]:
             # parked. `looks_parked` already returns False on anything
             # unreachable, so the opposite direction — hiding a parked domain — is
             # free to an attacker with or without this line.
-            response = client.get(f"http://{domain}")  # NOSONAR python:S5332
+            response = _get(client, f"http://{domain}")  # NOSONAR python:S5332
         # The status is not the point — GoDaddy's lander answers 403 — the URL it
         # settled on is.
         return str(response.url), response.text[:_SNIFF]
+
+
+def _is_public(host: str) -> bool:
+    """Every address `host` has is a public one, and it has at least one.
+
+    A name is resolved, numeric forms such as 127.1 or 2130706433 included, which
+    getaddrinfo reads as the loopback and ipaddress does not. An IPv4 address
+    written as IPv6 (::ffff:127.0.0.1) is judged as the IPv4 address it is.
+    """
+    try:
+        found = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        except (OSError, UnicodeError):
+            return False
+        found = [ipaddress.ip_address(str(info[4][0]).split("%")[0]) for info in infos]
+    for address in found:
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+            address = address.ipv4_mapped
+        if not address.is_global:
+            return False
+    return bool(found)
+
+
+def _get(client, url: str):
+    """client.get with its redirects followed by hand: each URL, the first one too,
+    only to a public address, and at most MAX_REDIRECTS redirects.
+
+    httpx followed every redirect, `http://127.0.0.1` included: the domain is what a
+    Play listing or a package name says, so whoever wrote either could point the
+    probe at the network APKRadar runs from — a router's admin page, a cloud
+    metadata service — and `send` runs it without --full. What is refused raises
+    RedirectRefused, which `looks_parked` reads as "cannot tell".
+
+    The address is checked when the URL is, and httpx resolves the name again when
+    it connects: a name that answers differently the second time (DNS rebinding)
+    is not caught here.
+    """
+    origin = url
+    for _ in range(MAX_REDIRECTS + 1):
+        parts = urlsplit(url)
+        if parts.scheme not in ("http", "https") or not parts.hostname or not _is_public(parts.hostname):
+            raise RedirectRefused(f"{url} is not a public address: not asked")
+        response = client.get(url)
+        location = response.headers.get("location")
+        if response.status_code not in _REDIRECTS or not location:
+            return response
+        url = urljoin(str(response.url), location)
+    raise RedirectRefused(f"more than {MAX_REDIRECTS} redirects from {origin}")
 
 
 def looks_parked(domain: str, fetch=None) -> bool:
