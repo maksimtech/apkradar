@@ -35,7 +35,11 @@ no version in this file has ever matched — 40 is not a month, and
   app declares about eighty (sexual activity, menstruation, medical records among them) and the
   report listed none, so that art. 9 branch could never be reached. Every
   `android.permission.health.READ_*` and `WRITE_*` is now a sensitive permission, described by its
-  record ("Health Connect: sexual activity (read)"), and counts in the score like the others.
+  record ("Health Connect: sexual activity (read)"), listed in the report, the letter and `diff`, and
+  cited under art. 9. In the score they are one group: all of them together cost what one sensitive
+  permission costs (5 points), however many the app declares, and the arithmetic says so —
+  `− 5 (Health Connect (80 permissions, counted once))`. Health Connect has a permission per kind of
+  record, so at 5 points each Fitbit's eighty would have cost 400 points for one capability.
 
 - **A policy link is a whole path segment.** The content check that corroborates the publisher's
   domain took `/privacy`, `/terms`, `/legal`, `/tos` and the rest as substrings of the URL, so

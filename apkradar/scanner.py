@@ -317,7 +317,28 @@ class ScanResult:
 
     @property
     def sensitive_permission_count(self) -> int:
+        """Every sensitive permission declared: what the report lists."""
         return len(self.sensitive_permissions)
+
+    @property
+    def health_connect_permission_count(self) -> int:
+        return sum(p.permission.startswith(HEALTH_CONNECT_PREFIX) for p in self.sensitive_permissions)
+
+    # The Health Connect permissions are one group in the score (owner's
+    # decision, 2026-11-17): Health Connect has a permission per kind of record,
+    # so a fitness app asks for dozens where another asks for one BODY_SENSORS,
+    # and at 5 points each Fitbit's eighty cost 400 points for one capability.
+    # The group costs what one sensitive permission costs. Every permission is
+    # still listed, and each is still cited under art. 9.
+    def _scored_permission_terms(self) -> list[tuple[str, int]]:
+        health = self.health_connect_permission_count
+        others = self.sensitive_permission_count - health
+        terms = []
+        if others:
+            terms.append((f"{others} sensitive permission{'' if others == 1 else 's'}", others * 5))
+        if health:
+            terms.append((f"Health Connect ({health} permission{'' if health == 1 else 's'}, counted once)", 5))
+        return terms
 
     @property
     def score_deductions(self) -> list[tuple[str, int]]:
@@ -330,18 +351,15 @@ class ScanResult:
         if self.score is None:
             return []
 
-        counted = (
-            (self.tracker_count, 10, "tracker", "trackers"),
-            (self.sensitive_permission_count, 5, "sensitive permission",
-             "sensitive permissions"),
+        def term(count: int, weight: int, one: str, many: str) -> list[tuple[str, int]]:
+            return [(f"{count} {one if count == 1 else many}", count * weight)] if count else []
+
+        return [
+            *term(self.tracker_count, 10, "tracker", "trackers"),
+            *self._scored_permission_terms(),
             # Short on purpose: the Extra-EU Transfers table is printed a few
             # lines below, and the full term pushed this line past 80 columns.
-            (len(self.extra_eu_transfers), 5, "transfer", "transfers"),
-        )
-        return [
-            (f"{count} {one if count == 1 else many}", count * weight)
-            for count, weight, one, many in counted
-            if count
+            *term(len(self.extra_eu_transfers), 5, "transfer", "transfers"),
         ]
 
     @property
@@ -380,7 +398,7 @@ class ScanResult:
             return None
         score = 100
         score -= self.tracker_count * 10
-        score -= self.sensitive_permission_count * 5
+        score -= sum(points for _, points in self._scored_permission_terms())
         score -= len(self.extra_eu_transfers) * 5
         return max(0, score)
 

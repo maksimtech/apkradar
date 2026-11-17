@@ -19,10 +19,15 @@ in the manifest and nothing else, and opened by the real androguard.
 
 from __future__ import annotations
 
-import pytest
+import re
 
+import pytest
+from typer.testing import CliRunner
+
+from apkradar.cli import app
+from apkradar.diff import diff
 from apkradar.law_checker import findings_of
-from apkradar.scanner import scan
+from apkradar.scanner import PermissionFound, ScanResult, scan
 from tests.android_files import manifest, write_apk
 
 HEALTH = (
@@ -77,3 +82,85 @@ def test_a_name_outside_the_prefix_is_not_taken_for_one(tmp_path):
     result = scan(write_apk(tmp_path / "x.apk", manifest("com.example.x", permissions=(lookalike,))))
 
     assert result.sensitive_permissions == []
+
+
+# ─── the score: Health Connect counts once ────────────────────────────────────
+# Owner's decision, 2026-11-17: the Health Connect permissions are one group in
+# the score. Each kind of record has its own permission, so a fitness app asks
+# for dozens where another app asks for one "body sensors" permission; at 5
+# points each, Fitbit's eighty would cost 400 points for one capability. They
+# cost what one sensitive permission costs, however many there are, and every
+# one of them is still listed and still cited under art. 9.
+
+LOCATION = PermissionFound("android.permission.ACCESS_FINE_LOCATION", "precise GPS location")
+
+
+def _health(n):
+    return [
+        PermissionFound(f"android.permission.health.READ_RECORD_{i}", f"Health Connect: record {i} (read)")
+        for i in range(n)
+    ]
+
+
+def _result(permissions):
+    found = ScanResult(apk_path="app.apk", package_name="com.example.app")
+    found.sensitive_permissions = list(permissions)
+    return found
+
+
+def test_health_connect_costs_one_sensitive_permission_however_many():
+    found = _result([LOCATION, *_health(80)])
+
+    assert found.score == 100 - 5 - 5
+    assert found.sensitive_permission_count == 81   # all still listed
+    assert found.score_deductions == [
+        ("1 sensitive permission", 5),
+        ("Health Connect (80 permissions, counted once)", 5),
+    ]
+    assert found.score_arithmetic == (
+        "100 − 5 (1 sensitive permission) − 5 (Health Connect (80 permissions, counted once)) = 90"
+    )
+
+
+def test_a_single_health_connect_permission_is_named_as_one():
+    found = _result(_health(1))
+
+    assert found.score == 95
+    assert found.score_deductions == [("Health Connect (1 permission, counted once)", 5)]
+
+
+@pytest.mark.parametrize("health", [0, 1, 6, 80])
+@pytest.mark.parametrize("others", [0, 1, 9])
+def test_the_printed_sum_is_still_the_score(health, others):
+    found = _result([LOCATION] * others + _health(health))
+
+    assert found.score == max(0, 100 - sum(points for _, points in found.score_deductions))
+
+
+def test_the_scanned_app_counts_its_health_connect_permissions_once(health_app):
+    """Six of them in the manifest, and INTERNET, which is not sensitive."""
+    assert len(health_app.sensitive_permissions) == len(HEALTH)
+    assert health_app.score == 95
+    assert health_app.score_arithmetic == "100 − 5 (Health Connect (6 permissions, counted once)) = 95"
+
+
+def test_two_releases_differing_only_in_health_connect_score_the_same(tmp_path):
+    """diff reads the same score: adding records to the group costs nothing more."""
+    old = scan(write_apk(tmp_path / "old.apk", manifest("com.example.health", permissions=HEALTH[:2])))
+    new = scan(write_apk(tmp_path / "new.apk", manifest("com.example.health", permissions=HEALTH)))
+    d = diff(old, new)
+
+    assert d.score == (95, 95)
+    assert d.to_dict()["score"] == {"old": 95, "new": 95}
+    assert len(d.permissions_added) == len(HEALTH) - 2
+
+
+def test_the_audit_lists_every_permission_and_explains_the_group(tmp_path):
+    apk = write_apk(tmp_path / "health.apk", manifest("com.example.health", permissions=HEALTH))
+    out = CliRunner().invoke(app, ["audit", apk, "--offline"])
+    flat = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", out.output).split())
+
+    assert "Score: 95/100" in flat
+    assert "Health Connect (6 permissions, counted once)" in flat
+    for permission in HEALTH:
+        assert permission.rsplit(".", 1)[-1] in flat

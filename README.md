@@ -567,6 +567,7 @@ Every app starts at 100 points. Points are deducted for each finding:
 |---|---|
 | Tracker SDK | −10 each |
 | Sensitive permission | −5 each |
+| Health Connect permissions (`android.permission.health.*`) | −5 once, for all of them together |
 | Extra-EU vendor | −5 each |
 
 The report prints the arithmetic under the score, so the number can be checked
@@ -576,6 +577,11 @@ without reading the source:
 Score: 70/100 — MODERATE
 100 − 10 (1 tracker) − 15 (3 sensitive permissions) − 5 (1 transfer) = 70
 ```
+
+Health Connect has a permission per kind of health record, so a fitness app
+declares dozens of them for one capability. They are one group in the score, and
+the arithmetic says so: `− 5 (Health Connect (80 permissions, counted once))`.
+Each of them is still listed, and cited under GDPR art. 9.
 
 The printed score never goes below 0, but the sum can: an app with sixteen
 tracking SDKs comes to −95, and the line then reads
@@ -654,8 +660,9 @@ code's):
 Besides these, every Health Connect permission that reads or writes a record
 (`android.permission.health.READ_*` and `WRITE_*`: heart rate, sexual activity,
 menstruation, medical data and the rest) is flagged as health data, matched by
-its prefix rather than listed, and cited under GDPR art. 9. Each one counts as a
-sensitive permission in the score.
+its prefix rather than listed, and cited under GDPR art. 9. Each one is listed;
+in the score they count once, together, as one sensitive permission (see
+[Score](#score)).
 
 These are permissions the app **declares**. Whether a permission is justified
 depends on what the app does. A password manager needs `CAMERA` to scan QR
