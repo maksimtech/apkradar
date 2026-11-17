@@ -749,8 +749,12 @@ built by concatenation (`"https://" + host`) cannot be recovered at all.
 | `.apkm` | APKMirror bundle | The base APK is extracted to a temporary folder and analysed |
 
 The format is detected from the file extension, or from the file contents if
-the extension is missing or different. For bundles, APKRadar takes the base APK
-and ignores split APKs (files named `split_*` or `config.*`). See
+the extension is missing or different. For bundles, APKRadar takes the base APK:
+the one `manifest.json` names as the base (`"id": "base"` under `split_apks`),
+otherwise `<package>.apk` or `base.apk`, and never a split (files named
+`split_*` or `config.*`). An APK whose manifest declares it a split
+(`<manifest split="...">`), such as a dynamic feature, is not scored as the app:
+the audit stops with an error instead. See
 [Known limitations](#known-limitations).
 
 APKRadar computes the SHA-256 hash of the file as supplied. The console and

@@ -43,6 +43,62 @@ def detect_format(path: str) -> str:
     return "unknown"
 
 
+def _declared_base(data: object) -> str | None:
+    """The member an XAPK's manifest.json names as the base APK, if it names one.
+
+    APKPure lists every APK of the bundle under `split_apks`, the base with
+    `"id": "base"`: `[{"file": "com.example.apk", "id": "base"},
+    {"file": "config.arm64_v8a.apk", "id": "config.arm64_v8a"}]`.
+    """
+    splits = data.get("split_apks") if isinstance(data, dict) else None
+    if not isinstance(splits, list):
+        return None
+    for entry in splits:
+        if isinstance(entry, dict) and entry.get("id") == "base" and isinstance(entry.get("file"), str):
+            return entry["file"]
+    return None
+
+
+def _choose_base(names: list[str], data: object) -> str | None:
+    """Which member of a bundle is the base APK, the one that is the app.
+
+    In order: the one manifest.json names; `<package>.apk` (APKPure's name for
+    it) and `base.apk` (APKMirror's); then a guess among the members that are
+    not named as splits, preferring one whose name holds the package. A feature
+    split is named freely (`feature_ads.apk`), so the guess can still land on
+    one: the scanner refuses an APK that declares itself a split.
+
+    A base named in manifest.json but not in the archive is not replaced by a
+    guess: the bundle is incomplete, and the guess would be a split.
+    """
+    declared = _declared_base(data)
+    if declared is not None:
+        return declared if declared in names else None
+
+    apk_files = []
+    for name in names:
+        if not name.endswith(".apk"):
+            continue
+        basename = os.path.basename(name)
+        if basename.startswith("split_"):
+            continue
+        if basename.startswith("config."):
+            continue
+        apk_files.append(name)
+
+    package_name = (data.get("package_name") or data.get("pname")) if isinstance(data, dict) else None
+    named = {os.path.basename(name): name for name in apk_files}
+    for base in (f"{package_name}.apk" if isinstance(package_name, str) else None, "base.apk"):
+        if base in named:
+            return named[base]
+    if isinstance(package_name, str) and package_name:
+        for name in apk_files:
+            if package_name in name:
+                return name
+
+    return apk_files[0] if apk_files else None
+
+
 def extract_main_apk(path: str) -> tuple[str | None, str | None]:
     """
     Extract the main APK from a bundle format.
@@ -65,39 +121,15 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
     try:
         with zipfile.ZipFile(path) as z:
             names = z.namelist()
-            apk_files = []
 
-            # Try to get package name from manifest
-            package_name = None
+            data = None
             if "manifest.json" in names:
                 try:
                     data = json.loads(z.read("manifest.json"))
-                    package_name = data.get("package_name") or data.get("pname")
                 except Exception:
-                    pass
+                    data = None   # an unreadable manifest.json names no base
 
-            # Find main APK — not a split
-            for name in names:
-                if not name.endswith(".apk"):
-                    continue
-                basename = os.path.basename(name)
-                if basename.startswith("split_"):
-                    continue
-                if basename.startswith("config."):
-                    continue
-                apk_files.append(name)
-
-            # If package name known, prefer matching APK
-            main_apk = None
-            if package_name and apk_files:
-                for f in apk_files:
-                    if package_name in f:
-                        main_apk = f
-                        break
-
-            if not main_apk and apk_files:
-                main_apk = apk_files[0]
-
+            main_apk = _choose_base(names, data)
             if not main_apk:
                 return None, None
 

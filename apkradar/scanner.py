@@ -658,6 +658,19 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
         from androguard.core.apk import APK
         apk = APK(str(path))
 
+        # A split declares itself in its manifest (<manifest split="...">). Its
+        # code, permissions and components are a part of the app at most, and
+        # scanning one as the app reported 100/100 for an app with Google Ads in
+        # its base: no score is better than that one.
+        manifest_xml = apk.get_android_manifest_xml()
+        split = manifest_xml.get("split") if manifest_xml is not None else None
+        if isinstance(split, str) and split:
+            result.error = (
+                f"{Path(actual_path).name} is a split APK ({split}), not the base APK of the app: "
+                "audit the base APK, or the whole bundle"
+            )
+            return result
+
         # Metadata
         result.package_name = apk.get_package() or ""
         result.app_name = apk.get_app_name() or ""

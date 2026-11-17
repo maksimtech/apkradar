@@ -45,6 +45,15 @@ no version in this file has ever matched — 40 is not a month, and
   followed by more words after `-` or `_` (`terms-of-service`, `privacy_policy`), or by an extension
   (`privacy.html`).
 
+- **A bundle is audited on its base APK, and a split is never scored as the app.** The extractor took
+  the first member of an XAPK or APKM not named `split_*` or `config.*`, so a dynamic-feature split
+  named freely (`feature_ads.apk`) listed before the base was scanned instead: no code, no
+  permissions, and 100/100 — GOOD for an app with Google Ads in its base. The base is now the one
+  `manifest.json` names (`"id": "base"` under `split_apks`), then `<package>.apk` or `base.apk`; a
+  base named there but missing from the archive is an error, not a guess. And any APK whose manifest
+  declares `split="..."`, given in a bundle or on its own, ends the audit with an error rather than a
+  score.
+
 - **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
   `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
