@@ -177,6 +177,26 @@ SENSITIVE_PERMISSIONS = {
     "android.permission.ACCESS_ADSERVICES_ATTRIBUTION": "ad attribution (Privacy Sandbox)",
 }
 
+# Health Connect gives each kind of health record its own permission —
+# android.permission.health.READ_HEART_RATE, READ_SEXUAL_ACTIVITY,
+# WRITE_MENSTRUATION, READ_MEDICAL_DATA_VACCINES and some eighty more — so
+# the prefix is matched rather than the names listed. None was in the table
+# above, and law_checker's art. 9 reason for them could not be reached: the bug
+# hunt of 2026-11-17 found Fitbit's app declaring about eighty, none reported.
+HEALTH_CONNECT_PREFIX = "android.permission.health."
+
+
+def sensitive_permission(permission: str) -> str | None:
+    """What a sensitive permission gives access to, or None if it is not one."""
+    if permission in SENSITIVE_PERMISSIONS:
+        return SENSITIVE_PERMISSIONS[permission]
+    if permission.startswith(HEALTH_CONNECT_PREFIX):
+        action, _, record = permission.removeprefix(HEALTH_CONNECT_PREFIX).partition("_")
+        if action in ("READ", "WRITE") and record:
+            # READ_SEXUAL_ACTIVITY -> "Health Connect: sexual activity (read)"
+            return f"Health Connect: {record.replace('_', ' ').lower()} ({action.lower()})"
+    return None
+
 EXTRA_EU_TRANSFERS = {
     "com.google": "Google LLC (USA)",
     "com.facebook": "Meta Platforms Inc. (USA)",
@@ -658,10 +678,10 @@ def scan(apk_path: str, lookup_publisher: bool = False) -> ScanResult:
         # Scan permissions
         permissions = apk.get_permissions() or []
         for perm in permissions:
-            if perm in SENSITIVE_PERMISSIONS:
+            if (description := sensitive_permission(perm)) is not None:
                 pf = PermissionFound(
                     permission=perm,
-                    description=SENSITIVE_PERMISSIONS[perm],
+                    description=description,
                     gdpr_relevant=True,
                 )
                 result.permissions.append(pf)

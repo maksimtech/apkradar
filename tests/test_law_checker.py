@@ -158,11 +158,10 @@ def test_an_on_device_fingerprint_unlock_is_not_a_special_category():
 
 
 def test_health_connect_records_are_matched_by_their_prefix():
-    """Health Connect has a permission per record type, some fifty of them.
+    """Health Connect has a permission per record type, some eighty of them.
 
-    None are in scanner.SENSITIVE_PERMISSIONS yet. The prefix is matched so that
-    the day one is added it arrives cited correctly, instead of joining the art. 9
-    claim by default the way everything else used to.
+    The scanner reports them by the same prefix: see
+    test_health_connect_permissions.py.
     """
     reason = special_category_reason("android.permission.health.READ_HEART_RATE")
 

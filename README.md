@@ -651,6 +651,12 @@ code's):
 | Storage and calendar | `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `READ_CALENDAR`, `WRITE_CALENDAR` |
 | Advertising identifiers | `AD_ID` (Play services), `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_TOPICS`, `ACCESS_ADSERVICES_ATTRIBUTION` |
 
+Besides these, every Health Connect permission that reads or writes a record
+(`android.permission.health.READ_*` and `WRITE_*`: heart rate, sexual activity,
+menstruation, medical data and the rest) is flagged as health data, matched by
+its prefix rather than listed, and cited under GDPR art. 9. Each one counts as a
+sensitive permission in the score.
+
 These are permissions the app **declares**. Whether a permission is justified
 depends on what the app does. A password manager needs `CAMERA` to scan QR
 codes, and `USE_BIOMETRIC` to unlock with a fingerprint.

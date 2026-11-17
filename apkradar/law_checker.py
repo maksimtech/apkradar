@@ -96,10 +96,10 @@ _SPECIAL_CATEGORY_PERMISSIONS = {
 }
 
 # Health Connect addresses each kind of record with its own permission —
-# android.permission.health.READ_HEART_RATE and some fifty others — so the prefix
-# is matched rather than the names listed. None of these are in
-# scanner.SENSITIVE_PERMISSIONS yet; when one is added, it arrives here already
-# cited correctly instead of silently joining the art. 9 claim by default.
+# android.permission.health.READ_HEART_RATE and some eighty others — so the prefix
+# is matched rather than the names listed, here and in scanner.sensitive_permission,
+# which reports them. Until 2026-11-17 the scanner did not, and this branch could
+# not be reached.
 _HEALTH_CONNECT_PREFIX = "android.permission.health."
 _HEALTH_CONNECT_REASON = {
     "en": "a Health Connect record, which is data concerning health",

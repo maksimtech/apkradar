@@ -29,6 +29,14 @@ no version in this file has ever matched — 40 is not a month, and
   evidence line names the domain ("example.com: trackers still active after rejection
   (CookieRadar)"). The other domains are still analysed and shown.
 
+- **Health Connect permissions are reported, and cited under art. 9.** `law_checker` has matched
+  `android.permission.health.*` as data concerning health since 2026-09-30, but the scanner reported a
+  permission as sensitive only if it was in `SENSITIVE_PERMISSIONS`, where none of them is: Fitbit's
+  app declares about eighty (sexual activity, menstruation, medical records among them) and the
+  report listed none, so that art. 9 branch could never be reached. Every
+  `android.permission.health.READ_*` and `WRITE_*` is now a sensitive permission, described by its
+  record ("Health Connect: sexual activity (read)"), and counts in the score like the others.
+
 - **A corrupt law cache is an empty one.** A deeply nested `law_cache.json` made `json.loads` raise
   `RecursionError`, which is neither `OSError` nor `ValueError`, and the whole law check failed. It is
   now read as an empty cache, like any other unreadable file. Ported from MailRadar (#103), as are the
