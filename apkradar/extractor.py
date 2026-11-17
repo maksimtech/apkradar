@@ -6,9 +6,61 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import zipfile
 from pathlib import Path
+
+# What the base APK of a bundle may unpack to. The largest seen is Outlook's base,
+# 175 MB; the real ones measured (Outlook, Candy Crush, Fitbit, at deflate level 9)
+# compress at most about 4:1, being zips themselves. A member past either limit is a
+# zip bomb, not an APK: 1 MiB of zeros deflated unpacks to 1 GiB. The ratio counts
+# only past MIN_RATIO_CHECKED, so a tiny member that compresses well is left alone.
+MAX_MEMBER_BYTES = 1 << 30
+MAX_RATIO = 100
+MIN_RATIO_CHECKED = 1 << 20
+_COPY_CHUNK = 1 << 20
+
+# The name the extracted APK takes in the temporary folder: the member's own, when
+# it is a plain file name, so no path or device name out of the archive reaches open().
+_PLAIN_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
+
+
+class BundleMemberRefused(ValueError):
+    """The base APK of a bundle would unpack to more than any real APK does."""
+
+
+def _check_member(info: zipfile.ZipInfo) -> None:
+    size, packed = info.file_size, info.compress_size
+    if size > MAX_MEMBER_BYTES:
+        raise BundleMemberRefused(
+            f"refused to extract {info.filename!r} from the bundle: it unpacks to {size} bytes, "
+            f"over the {MAX_MEMBER_BYTES}-byte limit"
+        )
+    if size > MIN_RATIO_CHECKED and size > MAX_RATIO * packed:
+        raise BundleMemberRefused(
+            f"refused to extract {info.filename!r} from the bundle: it unpacks to {size} bytes from "
+            f"{packed}, more than {MAX_RATIO} times its size (a zip bomb, not an APK)"
+        )
+
+
+def _extract_bounded(z: zipfile.ZipFile, info: zipfile.ZipInfo, directory: str) -> str:
+    """Write `info` into `directory`, never more bytes than it declares nor than the limit."""
+    base = os.path.basename(info.filename.replace("\\", "/"))
+    target = os.path.join(directory, base if _PLAIN_NAME.fullmatch(base) else "base.apk")
+    limit = min(info.file_size, MAX_MEMBER_BYTES)
+    written = 0
+    with z.open(info) as source, open(target, "wb") as out:
+        while chunk := source.read(_COPY_CHUNK):
+            written += len(chunk)
+            if written > limit:
+                raise BundleMemberRefused(
+                    f"refused to extract {info.filename!r} from the bundle: it unpacks to more than "
+                    f"the {limit} bytes it declares"
+                )
+            out.write(chunk)
+    return target
+
 
 # The extension is only a hint: a file that lies about it falls through to the
 # content check below, which is why this is a lookup and not a validation.
@@ -109,6 +161,10 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
     Returns:
         Tuple of (apk_path, temp_dir) — caller must clean up temp_dir
         Returns (None, None) on failure
+
+    Raises:
+        BundleMemberRefused: the base APK would unpack past MAX_MEMBER_BYTES
+            or MAX_RATIO; the message says which, for the report.
     """
     fmt = detect_format(path)
 
@@ -133,25 +189,34 @@ def extract_main_apk(path: str) -> tuple[str | None, str | None]:
             if not main_apk:
                 return None, None
 
+            # Checked before anything is written: what the member declares
+            # it unpacks to, against MAX_MEMBER_BYTES and MAX_RATIO.
+            info = z.getinfo(main_apk)
+            _check_member(info)
+
             # Extract to temp dir.
             #
-            # extract() returns where it actually wrote, and that is the only
-            # path worth trusting: it sanitises the member name itself, so an
-            # entry called "../../x.apk" or "/abs/x.apk" lands inside tmp_dir
-            # all the same. Rebuilding the path with os.path.join() from the
-            # raw name, as this did, produced a different path outside tmp_dir
-            # — and APKRadar would then open whatever happened to be there,
-            # reporting on a file the archive's author chose.
+            # The path returned is where the APK was actually written, and that
+            # is the only path worth trusting: it is built from the member's
+            # plain file name alone, so an entry called "../../x.apk" or
+            # "/abs/x.apk" lands inside tmp_dir all the same. Rebuilding the
+            # path with os.path.join() from the raw name, as this once did,
+            # produced a different path outside tmp_dir — and APKRadar would
+            # then open whatever happened to be there, reporting on a file the
+            # archive's author chose.
             tmp_dir = tempfile.mkdtemp(prefix="apkradar_")
             try:
-                apk_path = z.extract(main_apk, tmp_dir)
+                apk_path = _extract_bounded(z, info, tmp_dir)
             except Exception:
-                # A bad CRC or a full disk: the caller gets no tmp_dir to clean
-                # up, so the directory and the half-written APK go here.
+                # A bad CRC, a full disk or a member that unpacks past what it
+                # declares: the caller gets no tmp_dir to clean up, so the
+                # directory and the half-written APK go here.
                 cleanup_temp(tmp_dir)
                 raise
             return apk_path, tmp_dir
 
+    except BundleMemberRefused:
+        raise
     except Exception:
         return None, None
 

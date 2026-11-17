@@ -123,6 +123,17 @@ no version in this file has ever matched — 40 is not a month, and
   error ends the run first, the same is said beside it. A capture pulled is now removed from the
   phone even when the screenshot pull after it fails.
 
+### Security
+
+- **A bundle's base APK is refused past 1 GiB, or past 100 times its compressed size.** `z.extract`
+  wrote whatever the member unpacked to: in the 2026-11-17 bug hunt a 1 MiB `.xapk` wrote 1 GiB to
+  the temporary folder in 1.5 s. The member's declared size and ratio are now checked before anything
+  is written (`MAX_MEMBER_BYTES`, 1 GiB; `MAX_RATIO`, 100:1 for members over 1 MiB), and the copy
+  stops at the size declared. The largest real base APK seen is Outlook's, 175 MB, and the real ones
+  measured compress at most about 4:1. The audit ends with an error naming the member and the limit
+  ("refused to extract 'main.apk' from the bundle: it unpacks to 67108864 bytes from 65232, more than
+  100 times its size"), where it used to fail on whatever androguard made of the result.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed

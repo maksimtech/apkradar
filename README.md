@@ -777,6 +777,12 @@ otherwise `<package>.apk` or `base.apk`, and never a split (files named
 the audit stops with an error instead. See
 [Known limitations](#known-limitations).
 
+The base APK is refused, before anything is written, if it would unpack to more
+than 1 GiB, or to more than 100 times its compressed size once past 1 MiB: that
+is a zip bomb, not an APK. The largest real one seen is Outlook's base, 175 MB,
+and real APKs, being zips themselves, compress at most about 4:1. The audit then
+stops with an error that says which limit the member went past.
+
 APKRadar computes the SHA-256 hash of the file as supplied. The console and
 Excel reports show its first 16 characters, and the DPO letter includes it in
 full. This lets you show later exactly which file was audited.
