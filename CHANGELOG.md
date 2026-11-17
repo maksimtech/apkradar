@@ -28,6 +28,12 @@ no version in this file has ever matched — 40 is not a month, and
   reports the same high findings as the published 3.12 image, all in Debian packages, none in
   Python.
 
+- **The acl exception is reviewed, and runs to 2027-01-31.** CVE-2026-54369 was due on 2026-11-30,
+  after which Security Posture would have failed on its own. Read again on 2026-11-17: still no-dsa
+  for trixie (Debian bug 1141110), acl 2.4.0 only in forky and sid, nothing in
+  trixie-proposed-updates, and the last point release still 13.7 of 2026-09-12. The new date falls
+  after the 13.8 point release that is due.
+
 ### Fixed
 
 - **A release no longer goes red because the index answered the check before it had caught up.**
@@ -40,6 +46,17 @@ no version in this file has ever matched — 40 is not a month, and
   succeeds or names the version it could not install. A longer grace would not have done it:
   ReleaseRadar lost the same race on v2026.4 with 45 s, and retries its install since. The script,
   and `tests/test_install_from_pypi.py` that runs it, are the same in all six Radar.
+
+- **Security Posture gives no verdict on a failed Docker Scout scan.** It ran after every Scout run,
+  failed ones included. On 2026-11-16 exeradar's Scout stopped on a 403 before scanning, and the
+  gate went green on the previous scan's alerts. It now runs on a `workflow_run` only when the scan
+  succeeded, as Scout itself does after the image workflow. Push, pull request, schedule and manual
+  runs are unchanged.
+
+- **Dependabot reads `uv.lock` for security updates.** patchradar's `uv.lock` held opentelemetry-api
+  1.45.1 with a Dependabot alert on it from 2026-11-14, and no pull request came, because no entry
+  of the configuration read `uv.lock`. A `uv` entry with `open-pull-requests-limit: 0` stops version
+  updates for uv, so pip's remain the one weekly stream, and leaves security updates to arrive.
 
 ## [2026.48] - 2026-11-16
 

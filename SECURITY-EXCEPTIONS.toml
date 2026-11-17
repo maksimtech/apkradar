@@ -101,8 +101,13 @@ The fix is scheduled, not absent, so the only thing to do is rebuild after the \
 next trixie point release. The date below is set for that: if the point release \
 has happened and this is still reported, the rebuild did not happen. A local \
 TOCTOU in recursive setfacl/chacl; apkradar calls neither.
+
+Reviewed 2026-11-17: still no-dsa for trixie (Debian bug 1141110). acl 2.4.0 \
+is only in forky and sid, trixie-proposed-updates has nothing for it, and the \
+last point release is still 13.7 of 2026-09-12. Moved past the 13.8 point \
+release that is due.
 """
-review_by = "2026-11-30"
+review_by = "2027-01-31"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # What Trivy's image scan reported on its first run, 2026-11-02, and no scanner
