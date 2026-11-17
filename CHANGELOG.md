@@ -123,6 +123,15 @@ no version in this file has ever matched — 40 is not a month, and
   error ends the run first, the same is said beside it. A capture pulled is now removed from the
   phone even when the screenshot pull after it fails.
 
+- **The test suite no longer reaches EUR-Lex or rewrites `~/.apkradar/law_cache.json`.** The
+  isolation in `tests/conftest.py` was a function-scoped autouse fixture, and pytest sets up a
+  module-scoped fixture before it: `tests/test_readme_example.py` ran `apkradar audit` in one, with
+  the real home and the real network. Running the suite with HOME and USERPROFILE pointed at an empty
+  folder left a `.apkradar/law_cache.json` in it, and that file alone wrote it. The same isolation
+  (`APKRADAR_HOME` in pytest's temporary folder, the law fetcher disabled) is now also set for the
+  whole session, before any fixture; `tests/test_isolation.py` holds it for a module-scoped fixture,
+  and the run fails if anything under the real `~/.apkradar` changed while it ran.
+
 ### Security
 
 - **A bundle's base APK is refused past 1 GiB, or past 100 times its compressed size.** `z.extract`

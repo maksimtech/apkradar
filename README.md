@@ -992,6 +992,11 @@ pip install -e ".[dev]"
 pytest
 ```
 
+The suite does not reach EUR-Lex and does not write to your `~/.apkradar`: every
+fixture and test runs with `APKRADAR_HOME` in pytest's temporary folder and the
+law fetcher disabled, and the run fails if anything under the real
+`~/.apkradar` changed while it ran.
+
 The changes in each release are listed in [CHANGELOG.md](CHANGELOG.md).
 Security issues: see [SECURITY.md](SECURITY.md).
 
