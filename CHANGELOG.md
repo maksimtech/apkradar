@@ -110,6 +110,19 @@ no version in this file has ever matched — 40 is not a month, and
   of their own. `21(3-bis)` and `21(4-bis)` now exist, as do -ter, -quater and the later Latin
   numbers (every one after quater ends in -ies), with their lettered points.
 
+- **`observe-device` says when PCAPdroid asks to allow the stop, and what is left when nobody does.**
+  PCAPdroid asks on the phone before it lets another app stop a capture, as it does before a start:
+  seen on the moto g17 on 2026-11-17, every time. The run sent the stop request, waited 30 s in silence
+  and ended with "PCAPdroid did not stop within 30 s: its capture would be cut short", leaving the
+  capture and PCAPdroid's VPN running and the capture file on the phone without a word about either.
+  The console now says "PCAPdroid asks on the phone to allow stopping the capture: tap Allow" and
+  waits the same `--wait` seconds as for the start. If the stop is still not allowed, the error says
+  that the capture and the VPN are still running, how to end them (allow the request, or stop the
+  capture in PCAPdroid) and which files stay on the phone. PCAPdroid is not killed, and the file is
+  not pulled while PCAPdroid may still be writing it: either would cut the capture short. When an app
+  error ends the run first, the same is said beside it. A capture pulled is now removed from the
+  phone even when the screenshot pull after it fails.
+
 ## [2026.48.1] - 2026-11-17
 
 ### Changed

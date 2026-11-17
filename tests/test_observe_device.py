@@ -185,7 +185,7 @@ def test_the_serial_goes_with_every_call(tmp_path):
 def test_the_operator_is_asked_to_allow_the_capture_on_the_phone(tmp_path):
     said: list[str] = []
     run(tmp_path, phone(tmp_path), said=said)
-    asked = [line for line in said if "Allow" in line]
+    asked = [line for line in said if "allow the capture:" in line]
     assert len(asked) == 1
     assert "60 s" in asked[0]
 
@@ -194,7 +194,7 @@ def test_nobody_is_asked_when_the_capture_starts_at_once(tmp_path):
     said: list[str] = []
     run(tmp_path, phone(tmp_path, dumps=("no_capture", "capture_running", "capture_stopping", "no_capture")),
         said=said)
-    assert not [line for line in said if "Allow" in line]
+    assert not [line for line in said if "allow the capture:" in line]
 
 
 def test_a_capture_never_allowed_closes_pcapdroid_and_launches_nothing(tmp_path):
@@ -217,10 +217,81 @@ def test_a_capture_already_running_is_refused(tmp_path):
     assert not any(line.startswith("shell am start") for line in lines)
 
 
-def test_a_capture_that_does_not_stop_is_reported(tmp_path):
-    entries = phone(tmp_path, dumps=("no_capture", "capture_running"))
-    with pytest.raises(device.DeviceError, match="did not stop within 0.2 s"):
-        run(tmp_path, entries, stop_timeout=0.2)
+def test_the_operator_is_asked_to_allow_the_stop_too(tmp_path):
+    """Seen on the moto g17, 2026-11-17: PCAPdroid asks on the phone before it lets
+    another app stop a capture, every time, as it does before a start. The run waited
+    in silence and gave up, with nothing on the screen to say why."""
+    said: list[str] = []
+    run(tmp_path, phone(tmp_path), said=said)
+    asked = [line for line in said if "Allow" in line]
+    assert len(asked) == 2
+    assert "stop" in asked[1] and "60 s" in asked[1]
+    lines = shell(adb_fake.calls(tmp_path / "adb-calls.jsonl"))
+    assert said.index(asked[1]) > said.index(next(line for line in said if line.startswith("Capturing")))
+    assert index(lines, "shell am start -e action stop") < index(lines, "pull /sdcard/Download/PCAPdroid/")
+
+
+def test_the_stop_is_waited_for_as_long_as_the_start(tmp_path):
+    """--wait is how long the operator has to answer PCAPdroid, for either request."""
+    said: list[str] = []
+    run(tmp_path, phone(tmp_path), said=said, confirm_timeout=7)
+    assert [line for line in said if "Allow" in line and "stop" in line][0].endswith("Waiting up to 7 s.")
+
+
+def stop_never_allowed(tmp_path: Path, **replace) -> tuple[str, list[str]]:
+    """A run whose stop request nobody allows: the error it ends with, and the adb calls."""
+    entries = phone(tmp_path, dumps=("no_capture", "capture_running"), replace=replace or None)
+    with pytest.raises(device.DeviceError) as failed:
+        run(tmp_path, entries, confirm_timeout=0.2)
+    return str(failed.value), shell(adb_fake.calls(tmp_path / "adb-calls.jsonl"))
+
+
+def test_a_stop_never_allowed_says_what_is_still_running_and_how_to_end_it(tmp_path):
+    error, _ = stop_never_allowed(tmp_path)
+    assert "did not stop within 0.2 s" in error
+    assert "still running" in error and "VPN" in error
+    assert "tap Allow" in error and "open PCAPdroid and stop the capture" in error
+    # what stays on the phone, named in full
+    assert device.REMOTE_CAPTURE in error
+
+
+def test_a_stop_never_allowed_pulls_no_cut_capture_and_claims_nothing(tmp_path):
+    """PCAPdroid is still writing the file: pulled now it would be cut short, and read
+    as the whole run. It stays on the phone, named in the error; nothing is reported."""
+    _, lines = stop_never_allowed(tmp_path)
+    stop = index(lines, "shell am start -e action stop")
+    assert not any(line.startswith("pull /sdcard/Download/PCAPdroid/") for line in lines)
+    assert not any(line.startswith("shell rm") for line in lines[stop:])
+    # the app is closed all the same
+    assert f"shell am force-stop {PACKAGE}" in lines[stop:]
+
+
+def test_a_stop_never_allowed_does_not_kill_pcapdroid(tmp_path):
+    """Killing PCAPdroid would end the VPN, and the file with whatever it had not yet
+    written: the request on the screen can still be allowed and close it properly."""
+    _, lines = stop_never_allowed(tmp_path)
+    assert "shell am force-stop com.emanuelef.remote_capture" not in lines
+
+
+def test_a_stop_never_allowed_after_the_app_failed_keeps_that_error_and_says_both(tmp_path):
+    entries = phone(tmp_path, dumps=("no_capture", "capture_running"),
+                    replace=instead("app_launched", "launch_without_activity"))
+    said: list[str] = []
+    with pytest.raises(device.DeviceError, match="no launcher activity"):
+        run(tmp_path, entries, said=said, confirm_timeout=0.2)
+    assert any("did not stop" in line and device.REMOTE_CAPTURE in line for line in said)
+
+
+def test_a_capture_pulled_is_removed_from_the_phone_even_if_the_screenshot_is_not(tmp_path):
+    entries = phone(tmp_path, replace={
+        "screenshot_pulled": [answer("pull_missing_file", args=RECORDED["screenshot_pulled"]["args"])],
+        "files_removed": [answer("files_removed"),
+                          answer("files_removed", args=["shell", "rm", "-f", device.REMOTE_CAPTURE])],
+    })
+    with pytest.raises(device.DeviceError):
+        run(tmp_path, entries)
+    lines = shell(adb_fake.calls(tmp_path / "adb-calls.jsonl"))
+    assert lines[-1] == f"shell rm -f {device.REMOTE_CAPTURE}"
 
 
 def test_an_empty_capture_says_so(tmp_path):
@@ -291,6 +362,17 @@ def test_observe_device_failing_on_the_phone_exits_1_with_the_reason(tmp_path):
                                   "--adb", adb_fake.program(scenario, log)], terminal_width=200)
     assert outcome.exit_code == 1
     assert "is not installed on the device" in outcome.output
+
+
+def test_observe_device_whose_stop_is_not_allowed_exits_1_and_says_what_is_left(tmp_path):
+    scenario, log = adb_fake.write_scenario(tmp_path, phone(tmp_path, dumps=("no_capture", "capture_running")))
+    outcome = runner.invoke(app, ["observe-device", PACKAGE, "--out", str(tmp_path / "out"), "--seconds", "0",
+                                  "--wait", "0", "--adb", adb_fake.program(scenario, log)], terminal_width=200)
+    assert outcome.exit_code == 1
+    text = " ".join(outcome.output.split())
+    assert "allow stopping the capture" in text
+    assert "still running" in text and device.REMOTE_CAPTURE in text
+    assert "Brought back" not in text and "Hosts contacted" not in text
 
 
 def test_the_report_can_go_into_the_directory_the_run_creates(tmp_path):

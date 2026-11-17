@@ -546,11 +546,24 @@ lets it run, takes a screenshot, stops the capture and brings the files into
 them from the phone. Then it reports on `base.apk` and the capture as
 `observe --capture` does.
 
-PCAPdroid asks on the phone before it lets another app drive a capture.
-APKRadar does not tap it for you: tap **Allow** when it appears, within the
-`--wait` seconds (60 by default). If nobody does, PCAPdroid is closed, so the
+PCAPdroid asks on the phone before it lets another app drive a capture, twice:
+once to start it and once to stop it. APKRadar does not tap it for you: tap
+**Allow** each time it appears, within the `--wait` seconds (60 by default);
+the console says when. If nobody allows the start, PCAPdroid is closed, so the
 request cannot be allowed later. A capture already running is refused, since
 PCAPdroid would drop this run's request.
+
+If nobody allows the stop, the run ends with exit code 1 and reports nothing:
+the APKs are in `--out`, the capture is not. The console says that the capture,
+and PCAPdroid's VPN with it, are still running on the phone. To end them, tap **Allow** on the request if it is still on
+the screen, or open PCAPdroid and stop the capture. APKRadar does not kill
+PCAPdroid then: that would end the VPN, but also cut the capture short, while
+the request, once allowed, closes it properly. Nor does it pull the file while
+PCAPdroid is still writing it, since a cut capture would be read as the whole
+run. The capture stays on the phone as
+`/sdcard/Download/PCAPdroid/apkradar-observe.pcap` and the screenshot as
+`/sdcard/Download/apkradar-observe.png`, both named in the message; the next
+run removes them before it starts.
 
 `--clear-data` runs `pm clear` on the app first, which deletes its data on the
 phone, so the run is a first launch; without it the app keeps its data. Use
