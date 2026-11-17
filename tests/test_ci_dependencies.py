@@ -172,7 +172,7 @@ def test_the_next_python_runs_as_a_row_that_may_fail():
 
 def test_coverage_is_uploaded_from_a_stable_row():
     """A row that may fail may also produce no report; the upload belongs to one that
-    has to pass. 3.12 is the version the Docker image runs."""
+    has to pass. 3.12 is in every Radar's matrix."""
     upload = next(s for s in _test_job()["steps"] if "codecov" in s.get("uses", ""))
     guard = re.fullmatch(r"matrix\.python-version == '([\d.]+)'", upload["if"])
 

@@ -1,4 +1,4 @@
-FROM python:3.12-slim-trixie
+FROM python:3.14-slim-trixie
 
 LABEL maintainer="maksimtech <github@maksimtech.com>"
 LABEL org.opencontainers.image.title="APKRadar"
@@ -46,6 +46,9 @@ COPY apkradar/ /app/build/apkradar/
 # release, the first time some dependency stops shipping one. The local branch has to
 # build this package's own wheel first, since it is a source tree, and then installs
 # that wheel under the same restriction.
+#
+# pip goes once apkradar is in, in the same layer: nothing in the image runs it
+# again, and Trivy reports the packages it vendors (tests/test_docker_pip.py).
 RUN case "${APKRADAR_SOURCE}" in \
         local) pip wheel --no-deps --no-cache-dir --wheel-dir /app/wheel /app/build && \
                pip install --no-cache-dir --root-user-action=ignore --only-binary :all: /app/wheel/*.whl ;; \
@@ -53,7 +56,8 @@ RUN case "${APKRADAR_SOURCE}" in \
               pip install --no-cache-dir --root-user-action=ignore --only-binary :all: "apkradar==${APKRADAR_VERSION}" ;; \
         *) echo "APKRADAR_SOURCE must be 'local' or 'pypi'" >&2; exit 1 ;; \
     esac && \
-    rm -rf /app/build /app/wheel
+    rm -rf /app/build /app/wheel && \
+    pip uninstall -y --root-user-action=ignore pip
 
 RUN useradd -m -u 1000 apkradar && \
     mkdir -p /home/apkradar/.apkradar && \
