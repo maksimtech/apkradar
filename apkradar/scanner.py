@@ -330,6 +330,19 @@ class ScanResult:
     # and at 5 points each Fitbit's eighty cost 400 points for one capability.
     # The group costs what one sensitive permission costs. Every permission is
     # still listed, and each is still cited under art. 9.
+    def _scored_permission_count(self) -> int:
+        """Sensitive permissions as the score counts them: the group as one.
+
+        Plain counting, apart from the terms below: the score is read for every
+        row of a batch, and building the explanation there made it three times slower
+        (CodSpeed, test_bench_scan_result_score_computation).
+        """
+        permissions = self.sensitive_permissions
+        if not permissions:
+            return 0
+        health = self.health_connect_permission_count
+        return len(permissions) - health + (1 if health else 0)
+
     def _scored_permission_terms(self) -> list[tuple[str, int]]:
         health = self.health_connect_permission_count
         others = self.sensitive_permission_count - health
@@ -398,7 +411,7 @@ class ScanResult:
             return None
         score = 100
         score -= self.tracker_count * 10
-        score -= sum(points for _, points in self._scored_permission_terms())
+        score -= self._scored_permission_count() * 5
         score -= len(self.extra_eu_transfers) * 5
         return max(0, score)
 
