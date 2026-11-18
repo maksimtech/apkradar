@@ -12,6 +12,8 @@ no version in this file has ever matched — 40 is not a month, and
 
 ## [Unreleased]
 
+## [2026.49] - 2026-11-18
+
 ### Fixed
 
 - **The DPO letter no longer clears the publisher when the checks did not run.** Section 4 said "Non
@@ -133,6 +135,15 @@ no version in this file has ever matched — 40 is not a month, and
   and the run fails if anything under the real `~/.apkradar` changed while it ran.
 
 ### Security
+
+- **Four OpenSSL issues of 2026-11-10 are accepted until Debian ships 3.5.10.** At the scan of main
+  on 2026-11-17 Docker Scout reported CVE-2026-95691, CVE-2026-95692, CVE-2026-88823 and
+  CVE-2026-107496 as high against the base image's openssl 3.5.7-1~deb13u3, and Security Posture
+  failed. OpenSSL rates all four Low and fixes them in 3.5.10; Debian has no trixie package with the
+  fix yet. None is reachable here: they need the OpenSSL QUIC client, AES-GCM-SIV through EVP, or
+  `CMS_encrypt()`. apkradar's own TLS is Python's ssl over TCP, which exposes none of them, and
+  androguard reads APK signatures through wheels that carry their own OpenSSL. The entries are
+  reviewed on 2026-12-15; the rebuild that brings the DSA will make them fail the gate as unused.
 
 - **A bundle's base APK is refused past 1 GiB, or past 100 times its compressed size.** `z.extract`
   wrote whatever the member unpacked to: in the 2026-11-17 bug hunt a 1 MiB `.xapk` wrote 1 GiB to
@@ -1653,7 +1664,8 @@ No functional changes (extractor and utils edge case tests).
   Debian Trixie.
 - `.github` and `Dockerfile` excluded from SonarCloud analysis.
 
-[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.48.1...HEAD
+[Unreleased]: https://github.com/maksimtech/apkradar/compare/v2026.49...HEAD
+[2026.49]: https://github.com/maksimtech/apkradar/compare/v2026.48.1...v2026.49
 [2026.48.1]: https://github.com/maksimtech/apkradar/compare/v2026.48...v2026.48.1
 [2026.48]: https://github.com/maksimtech/apkradar/compare/v2026.47...v2026.48
 [2026.47]: https://github.com/maksimtech/apkradar/compare/v2026.46...v2026.47
