@@ -95,8 +95,18 @@ class TestFullStackMarkup(unittest.TestCase):
 
     def test_domain_and_cookieradar_data_escaped(self):
         from apkradar.cli import _full_stack_domain
-        from tests.cookie_results import cookie_result
-        cookie = cookie_result(pre=["tracker[/red].example"], rej=["tracker[/red].example"])
+        from tests.cookie_results import cookie_result, scanner
+
+        # The markup rides in the domain CookieRadar reports, which is what the
+        # report prints; the request URL stays one urlparse accepts, because
+        # CookieRadar 2026.48 parses it in verdict() and find_violations(), and
+        # "tracker[/red].example" in a URL reads as a broken IPv6 literal there.
+        marked = scanner.TrackerRequest(url="https://tracker.example/t.js",
+                                        domain="tracker[/red].example",
+                                        resource_type="script", timestamp=0.0)
+        cookie = cookie_result()
+        cookie.pre_consent.trackers = [marked]
+        cookie.post_reject.trackers = [marked]
 
         def fake_run(coro):
             coro.close()
