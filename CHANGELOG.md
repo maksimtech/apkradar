@@ -19,6 +19,10 @@ no version in this file has ever matched — 40 is not a month, and
   (through androguard), whose C extension is optional and falls back to pure Python without a
   compiler. Of the dev tools only pyyaml builds from source.
 
+- **Renovate replaces Dependabot's version updates.** One batch on Thursday, 14 days after a release,
+  minor and patch merged on their own when the checks pass; security updates at once; lower bounds and
+  the Python version stay a person's decision (`tests/test_renovate_config.py`).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed

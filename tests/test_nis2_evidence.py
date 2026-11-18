@@ -638,16 +638,18 @@ def test_docker_scout_is_said_to_run_when_it_runs(doc):
     assert "ogni build dell'immagine" in row
 
 
-def test_dependabot_is_named_because_it_is_configured(doc):
-    """Alerts and security updates were enabled on 2026-10-11 (repository
-    settings); version updates are this file."""
-    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
-    assert {u["package-ecosystem"] for u in config["updates"]} == {"pip", "uv", "github-actions"}
-    assert "Dependabot" in doc
-    # uv is there for security updates only, and the document says which file it reads.
+def test_renovate_is_named_because_it_is_configured(doc):
+    """Dependabot alerts were enabled on 2026-10-11 (repository settings) and stay
+    on: Renovate reads them for its security updates. Version updates are
+    `.github/renovate.json` (tests/test_renovate_config.py), which replaced
+    `.github/dependabot.yml` on 2026-11-18; a document still naming that file
+    would describe a configuration the repository no longer has."""
+    assert (ROOT / ".github" / "renovate.json").exists()
+    assert not (ROOT / ".github" / "dependabot.yml").exists()
+    for text in (doc, SECURITY.read_text(encoding="utf-8")):
+        assert "Renovate" in text and "renovate.json" in text
+        assert "dependabot.yml" not in text
     assert "uv.lock" in doc
-    assert "Dependabot" in SECURITY.read_text(encoding="utf-8")
-
 
 def test_security_md_answers_the_fourth_question():
     text = SECURITY.read_text(encoding="utf-8")

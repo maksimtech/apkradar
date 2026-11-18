@@ -241,10 +241,12 @@ notifica ai clienti, procedura di rollback. In sintesi:
 - l'immagine non viene ricostruita a intervalli regolari: le patch di sicurezza di
   Debian, installate con `apt-get upgrade` durante la costruzione, arrivano con la
   release successiva;
-- Dependabot è attivo sul repository per gli avvisi e gli aggiornamenti di sicurezza
-  (impostazioni lette il 2026-10-11), e `.github/dependabot.yml` chiede ogni settimana
-  gli aggiornamenti delle dipendenze Python e delle GitHub Actions. Dal 2026-11-17 legge
-  anche `uv.lock`, solo per gli aggiornamenti di sicurezza.
+- gli avvisi Dependabot sono attivi sul repository (impostazioni lette il 2026-10-11)
+  e Renovate (`.github/renovate.json`, dal 2026-11-18) li trasforma subito in
+  aggiornamenti di sicurezza. Ogni giovedì chiede inoltre gli aggiornamenti delle
+  dipendenze Python, di `uv.lock` e delle GitHub Actions, presi almeno 14 giorni dopo
+  l'uscita; i limiti inferiori in `pyproject.toml` si alzano a mano, quando il codice
+  ne ha bisogno.
 
 Contatto per le segnalazioni: <security@maksimtech.com>.
 

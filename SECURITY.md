@@ -22,9 +22,10 @@ a fix ships as the next release, never as a patch to an older one.
   Trixie) when a release is cut, with `apt-get upgrade` run at build time; it is
   not rebuilt on a schedule, so Debian's security patches reach it with the next
   release.
-- **Dependabot** alerts and security updates are enabled for this repository, and
-  `.github/dependabot.yml` asks for version updates of the Python dependencies and
-  of the GitHub Actions weekly.
+- **Dependabot** alerts are enabled for this repository, and **Renovate**
+  (`.github/renovate.json`) turns them into security updates at once. Every
+  Thursday it also asks for version updates of the Python dependencies, `uv.lock`
+  and the GitHub Actions, at least 14 days after their release.
 - **Security Posture** reads the alerts CodeQL, Bandit, Trivy and Docker Scout
   publish to GitHub code scanning and fails when a high or critical finding has no
   reasoned exception in `SECURITY-EXCEPTIONS.toml`. It also runs weekly, because an
