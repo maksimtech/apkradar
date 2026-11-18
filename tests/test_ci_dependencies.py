@@ -126,8 +126,9 @@ def test_the_rule_looks_at_something():
 # October (PEP 602): a dependency without a wheel for it should turn up as a
 # yellow row before the release, not as a red matrix after the classifier is
 # added. 3.15 moved from that row to the stable list on 2026-11-18, when only
-# dev tools (pyyaml, and libcst's pyyaml-ft for mutmut) still lacked a wheel and
-# built from source on the runner; the row has run 3.16-dev since.
+# pyyaml (a dev tool) and mutf8 (androguard's, whose C extension is optional and
+# falls back to pure Python) still lacked a wheel and built from source on the
+# runner; the row has run 3.16-dev since.
 
 TESTS_WORKFLOW = WORKFLOWS / "tests.yml"
 PYPROJECT = ROOT / "pyproject.toml"

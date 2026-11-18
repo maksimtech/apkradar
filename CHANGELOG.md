@@ -15,8 +15,9 @@ no version in this file has ever matched — 40 is not a month, and
 ### Changed
 
 - **Python 3.15 is supported, and 3.16-dev is the row that may fail.** 3.15 has been final since
-  2026-10-09; every runtime dependency has a 3.15 wheel for Linux, and the two dev tools without one (pyyaml,
-  pyyaml-ft) build from source on the runner.
+  2026-10-09. Every runtime dependency installs on it: all have a 3.15 wheel for Linux but mutf8
+  (through androguard), whose C extension is optional and falls back to pure Python without a
+  compiler. Of the dev tools only pyyaml builds from source.
 
 ## [2026.49] - 2026-11-18
 
