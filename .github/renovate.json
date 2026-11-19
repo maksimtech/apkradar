@@ -30,6 +30,11 @@
       "automerge": true
     },
     {
+      "description": "mailradar and cookieradar are ours and ship in the same release cycle: no wait (tests/test_dependency_age.py).",
+      "matchPackageNames": ["mailradar", "cookieradar"],
+      "minimumReleaseAge": null
+    },
+    {
       "description": "The Python of the image and of the matrix is a decision (tests/test_docker_python.py, tests/test_ci_dependencies.py).",
       "matchDepNames": ["python"],
       "matchUpdateTypes": ["major", "minor"],

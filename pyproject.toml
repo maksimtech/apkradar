@@ -58,6 +58,14 @@ apkradar = "apkradar.cli:app"
 [tool.hatch.version]
 path = "apkradar/__init__.py"
 
+# A release is taken at least 14 days after it is out, and uv enforces it for
+# every lock, Renovate's included (tests/test_dependency_age.py). mailradar and
+# cookieradar are ours and ship in the same release cycle, so they are exempt.
+# A security fix newer than 14 days gets its own line here, with the reason.
+[tool.uv]
+exclude-newer = "14 days"
+exclude-newer-package = { mailradar = false, cookieradar = false }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--ignore=tests/benchmarks"
