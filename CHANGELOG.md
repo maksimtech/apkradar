@@ -31,6 +31,12 @@ no version in this file has ever matched — 40 is not a month, and
   1.4.1.post1. mailradar and cookieradar are exempt in uv and in Renovate: they are ours and ship in
   the same release cycle (`tests/test_dependency_age.py`).
 
+- **The benchmarks run on ubuntu-26.04, like every other job.** CodSpeed's job had stayed on 24.04
+  since 2026-10-02, when CodSpeedHQ/action v5 failed on 26.04 with "Unsupported system"; CodSpeed's
+  runner and action v5.5.0 (2026-10-14) added Ubuntu 26.04. `tests/test_runners.py` now holds every
+  job to the same named image, never `ubuntu-latest`.
+  Sources: [CodSpeed runner v5.5.0](https://github.com/CodSpeedHQ/runner/releases/tag/v5.5.0).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed
