@@ -1214,7 +1214,7 @@ wheels = [
 
 [[package]]
 name = "mailradar"
-version = "2026.47"
+version = "2026.48"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -1224,9 +1224,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/3a/3c418811c4164dd15332c2f07bebe35ae4e6d68eba123e9b8c85b0b9d055/mailradar-2026.47.tar.gz", hash = "sha256:77c1513d8f10595ec19497f7007bc845957264468d802d45ee1da97bd555fbe7", size = 513244, upload-time = "2026-10-28T19:21:09.117Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/af/771998095ff5b2550b4d3d0bed0bcc2e61a20994d27e6bf279255aa896b6/mailradar-2026.48.tar.gz", hash = "sha256:16d19111c3152e0ccc1ae389c15b539ff0b385ab4fc537120e54d4dd212a9a0c", size = 623770, upload-time = "2026-11-17T17:55:49.142Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/7c/24714d1439983e5fd0c38f27ce8c9ae2bc1b4bbeaf4eff10d8f545d426f1/mailradar-2026.47-py3-none-any.whl", hash = "sha256:3f2845f66027ba984b69016ac7a3696ba8c92e2b65a5d169ce206e7e94e70950", size = 150349, upload-time = "2026-10-28T19:21:07.548Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/5f/885b94d701c931fa1f428e636c557c41fd5c0f9c0c039eac0f5641e49ff7/mailradar-2026.48-py3-none-any.whl", hash = "sha256:3e933baf042320542a58ea8ec3446b977fd976a1b78012f4c48b316baaedbdcb", size = 177294, upload-time = "2026-11-17T17:55:47.502Z" },
 ]
 
 [[package]]
