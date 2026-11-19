@@ -348,7 +348,7 @@ wheels = [
 
 [[package]]
 name = "cookieradar"
-version = "2026.47"
+version = "2026.48"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -356,9 +356,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/08/67fb3905b20844d0665855a3d5c2e8da32179d9e2788711f374afd7f34cd/cookieradar-2026.47.tar.gz", hash = "sha256:db988799bc021ef7c1aaa8cd3d39e8fef5811a697671a84d489dcd34078130df", size = 378621, upload-time = "2026-11-15T11:02:38.596Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/0b/706e0f9053a40d19b3deead91a31b7080e9c479dba3d9ff4eabc25caef2d/cookieradar-2026.48.tar.gz", hash = "sha256:832d561bcb7570f67321be0ca3cd623cb53abd928703ef9865224809c0a7e81f", size = 410060, upload-time = "2026-11-18T16:09:53.719Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/00/1880161479e41bb5652a41c2d30bb26497b0ddc84c85861f44df653afc41/cookieradar-2026.47-py3-none-any.whl", hash = "sha256:26eced07ed5dfe738134729c90b6fbd32d2862abef774a204820ba34d9dcd7ae", size = 54500, upload-time = "2026-11-15T11:02:37.172Z" },
+    { url = "https://files.pythonhosted.org/packages/18/30/3640b73626759499d0ef8eb22c976a1b99dd891ab95589aefe86cbbbb169/cookieradar-2026.48-py3-none-any.whl", hash = "sha256:5d8d7db8bc2576dd4eb78b26b0ad6c918a5155876f1a10093e9bc64cfec7bc85", size = 61467, upload-time = "2026-11-18T16:09:51.9Z" },
 ]
 
 [[package]]
