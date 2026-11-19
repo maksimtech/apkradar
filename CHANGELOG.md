@@ -37,6 +37,14 @@ no version in this file has ever matched — 40 is not a month, and
   job to the same named image, never `ubuntu-latest`.
   Sources: [CodSpeed runner v5.5.0](https://github.com/CodSpeedHQ/runner/releases/tag/v5.5.0).
 
+- **A Renovate pull request merges only when Renovate's own checks are green.** GitHub's auto-merge
+  waits only for the required checks, and Renovate's statuses (`renovate/artifacts`,
+  `renovate/stability-days`) are not required: that let #81 merge a lock Renovate had marked as failed.
+  A new required check, "Renovate gate" (`.github/workflows/renovate-gate.yml`,
+  `tools/renovate_gate.py`), reads them on the head commit of a Renovate pull request and fails when
+  one is not green; any other pull request passes at once. `platformAutomerge: false` was the other
+  way, and is not usable while the 3.16-dev row is red by choice (#83).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed
