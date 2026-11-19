@@ -45,6 +45,15 @@ no version in this file has ever matched — 40 is not a month, and
   one is not green; any other pull request passes at once. `platformAutomerge: false` was the other
   way, and is not usable while the 3.16-dev row is red by choice (#83).
 
+- **Actions are pinned to a commit and to their full version, so the 14-day wait works for them.**
+  `helpers:pinGitHubActionDigests` pinned `@v4` as `@<sha> # v4`, and its updates carry no release
+  timestamp: with Renovate's default `minimumReleaseAgeBehaviour: timestamp-required` they never pass
+  the wait. The first Actions pull request (#111) stayed `renovate/stability-days: pending` on
+  commits 14 to 125 days old, and the Renovate gate refused it. `helpers:pinGitHubActionDigestsToSemver`
+  tracks full versions (`# v4.39.3`), which have dates; the pinning itself waits for nothing, since it
+  changes no code that runs. Sources: Renovate's
+  [`minimumReleaseAgeBehaviour`](https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed

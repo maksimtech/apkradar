@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
   "timezone": "Europe/Rome",
   "schedule": ["before 6am on thursday"],
   "minimumReleaseAge": "14 days",
@@ -28,6 +28,11 @@
       "description": "Minor, patch and digest updates merge on their own once the required checks pass.",
       "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
       "automerge": true
+    },
+    {
+      "description": "Pinning an action to the commit its tag names today changes no code that runs: no release to let age, and no timestamp to wait on (tests/test_renovate_config.py).",
+      "matchUpdateTypes": ["pinDigest"],
+      "minimumReleaseAge": null
     },
     {
       "description": "mailradar and cookieradar are ours and ship in the same release cycle: no wait (tests/test_dependency_age.py).",
