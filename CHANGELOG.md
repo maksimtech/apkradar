@@ -23,6 +23,14 @@ no version in this file has ever matched — 40 is not a month, and
   minor and patch merged on their own when the checks pass; security updates at once; lower bounds and
   the Python version stay a person's decision (`tests/test_renovate_config.py`).
 
+- **uv enforces the 14-day rule, so no lock takes a release younger than that.** #81, titled
+  pytest-asyncio 1.4.1.post1, locked 1.5.0, published seven days before: Renovate updates the lock with
+  `uv lock --upgrade-package`, which takes the newest version the range allows. Renovate's own
+  `renovate/artifacts` check failed, but it is not required and the auto-merge went ahead.
+  `[tool.uv] exclude-newer = "14 days"` now applies the rule to every lock, and the lock is back on
+  1.4.1.post1. mailradar and cookieradar are exempt in uv and in Renovate: they are ours and ship in
+  the same release cycle (`tests/test_dependency_age.py`).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed
