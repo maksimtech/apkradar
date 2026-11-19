@@ -73,8 +73,24 @@ def test_actions_updates_arrive_as_one_pull_request():
     assert len(actions) == 1 and actions[0].get("groupName"), actions
 
 
-def test_actions_are_pinned_to_a_commit():
-    assert "helpers:pinGitHubActionDigests" in config()["extends"]
+def test_actions_are_pinned_to_a_commit_and_a_full_version():
+    """Pinned to a commit digest, with the full version beside it (`# v4.39.3`).
+
+    `helpers:pinGitHubActionDigests` alone pins `@v4` as `@<sha> # v4`. Its later
+    updates are digest moves, which carry no release timestamp; with Renovate's
+    default `minimumReleaseAgeBehaviour: timestamp-required` they never pass the
+    14-day wait, and the actions would never be updated again (seen on #111,
+    2026-11-19: `renovate/stability-days` pending on commits 14 to 125 days old).
+    The `ToSemver` preset extends it and tracks full versions, which have dates.
+    """
+    assert "helpers:pinGitHubActionDigestsToSemver" in config()["extends"]
+
+
+def test_pinning_waits_for_nothing():
+    """Pinning `@v4` to the commit `v4` names today changes no line that runs, so
+    there is no release to let age; and the update has no timestamp to wait on."""
+    pins = [r for r in rules() if r.get("matchUpdateTypes") == ["pinDigest"]]
+    assert len(pins) == 1 and "minimumReleaseAge" in pins[0] and pins[0]["minimumReleaseAge"] is None, pins
 
 
 def test_lower_bounds_are_raised_by_hand():
