@@ -23,15 +23,22 @@ import time
 # that push can read the commit before they are there.
 SETTLE_SECONDS = 30
 
+# How a Renovate pull request is known: its branch starts with Renovate's
+# `branchPrefix`, `renovate/` unless .github/renovate.json says otherwise
+# (tests/test_renovate_gate.py holds the two equal). Renovate's own statuses
+# are always `renovate/...`, whatever the branch prefix: STATUS_PREFIX.
+BRANCH_PREFIX = "renovate/"
+STATUS_PREFIX = "renovate/"
+
 
 def verdict(branch: str, statuses: list[dict]) -> tuple[bool, str]:
     """(passes, why) for a pull request from `branch` whose head commit has `statuses`.
 
     `statuses` is the combined status of the commit: the latest state of each context.
     """
-    if not branch.startswith("renovate/"):
+    if not branch.startswith(BRANCH_PREFIX):
         return True, f"{branch} is not a Renovate branch"
-    own = sorted((s for s in statuses if s["context"].startswith("renovate/")), key=lambda s: s["context"])
+    own = sorted((s for s in statuses if s["context"].startswith(STATUS_PREFIX)), key=lambda s: s["context"])
     bad = [f"{s['context']} is {s['state']}" + (f" ({s['description']})" if s.get("description") else "")
            for s in own if s["state"] != "success"]
     if bad:
@@ -60,7 +67,7 @@ def combined_statuses(repo: str, sha: str, token: str) -> list[dict]:
 
 def main() -> int:
     branch, sha, repo, token = (os.environ[k] for k in ("BRANCH", "SHA", "REPO", "GH_TOKEN"))
-    if branch.startswith("renovate/"):
+    if branch.startswith(BRANCH_PREFIX):
         time.sleep(SETTLE_SECONDS)
         statuses = combined_statuses(repo, sha, token)
     else:

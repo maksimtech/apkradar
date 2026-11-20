@@ -15,6 +15,7 @@ has to be green; any other pull request passes at once.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -27,6 +28,9 @@ sys.modules[_spec.name] = renovate_gate
 _spec.loader.exec_module(renovate_gate)
 
 WORKFLOW = ROOT / ".github" / "workflows" / "renovate-gate.yml"
+RENOVATE = ROOT / ".github" / "renovate.json"
+# Renovate's own default for `branchPrefix` (lib/config/options/index.ts)
+RENOVATE_DEFAULT_BRANCH_PREFIX = "renovate/"
 
 
 def status(context, state, description=""):
@@ -86,3 +90,22 @@ class TestWorkflow:
 
     def test_it_can_only_read(self):
         assert self.workflow()["permissions"] == {"contents": "read", "statuses": "read"}
+
+
+class TestBranchPrefix:
+    """The gate knows a Renovate pull request by its branch name (#114). If Renovate's
+    `branchPrefix` changed and the gate's did not, every Renovate pull request would look
+    like somebody else's and pass at once: the gap of #83 back, with every check green."""
+
+    def test_the_gate_and_renovate_agree_on_the_branch_prefix(self):
+        config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+        prefixes = {config.get("branchPrefix", RENOVATE_DEFAULT_BRANCH_PREFIX)}
+        prefixes |= {rule["branchPrefix"] for rule in config.get("packageRules", []) if "branchPrefix" in rule}
+        assert prefixes == {renovate_gate.BRANCH_PREFIX}, prefixes
+
+    def test_the_constant_is_the_one_the_verdict_uses(self):
+        red = [status("renovate/artifacts", "failure")]
+        ok, _ = renovate_gate.verdict(renovate_gate.BRANCH_PREFIX + "mypy-2.x-lockfile", red)
+        assert not ok
+        ok, _ = renovate_gate.verdict("not-" + renovate_gate.BRANCH_PREFIX + "mypy-2.x-lockfile", red)
+        assert ok
