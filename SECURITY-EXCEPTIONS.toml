@@ -635,3 +635,20 @@ publisher checks); androguard reads APK signatures through cryptography and \
 asn1crypto, whose wheels carry their own OpenSSL, not the image's.
 """
 review_by = "2026-12-15"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CVE-2026-84786 (OpenSSL, DANE; no advisory yet), reported by Docker Scout on
+# main on 2026-11-20 against the trixie libssl3t64 of the base image
+# (apkradar#116). Review on 2026-12-15, with the other OpenSSL entries.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[exception]]
+id = "CVE-2026-84786"
+source = "Docker Scout"
+where = "openssl 3.5.7-1~deb13u3 (libssl3t64), python:3.14-slim-trixie base image"
+why = """
+A DANE-enabled TLS client may dereference a NULL pointer on an unusual pair of certificate and TLSA records (Debian security tracker). No OpenSSL advisory yet; the fix is openssl/openssl#33634, open on 2026-11-20 and marked for the 3.5 branch. Debian lists trixie and sid as vulnerable, with no fixed version. Docker Scout reports it as high. `apt-get upgrade` runs at build time, and the image is rebuilt at every release: the DSA arrives here without anyone chasing it, and this entry then fails the build as unused.
+
+It is reached only by a TLS client that enables DANE (SSL_dane_enable) and checks TLSA records. Python's ssl module exposes no DANE at all, and apkradar reads no TLSA record. apkradar's own TLS is Python's ssl module over TCP (httpx, for the law texts and the publisher checks); androguard reads APK signatures through cryptography and asn1crypto, whose wheels carry their own OpenSSL, not the image's.
+"""
+review_by = "2026-12-15"

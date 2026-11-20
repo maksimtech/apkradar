@@ -54,6 +54,15 @@ no version in this file has ever matched — 40 is not a month, and
   changes no code that runs. Sources: Renovate's
   [`minimumReleaseAgeBehaviour`](https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour).
 
+### Security
+
+- **CVE-2026-84786 (OpenSSL, DANE) is accepted until Debian ships a fix.** Docker Scout started
+  reporting it on 2026-11-20 against the base image's openssl 3.5.7-1~deb13u3, and Security Posture
+  failed. A DANE-enabled TLS client may dereference a NULL pointer on unusual certificate and TLSA
+  records; there is no OpenSSL advisory yet, the fix is openssl/openssl#33634, and Debian has no fixed
+  trixie package. It is not reachable here: Python's ssl exposes no DANE and apkradar reads no TLSA
+  record. Reviewed on 2026-12-15 with the other OpenSSL entries (#115, #116).
+
 ## [2026.49] - 2026-11-18
 
 ### Fixed
