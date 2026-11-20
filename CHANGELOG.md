@@ -54,6 +54,13 @@ no version in this file has ever matched — 40 is not a month, and
   changes no code that runs. Sources: Renovate's
   [`minimumReleaseAgeBehaviour`](https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour).
 
+- **Every job has a time limit, so a hung job no longer holds a pull request for six hours.** No job
+  but mutmut set `timeout-minutes`, and GitHub's default is 360 minutes; on a required check the pull
+  request, and Renovate's auto-merge, waited that long. Each limit is about three times the job's
+  longest run in its last 40 (ten minutes at least): 20 for the tests and SonarCloud, 25 for the
+  benchmarks, 35 for the image. Security Posture gets 30, past the 20 minutes it waits for the
+  scanners, so it still says they did not finish (`tests/test_job_timeouts.py`, #113).
+
 ### Security
 
 - **CVE-2026-84786 (OpenSSL, DANE) is accepted until Debian ships a fix.** Docker Scout started
