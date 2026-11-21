@@ -63,6 +63,18 @@ no version in this file has ever matched — 40 is not a month, and
   the scanners, and publishing 30, past the 15 minutes it waits for PyPI to show and install the
   new version; the test reads both waits from the workflows (`tests/test_job_timeouts.py`, #113).
 
+- **Docker Scout no longer fails on GitHub's anonymous rate limit.** docker/scout-action downloads
+  its ~190 MB binary from api.github.com without authentication, on the 60-an-hour budget of the
+  runner's address, which GitHub-hosted runners share; when others have spent it the scan fails with
+  "Unexpected HTTP response: 403" before looking at the image, and Security Posture after it is
+  skipped. It happened in every Radar, five times on 2026-11-21 alone; a rerun passed each time.
+  `.github/scripts/fetch_scout_binary.sh` now fetches the binary with the job's token first and puts
+  it where the action uses a binary already in place, after checking that the release tag is the
+  pinned commit and that the file has the SHA-256 GitHub publishes; a mismatch stops the job. Where
+  the runner keeps actions is not documented, so if the place is not there the action downloads as
+  before (`tests/test_scout_binary.py`). Sources:
+  [docker/scout-action#116](https://github.com/docker/scout-action/issues/116).
+
 ### Security
 
 - **CVE-2026-84786 (OpenSSL, DANE) is accepted until Debian ships a fix.** Docker Scout started
