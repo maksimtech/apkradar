@@ -58,8 +58,10 @@ no version in this file has ever matched — 40 is not a month, and
   but mutmut set `timeout-minutes`, and GitHub's default is 360 minutes; on a required check the pull
   request, and Renovate's auto-merge, waited that long. Each limit is about three times the job's
   longest run in its last 40 (ten minutes at least): 20 for the tests and SonarCloud, 25 for the
-  benchmarks, 35 for the image. Security Posture gets 30, past the 20 minutes it waits for the
-  scanners, so it still says they did not finish (`tests/test_job_timeouts.py`, #113).
+  benchmarks, 35 for the image. Two jobs wait on purpose and get more than their runs suggest, so
+  they still say what they were waiting for: Security Posture 30, past the 20 minutes it waits for
+  the scanners, and publishing 30, past the 15 minutes it waits for PyPI to show and install the
+  new version; the test reads both waits from the workflows (`tests/test_job_timeouts.py`, #113).
 
 ### Security
 
