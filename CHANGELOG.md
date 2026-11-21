@@ -65,6 +65,13 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Security
 
+- **CVE-2026-124709 (OpenSSL, QUIC) stays accepted now that Trivy reports it too.** Debian moved trixie
+  to openssl 3.5.9-1~deb13u1, which a fresh build installs, and on 2026-11-21 Trivy reported the issue
+  against it; the entry was written for Docker Scout alone and Security Posture failed. 3.5.9 does not
+  fix it (fixed upstream in 3.5.10; Debian has no fixed trixie package), and it is still not reachable:
+  Python's ssl exposes no QUIC. The entry now holds for any scanner. Reviewed on 2026-12-15 with the
+  other OpenSSL entries.
+
 - **CVE-2026-84786 (OpenSSL, DANE) is accepted until Debian ships a fix.** Docker Scout started
   reporting it on 2026-11-20 against the base image's openssl 3.5.7-1~deb13u3, and Security Posture
   failed. A DANE-enabled TLS client may dereference a NULL pointer on unusual certificate and TLSA
