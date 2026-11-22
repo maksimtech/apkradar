@@ -11,6 +11,12 @@ jobs:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-26.04
     timeout-minutes: 20
+    # id-token: write lets the coverage upload prove to Codecov, through GitHub's
+    # OIDC, which repository it comes from. Job permissions replace the workflow's,
+    # so contents: read is repeated here.
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -44,8 +50,11 @@ jobs:
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: coverage.xml
+          # OIDC, not a CODECOV_TOKEN secret: Codecov files an upload under the
+          # project its token belongs to, and three Radars had another's
+          # (tests/test_codecov_upload.py). `files`, the input v7 reads.
+          use_oidc: true
+          files: coverage.xml
           fail_ci_if_error: false
   summary:
     # The branch ruleset on main requires a check named exactly "Tests", which

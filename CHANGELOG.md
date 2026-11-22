@@ -75,6 +75,16 @@ no version in this file has ever matched — 40 is not a month, and
   before (`tests/test_scout_binary.py`). Sources:
   [docker/scout-action#116](https://github.com/docker/scout-action/issues/116).
 
+- **Coverage is uploaded with OIDC, and the report file is named with an input the action reads.**
+  The upload authenticated with a `CODECOV_TOKEN` secret, and Codecov files an upload under the project
+  its token belongs to: three other Radars held exeradar's token, and their reports went there for at
+  least a month. This one's was right, but nothing kept it so. The upload now uses OIDC
+  (`use_oidc: true`, `id-token: write` on the test job): GitHub tells Codecov which repository the job
+  runs in, and there is no secret left to mix up. The report was also given as `file:`, which
+  codecov-action v7 does not read ("Unexpected input(s) 'file'" in every run, the upload working only
+  because the action searched for coverage.xml itself); it is `files:` now
+  (`tests/test_codecov_upload.py`). Same as maksimtech/mailradar#135 and the others.
+
 ### Security
 
 - **CVE-2026-124709 (OpenSSL, QUIC) stays accepted now that Trivy reports it too.** Debian moved trixie
