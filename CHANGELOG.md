@@ -14,6 +14,13 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **Every action's pin says which release it is, and a test holds every workflow to it.** apkradar
+  pinned its actions to commits before the other Radars, but checked it only in the NIS2 evidence job
+  and for scout-action. One pin was left commented with a branch: `pypa/gh-action-pypi-publish`, in
+  the job that holds the PyPI token, said `# release/v1`. Its commit is v1.14.3, checked against the
+  tag, and the comment now says so. `tests/test_actions_pinned.py`, mailradar's and now shared by the
+  six Radars (alignment step 3), requires a full commit hash and a full `vX.Y.Z` on every `uses:`.
+
 - **Python 3.15 is supported, and 3.16-dev is the row that may fail.** 3.15 has been final since
   2026-10-09. Every runtime dependency installs on it: all have a 3.15 wheel for Linux but mutf8
   (through androguard), whose C extension is optional and falls back to pure Python without a
