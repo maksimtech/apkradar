@@ -14,6 +14,14 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **Renovate's weekly batch can arrive at any hour of Thursday, not only before 6am.**
+  On 2026-11-26 the batch arrived here at 00:27 (#139, #140) and merged once the required checks
+  passed. It did not in releaseradar, exeradar, patchradar and mailradar: the Mend-hosted app runs
+  a repository that has not merged a Renovate pull request yet once a day, at an hour it picks, and
+  their run of the day fell outside the window. One that has, like this one, runs every four hours.
+  A whole day holds a daily run whatever its hour, and the batch still lands the day before the
+  Friday release. Written in cron (`* * * * 4`), which Renovate recommends over the words it used
+  to parse (`tests/test_renovate_config.py`).
 - **Every action's pin says which release it is, and a test holds every workflow to it.** apkradar
   pinned its actions to commits before the other Radars, but checked it only in the NIS2 evidence job
   and for scout-action. One pin was left commented with a branch: `pypa/gh-action-pypi-publish`, in
