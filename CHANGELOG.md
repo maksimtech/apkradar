@@ -14,6 +14,21 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **The Pythons apkradar promises follow Python's own release cycle, read as data (#129).** The
+  stable matrix, the `-dev` row, the classifiers and `requires-python` were typed by hand and checked
+  only against each other: when a version went final or reached end of life, nothing turned red.
+  - **The data:** `tools/python_release_cycle.json` is a copy of
+    `https://peps.python.org/api/release-cycle.json` with the day it was read (2026-11-26).
+    `python tools/python_cycle.py --refresh` renews it, and the tests never ask the network.
+  - **The logic:** `expected_pythons(cycle, today)` takes the date as a parameter, and its tests use
+    fixed dates.
+  - **The check against the real date** (`tests/test_python_cycle.py`): an event is due 14 days after
+    it happens, moved to the Monday after a Patch Tuesday week. After that, the matrix,
+    `requires-python` and the `-dev` row must follow it. The failure names the event, the day it
+    became due and what to change.
+  - **The next two events:** 3.11's end of life (due 2027-10-18) and 3.16 final (due 2027-10-20).
+  - **The image:** the Python it runs must still be supported. Which version it runs stays a
+    decision, in `tests/test_docker_python.py`.
 - **The CHANGELOG no longer reports a review that has not happened.** The Security entries gave
   the date an accepted finding is looked at again in the past tense, as if the review were done;
   it is the deadline, the same date as `review_by` in `SECURITY-EXCEPTIONS.toml`. 6 phrases (2 of them in released sections, which are corrected too: a CHANGELOG is read long after its release)
