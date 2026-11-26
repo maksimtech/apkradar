@@ -14,6 +14,13 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Changed
 
+- **The CHANGELOG no longer reports a review that has not happened.** The Security entries gave
+  the date an accepted finding is looked at again in the past tense, as if the review were done;
+  it is the deadline, the same date as `review_by` in `SECURITY-EXCEPTIONS.toml`. 6 phrases (2 of them in released sections, which are corrected too: a CHANGELOG is read long after its release)
+  now read "Review by DATE", or "due for review by DATE". `tests/test_changelog_dates.py` holds it:
+  no review dated after today in `[Unreleased]` or after its release in a released section, and
+  every "review by" in `[Unreleased]` equal to the `review_by` of the CVE it names. Wrapped
+  phrases are found too, and `today` is a parameter (#131, #130).
 - **Renovate's weekly batch can arrive at any hour of Thursday, not only before 6am.**
   On 2026-11-26 the batch arrived here at 00:27 (#139, #140) and merged once the required checks
   passed. It did not in releaseradar, exeradar, patchradar and mailradar: the Mend-hosted app runs
@@ -140,7 +147,7 @@ no version in this file has ever matched — 40 is not a month, and
   to openssl 3.5.9-1~deb13u1, which a fresh build installs, and on 2026-11-21 Trivy reported the issue
   against it; the entry was written for Docker Scout alone and Security Posture failed. 3.5.9 does not
   fix it (fixed upstream in 3.5.10; Debian has no fixed trixie package), and it is still not reachable:
-  Python's ssl exposes no QUIC. The entry now holds for any scanner. Reviewed on 2026-12-15 with the
+  Python's ssl exposes no QUIC. The entry now holds for any scanner. Review by 2026-12-15 with the
   other OpenSSL entries.
 
 - **CVE-2026-84786 (OpenSSL, DANE) is accepted until Debian ships a fix.** Docker Scout started
@@ -148,21 +155,21 @@ no version in this file has ever matched — 40 is not a month, and
   failed. A DANE-enabled TLS client may dereference a NULL pointer on unusual certificate and TLSA
   records; there is no OpenSSL advisory yet, the fix is openssl/openssl#33634, and Debian has no fixed
   trixie package. It is not reachable here: Python's ssl exposes no DANE and apkradar reads no TLSA
-  record. Reviewed on 2026-12-15 with the other OpenSSL entries (#115, #116).
+  record. Review by 2026-12-15 with the other OpenSSL entries (#115, #116).
 
 - **Two glibc issues Debian has already fixed are accepted for Docker Scout until this release is
   published.** On 2026-11-21 Docker Scout reported CVE-2026-19499 (`strfmon()`) and CVE-2026-5435 (the
   deprecated resolver printing functions) as high against glibc 2.41-12+deb13u4 in the image published
   for 2026.49. Debian fixed both for trixie in 2.41-12+deb13u5, which the image built from this source
   has (`apt-get upgrade`), and Trivy, which reads that image, does not report them. Neither is reached:
-  nothing formats money, and nothing prints a DNS record. The entries are reviewed on 2026-12-08 and
+  nothing formats money, and nothing prints a DNS record. The entries are due for review by 2026-12-08 and
   fail the build as unused once the new image is out (#121).
 
 - **CVE-2026-121482 (OpenSSL, CRL distribution points) is accepted until Debian ships a fix.** Docker
   Scout reported it on 2026-11-21: a certificate with very many CRL distribution points, verified with
   CRL checking enabled, costs CPU time quadratic in their number (openssl/openssl#33546; no advisory
   yet, no fixed Debian package). It is not reachable here: Python's ssl enables no CRL checking and
-  apkradar sets none. Reviewed on 2026-12-15 with the other OpenSSL entries (#124).
+  apkradar sets none. Review by 2026-12-15 with the other OpenSSL entries (#124).
 
 ## [2026.49] - 2026-11-18
 
@@ -294,7 +301,7 @@ no version in this file has ever matched — 40 is not a month, and
   as vulnerable, with no fix. Neither is reachable here: one needs an application passing its own
   stack to `PEM_X509_INFO_read_bio_ex()`, which OpenSSL and Python's ssl never do, the other a QUIC
   server. The advisory's third issue, CVE-2026-35190, is not reported by any scanner yet and has no
-  entry, since an unused one fails the gate. Reviewed on 2026-12-15 with the four of 2026-11-10 below.
+  entry, since an unused one fails the gate. Review by 2026-12-15 with the four of 2026-11-10 below.
 
 - **Four OpenSSL issues of 2026-11-10 are accepted until Debian ships 3.5.10.** At the scan of main
   on 2026-11-17 Docker Scout reported CVE-2026-95691, CVE-2026-95692, CVE-2026-88823 and
@@ -303,7 +310,7 @@ no version in this file has ever matched — 40 is not a month, and
   fix yet. None is reachable here: they need the OpenSSL QUIC client, AES-GCM-SIV through EVP, or
   `CMS_encrypt()`. apkradar's own TLS is Python's ssl over TCP, which exposes none of them, and
   androguard reads APK signatures through wheels that carry their own OpenSSL. The entries are
-  reviewed on 2026-12-15; the rebuild that brings the DSA will make them fail the gate as unused.
+  due for review by 2026-12-15; the rebuild that brings the DSA will make them fail the gate as unused.
 
 - **A bundle's base APK is refused past 1 GiB, or past 100 times its compressed size.** `z.extract`
   wrote whatever the member unpacked to: in the 2026-11-17 bug hunt a 1 MiB `.xapk` wrote 1 GiB to
