@@ -122,6 +122,17 @@ no version in this file has ever matched — 40 is not a month, and
   because the action searched for coverage.xml itself); it is `files:` now
   (`tests/test_codecov_upload.py`). Same as maksimtech/mailradar#135 and the others.
 
+### Fixed
+
+- **A bundle member named `CON`, `NUL`, `AUX`… is no longer extracted to the Windows device of that
+  name (#147).** The extracted base APK keeps the member's own name when it is a plain file name,
+  "so no path or device name out of the archive reaches open()", but the check let the device names
+  through, and the base's name can come from the bundle's own `manifest.json`. On Windows 11 on
+  2026-11-27 a base named `NUL` was written to the NUL device: 104 bytes in, 0 back, no file in the
+  folder; `CON` would have written the APK to the console and then read the keyboard. A name whose
+  stem is a device name (the stem, because Windows 10 reads `NUL.apk` the same way) now falls back
+  to `base.apk`.
+
 ### Security
 
 - **The job PyPI trusts installs and runs nothing, as in the other four Radar so far.**
