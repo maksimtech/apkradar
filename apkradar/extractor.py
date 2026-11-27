@@ -25,6 +25,18 @@ _COPY_CHUNK = 1 << 20
 # it is a plain file name, so no path or device name out of the archive reaches open().
 _PLAIN_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 
+# Windows' device names, which a path names in any folder: `…\apkradar_x\NUL` is the
+# NUL device, and `CON` the console. Windows 11 still reads a bare one that way
+# (measured 2026-11-27: 104 bytes written, none in the folder); Windows 10 reads
+# `NUL.apk` that way too, so the stem decides (#147).
+_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL",
+                           *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))})
+
+
+def _plain(name: str) -> bool:
+    """A file name that names a file in the folder it is joined to, on every system."""
+    return bool(_PLAIN_NAME.fullmatch(name)) and name.split(".", 1)[0].upper() not in _DEVICE_NAMES
+
 
 class BundleMemberRefused(ValueError):
     """The base APK of a bundle would unpack to more than any real APK does."""
@@ -47,7 +59,7 @@ def _check_member(info: zipfile.ZipInfo) -> None:
 def _extract_bounded(z: zipfile.ZipFile, info: zipfile.ZipInfo, directory: str) -> str:
     """Write `info` into `directory`, never more bytes than it declares nor than the limit."""
     base = os.path.basename(info.filename.replace("\\", "/"))
-    target = os.path.join(directory, base if _PLAIN_NAME.fullmatch(base) else "base.apk")
+    target = os.path.join(directory, base if _plain(base) else "base.apk")
     limit = min(info.file_size, MAX_MEMBER_BYTES)
     written = 0
     with z.open(info) as source, open(target, "wb") as out:

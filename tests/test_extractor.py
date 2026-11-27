@@ -336,6 +336,52 @@ class TestExtractHostileNames(unittest.TestCase):
         self.assertTrue(apk_path.endswith("com.example.app.apk"))
 
 
+# --- a member named after a Windows device (#147) ------------------------------------
+#
+# The base's name can come from the bundle's own manifest.json. On Windows a path
+# ending in NUL is the NUL device: on Windows 11 on 2026-11-27 the extracted "file"
+# took 104 bytes and gave back 0, and none appeared in the folder. CON would write
+# the APK to the console and then read the keyboard. Windows 10 treats `NUL.apk`
+# the same way, so the stem decides, not the whole name.
+
+_DEVICES = ["NUL", "CON", "PRN", "AUX", "COM1", "LPT9", "nul", "Con.apk", "NUL.apk", "aux.config.apk"]
+
+
+@pytest.mark.parametrize("member", _DEVICES)
+def test_a_member_named_after_a_device_is_extracted_to_a_file(tmp_path, member):
+    archive = tmp_path / "device.xapk"
+    content = b"PK\x03\x04" + b"x" * 100
+    _make_zip(str(archive), {
+        "manifest.json": json.dumps({"xapk_version": 2, "package_name": "com.example",
+                                     "split_apks": [{"file": member, "id": "base"}]}),
+        member: content,
+    })
+    apk_path, tmp_dir = extract_main_apk(str(archive))
+    try:
+        assert apk_path is not None
+        name = os.path.basename(apk_path)
+        assert name.split(".")[0].upper() not in extractor._DEVICE_NAMES, apk_path
+        assert name in os.listdir(tmp_dir)
+        assert Path(apk_path).read_bytes() == content
+    finally:
+        cleanup_temp(tmp_dir)
+
+
+@pytest.mark.parametrize("member", ["CONSOLE.apk", "nullable.apk", "com1x.apk", "auxiliary.apk"])
+def test_a_name_that_only_begins_like_a_device_keeps_its_name(tmp_path, member):
+    archive = tmp_path / "plain.xapk"
+    _make_zip(str(archive), {
+        "manifest.json": json.dumps({"xapk_version": 2, "package_name": "com.example",
+                                     "split_apks": [{"file": member, "id": "base"}]}),
+        member: b"PK\x03\x04fake-apk",
+    })
+    apk_path, tmp_dir = extract_main_apk(str(archive))
+    try:
+        assert os.path.basename(apk_path) == member
+    finally:
+        cleanup_temp(tmp_dir)
+
+
 # --- a member that unpacks to far more than it holds ---------------------------------
 #
 # Found by the 2026-11-17 bug hunt: z.extract() wrote whatever the member unpacked to,
