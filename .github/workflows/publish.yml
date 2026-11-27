@@ -92,13 +92,18 @@ jobs:
       # on the same runner. Two requests can be two answers. A margin would not have
       # fixed it — releaseradar lost on v2026.4 with 45 s — so the install itself is
       # what is asked again, by install_from_pypi.sh.
+      # The tag is a release tag or nothing, and only then normalised, with the value
+      # as an argument: it was pasted into Python's code, where a ' ends the string (#151).
       - name: Extract version
         id: version
         env:
           RAW: ${{ github.ref_name }}
         run: |
-          STRIPPED="${RAW#v}"
-          NORMALIZED=$(python3 -c "parts='${STRIPPED}'.split('.'); print('.'.join(str(int(p)) for p in parts))")
+          if [[ ! "$RAW" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
+            printf '::error::not a release tag: %q\n' "$RAW"
+            exit 1
+          fi
+          NORMALIZED=$(python3 -I -c 'import sys; print(".".join(str(int(p)) for p in sys.argv[1].split(".")))' "${RAW#v}")
           echo "VERSION=${NORMALIZED}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for the index to catch up

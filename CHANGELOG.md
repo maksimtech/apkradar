@@ -135,6 +135,18 @@ no version in this file has ever matched — 40 is not a month, and
 
 ### Security
 
+- **A version from a tag or the dispatch form reaches a script as a string, and only if it is a
+  release tag, in all six Radars (#151).**
+  - 3affb4d fixed `docker.yml` here on 2026-10-07, and the fix stopped there. `publish.yml`'s verify
+    still pasted the tag into Python code (`python3 -c "parts='${STRIPPED}'…"`), where a `'` ends
+    the string and a git tag may hold one. `docker-build-check.yml` wrote the input out unchecked,
+    and `docker.yml` decided the version after the Docker Hub login.
+  - Every such step now refuses anything that is not a release tag before writing it anywhere, and
+    the normalised version is computed after that, from an argument. `docker.yml` decides it before
+    the login, reads `github.event_name` through `env:`, and prints a refused value with `%q`, so a
+    newline in it adds no workflow command.
+  - `tests/test_workflow_inputs.py`, the same in all six Radars, holds all of it. The test 3affb4d
+    added looks only for `${{ }}`, and passed on the Python form.
 - **The job PyPI trusts installs and runs nothing, as in the other four Radar so far.**
   `publish.yml`'s `build-and-publish` held `id-token: write` while it installed the newest `build`
   and `hatchling` of that minute, built in an isolated environment that fetched an unpinned

@@ -26,6 +26,28 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref }}
+      # The dispatch input arrives through env:, never pasted into the script.
+      # `${{ }}` is substituted before bash reads it, so a quote typed into the
+      # form was code, in a job that holds the Docker Hub token. NORMALIZED is
+      # gone with it: nothing read it, and it pasted the same value into Python.
+      # Decided before the login, so a refused value never meets the credentials (#151).
+      - name: Extract version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            RAW="$REQUESTED"
+          else
+            RAW="${GITHUB_REF#refs/tags/}"
+          fi
+          # It becomes an image tag and a step output: a release tag, or nothing.
+          if [[ ! "$RAW" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
+            printf '::error::not a release tag: %q\n' "$RAW"
+            exit 1
+          fi
+          echo "VERSION=${RAW}" >> "$GITHUB_OUTPUT"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - name: Set up Docker Buildx
@@ -35,26 +57,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      # The dispatch input arrives through env:, never pasted into the script.
-      # `${{ }}` is substituted before bash reads it, so a quote typed into the
-      # form was code, in a job that holds the Docker Hub token. NORMALIZED is
-      # gone with it: nothing read it, and it pasted the same value into Python.
-      - name: Extract version
-        id: version
-        env:
-          REQUESTED: ${{ inputs.version }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW="$REQUESTED"
-          else
-            RAW="${GITHUB_REF#refs/tags/}"
-          fi
-          # It becomes an image tag and a step output: a release tag, or nothing.
-          if [[ ! "$RAW" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
-            echo "::error::not a release tag: $RAW"
-            exit 1
-          fi
-          echo "VERSION=${RAW}" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
