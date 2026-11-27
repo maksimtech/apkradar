@@ -219,7 +219,10 @@ class TestRenderLetter(unittest.TestCase):
         import apkradar.sender as sender
 
         templates = Path(sender.__file__).parent / "templates"
-        with tempfile.TemporaryDirectory() as root:
+        # On the templates' own drive, beside the package and outside it: `..` reaches
+        # nothing on another drive, and relpath raises across drives. In the system's
+        # temp folder the test died on any machine whose checkout is not on C: (#149).
+        with tempfile.TemporaryDirectory(dir=templates.parents[1]) as root:
             evil = Path(root) / "evil.txt"
             evil.write_text("PWNED {{ 7 * 7 }}", encoding="utf-8")
             rel = os.path.relpath(str(evil.with_suffix("")), str(templates))
